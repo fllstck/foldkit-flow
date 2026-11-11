@@ -2,8 +2,7 @@
 
 This is the starting point for the next session. M0, M1 and M2 are complete and
 committed, v0.1 ships at M2, and the plan was not re-litigated. The repo is on
-`main`; the tree is clean at `5b791d4` (the M2 review fix), and this file is the
-commit after it. Do not amend `c40ae47` (M0), `a0a3fdc` (the M1 handoff),
+`main`; the tree is clean at `59af611`, the commit that carries this file. Do not amend `c40ae47` (M0), `a0a3fdc` (the M1 handoff),
 `898bb46` (M1 complete) or the M2 commits, and do not rewrite history. Commit M3
 work at logical checkpoints.
 
