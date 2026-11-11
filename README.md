@@ -76,6 +76,13 @@ pnpm --filter @fllstck/foldkit-flow-benchmark exec playwright test
 library's `dist/*.d.ts`, so run `pnpm build` first after changing the library's
 public surface.
 
+If the demo shows **"This page could not start safely"**, that is Foldkit's
+build-skew guard, not an application error: the served HTML's
+`data-foldkit-build` stamp and the build id in the client bundle came from
+different builds, which is what a cached page plus a fresh `dist` looks like. Stop
+every server (`pkill -f vite`), `pnpm build`, serve again, and hard-reload — a
+reload alone cannot help if the server keeps handing out the older HTML.
+
 ### The fast loop
 
 The full browser suite is the frame gate and takes ~2.5 min: 3 libraries × 11

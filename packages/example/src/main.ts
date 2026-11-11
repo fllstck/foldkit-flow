@@ -582,7 +582,12 @@ export const view = (model: Model, h: HtmlBuilder<Message>): Document => {
                 stat(h, "syncs", model.stats.syncs),
                 stat(h, "selected", flow.selectedNodeIds.length),
                 stat(h, "edges", model.graph.edges.length),
-                stat(h, "cache", renderer.cacheSize()),
+                // No `renderer.cacheSize()` here on purpose: it reads mutable
+                // renderer state during `view`, so the dev server's reused SSR
+                // renderer renders a populated count while the client's first
+                // view renders 0. That is a hydration mismatch on every load
+                // (Foldkit reconciles it and warns). The cache size is a
+                // diagnostic — read it from a test or from devtools.
               ],
             ),
             h.div(

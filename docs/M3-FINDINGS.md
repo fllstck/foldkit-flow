@@ -453,3 +453,53 @@ The review's note about a chrome-only run failing on a preview-server/port
 collision before the first test is the M1 finding §11 class of problem: a preview
 left running owns port 4173 while `webServer.reuseExistingServer` is true, so
 `pkill -f vite` before a suite run is still the documented first step.
+
+## 10. The "could not start safely" shield, and an SSR-stateful stat it hid
+
+Reported after M3 was closed: the demo page shows Foldkit's
+"This page could not start safely" modal. That modal is the build-skew guard
+described in `M1-FINDINGS.md` §11: `Runtime.hydrate` compares the
+`data-foldkit-build` stamp on the served root with the build id baked into the
+client bundle, and refuses the handoff when they differ. It is not an application
+error, and nothing in M3 changed the mechanism.
+
+Diagnosis, in order, at this commit:
+
+1. **On disk the two stamps agree.** `packages/example/dist/client/index.html`
+   carries `data-foldkit-build="8583928e-…"` and the id inside
+   `dist/client/assets/app-*.js` is the same value, so a preview served from a
+   fresh `pnpm build` cannot trip the guard.
+2. **A fresh browser context boots both servers cleanly.** A Playwright probe of
+   `vite preview` (production build) and `vite` (dev) recorded
+   `main.app` present, `data-measured-nodes="625"`, `body[inert]` absent, no
+   shield, and no hydration warning — on both.
+3. So the skew is in the client, not the checkout: a cached page from an earlier
+   build talking to a server that is now serving a newer one. That is exactly what
+   a session of `pnpm build` runs with a preview server left alive produces, which
+   is the reproduction in M1-FINDINGS §11; the browser keeps the old HTML while the
+   assets it references no longer exist.
+
+The recipe is unchanged and now stated in the README: stop every server
+(`pkill -f vite`), `pnpm build`, serve again, and hard-reload (a reload alone cannot
+help if the browser keeps handing back the cached HTML). The console carries the
+useful half of the message:
+`[foldkit] Runtime.hydrate found application "app" served by deployment "X", but
+this client belongs to deployment "Y"`.
+
+**The bug the investigation did find: the demo's `cache` stat made `view`
+SSR-stateful.** The toolbar rendered `renderer.cacheSize()`, which reads mutable
+renderer state _during_ `view`. In dev the SSR module (and its module-scope
+renderer) is reused across requests, so the served markup carried `cache: 625`
+from a previous render while the client's first view — a fresh renderer that has
+not yet rendered a node — carried `cache: 0`. Foldkit warned on every load:
+
+> `[foldkit] The server DOM did not match the first client view during hydration.
+Foldkit reconciled the mismatching subtree.`
+
+Measured before and after removing the stat from the demo's toolbar, with the same
+Playwright probe against the dev server: the warning is present before and absent
+after, and no other hydration warning takes its place. The stat was diagnostic
+only — no proof or unit test reads it, and `renderer.cacheSize()` remains a public
+diagnostic on the renderer, asserted in `src/view/cache.test.ts` — so the demo now
+says why it is not rendered. `view` must be a pure function of the Model; a number
+that changes because of what the _previous_ render did is not.
