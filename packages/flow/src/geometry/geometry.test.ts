@@ -59,6 +59,8 @@ describe("screen and flow coordinates", () => {
         pointer: { pointerId: 1, pointerType: "mouse", button: 0 },
         nodeIds: ["a"],
         origin: { x: 0, y: 0 },
+        anchor: { x: 0, y: 0 },
+        snapGrid: Option.none(),
         delta: { x: 12, y: -4 },
         hasMoved: true,
       }),

@@ -9,6 +9,7 @@ import {
   Pointer,
   Rect,
   Size,
+  SnapGrid,
   Viewport,
 } from "./model.js";
 
@@ -52,6 +53,7 @@ export const Message = defineMessageUnion({
     point: Point,
     isAdditive: Schema.Boolean,
     pointer: Pointer,
+    snapGrid: Schema.optionalKey(SnapGrid),
   },
   MovedPointer: {
     screenX: Schema.Number,
@@ -88,7 +90,15 @@ export const Message = defineMessageUnion({
   // from its own update.
   ClickedZoomIn: {},
   ClickedZoomOut: {},
-  ClickedFitView: {},
+  // The fit button carries the renderer's fit options, because `update` has the
+  // graph but not the config, and a fit is the one gesture whose defaults are a
+  // presentation choice (padding, a per-fit clamp, a duration).
+  ClickedFitView: {
+    padding: Schema.optionalKey(Schema.Number),
+    minZoom: Schema.optionalKey(Schema.Number),
+    maxZoom: Schema.optionalKey(Schema.Number),
+    duration: Schema.optionalKey(Schema.Number),
+  },
 
   // Arrow-key nudging. The delta is the whole fact: which key was pressed and
   // which modifier was held are DOM details the keyboard subscription resolves,

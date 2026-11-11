@@ -13,7 +13,11 @@ import {
 } from "./geometry/hitTest.js";
 import { screenToFlow } from "./geometry/screen.js";
 import { hiddenIds } from "./geometry/hidden.js";
-import { ancestorIds, positionIndex } from "./geometry/positions.js";
+import {
+  ancestorIds,
+  positionIndex,
+  positionOf,
+} from "./geometry/positions.js";
 import { visibleNodes } from "./geometry/visible.js";
 import { fitViewport } from "./geometry/fit.js";
 import { Message } from "./message.js";
@@ -30,6 +34,7 @@ import type {
 } from "./model.js";
 import { OutMessage } from "./outMessage.js";
 import { MeasureHandles, SyncViewport } from "./runtime/command.js";
+import { snapPosition } from "./runtime/adapter.js";
 
 type UpdateReturn = Update.ReturnWithOutMessage<Model, Message, OutMessage>;
 
@@ -312,7 +317,7 @@ export const update = (
         ? { model }
         : withSelection({ ...model, gesture: Gesture.Idle() }, []),
 
-    PressedNode: ({ nodeId, point, isAdditive, pointer }) => {
+    PressedNode: ({ nodeId, point, isAdditive, pointer, snapGrid }) => {
       const nextSelected = nextNodeSelection(
         model,
         context,
@@ -332,6 +337,14 @@ export const update = (
               pointer,
               nodeIds: dragged,
               origin: point,
+              anchor: Option.getOrElse(
+                Option.map(
+                  Option.fromNullishOr(nodeById(context, nodeId)),
+                  (node) => positionOf(node, positionIndex(context.nodes)),
+                ),
+                () => point,
+              ),
+              snapGrid: Option.fromNullishOr(snapGrid),
               delta: zeroDelta,
               hasMoved: false,
             }),
@@ -350,10 +363,31 @@ export const update = (
       const point = screenToFlow(model, { screenX, screenY });
 
       if (Gesture.guards.DraggingNodes(gesture)) {
-        const delta = {
+        const raw = {
           x: point.x - gesture.origin.x,
           y: point.y - gesture.origin.y,
         };
+        // The snap happens here, once per pointer event, so the overlay the user
+        // sees and the position released on pointerup are the same number: the
+        // grabbed node lands on a grid multiple and every other dragged node
+        // keeps its offset from it (§7 M4). Snapping at release instead would
+        // show one position for the whole gesture and drop another.
+        const delta = Option.match(gesture.snapGrid, {
+          onNone: () => raw,
+          onSome: (grid) => {
+            const snapped = snapPosition(
+              {
+                x: gesture.anchor.x + raw.x,
+                y: gesture.anchor.y + raw.y,
+              },
+              [grid.x, grid.y],
+            );
+            return {
+              x: snapped.x - gesture.anchor.x,
+              y: snapped.y - gesture.anchor.y,
+            };
+          },
+        });
         return {
           model: {
             ...model,
@@ -569,7 +603,22 @@ export const update = (
     // there is one implementation of zoom and one of fit.
     ClickedZoomIn: () => zoomBy(model, zoomStepFactor),
     ClickedZoomOut: () => zoomBy(model, 1 / zoomStepFactor),
-    ClickedFitView: () => setViewport(model, fitViewport(model, context.nodes)),
+    ClickedFitView: (options) =>
+      setViewport(
+        model,
+        fitViewport(model, context.nodes, {
+          ...(options.padding === undefined
+            ? {}
+            : { padding: options.padding }),
+          ...(options.minZoom === undefined
+            ? {}
+            : { minZoom: options.minZoom }),
+          ...(options.maxZoom === undefined
+            ? {}
+            : { maxZoom: options.maxZoom }),
+        }),
+        Option.fromNullishOr(options.duration),
+      ),
 
     NudgedNode: ({ nodeId, delta }) => {
       const node = nodeById(context, nodeId);

@@ -1,4 +1,4 @@
-import { Effect } from "effect";
+import { Effect, Option } from "effect";
 import { Server } from "foldkit/experimental";
 import type { HtmlBuilder } from "foldkit/html";
 import { describe, expect, test } from "vitest";
@@ -118,6 +118,8 @@ describe("renderer node cache", () => {
         pointer: { pointerId: 1, pointerType: "mouse", button: 0 },
         nodeIds: ["a"],
         origin: { x: 0, y: 0 },
+        anchor: { x: 0, y: 0 },
+        snapGrid: Option.none(),
         delta: { x, y: x },
         hasMoved: true,
       },

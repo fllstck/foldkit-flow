@@ -32,6 +32,17 @@ export const NodeSize = Schema.Struct({
 });
 export type NodeSize = typeof NodeSize.Type;
 
+/** Grid a drag or a resize snaps to, in flow units (§7 M4). `{ x: 20, y: 20 }`
+ *  means the moved box lands on multiples of twenty. It travels with the gesture
+ *  rather than living in the Model: the drag is snapped per pointer event, and
+ *  the grid is a property of the interaction the renderer configured, the same
+ *  way `isAdditiveModifier` is stamped onto a press. */
+export const SnapGrid = Schema.Struct({
+  x: Schema.Number,
+  y: Schema.Number,
+});
+export type SnapGrid = typeof SnapGrid.Type;
+
 export const HandlePosition = Schema.Literals([
   "Top",
   "Right",
@@ -81,6 +92,8 @@ export const Gesture = defineTaggedUnion({
     pointer: Pointer,
     nodeIds: Schema.Array(Schema.String),
     origin: Point,
+    anchor: Point,
+    snapGrid: Schema.Option(SnapGrid),
     delta: Point,
     hasMoved: Schema.Boolean,
   },

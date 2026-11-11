@@ -106,4 +106,65 @@ describe("fitViewport", () => {
     expect(fitted.zoom).toBeLessThan(1);
     expect(fitted.zoom).toBeGreaterThan(0.1);
   });
+
+  test("a per-fit maxZoom can only tighten the Model's bounds", () => {
+    const big = [node("a", 0, 0, { width: 100, height: 100 })];
+    // Left alone the fit clamps to the Model's maxZoom of 2.
+    expect(fitViewport(square, big).zoom).toBe(2);
+    // "Never zoom in past 1:1" is a fit-time clamp, and it wins.
+    expect(fitViewport(square, big, { maxZoom: 1 }).zoom).toBe(1);
+    // A clamp looser than the Model's is ignored: one source of truth.
+    expect(fitViewport(square, big, { maxZoom: 8 }).zoom).toBe(2);
+    expect(fitViewport(model({ maxZoom: 1.5 }), big, { maxZoom: 4 }).zoom).toBe(
+      1.5,
+    );
+  });
+
+  test("a node filter fits only what it keeps", () => {
+    const near = node("a", 0, 0, { width: 100, height: 100 });
+    const far = node("b", 5000, 5000, { width: 100, height: 100 });
+
+    // Both: zoomed out to hold the far node.
+    expect(fitViewport(square, [near, far]).zoom).toBeLessThan(0.2);
+    // Only the near one: the same box the single-node fit gives.
+    const filtered = fitViewport(square, [near, far], {
+      nodes: (entry) => entry.id === "a",
+    });
+    expect(filtered).toEqual(fitViewport(square, [near]));
+  });
+
+  test("a filtered fit still places a child against its parent", () => {
+    // Fitting the child alone must measure the box it is *drawn* in, which needs
+    // the parent's origin — the reason the filter keeps ancestors internally.
+    const holder = {
+      ...node("parent", 500, 400, { width: 100, height: 100 }),
+      id: "parent",
+    };
+    const inside = {
+      ...node("child", 10, 10, { width: 50, height: 50 }),
+      parentId: "parent",
+    };
+
+    const fitted = fitViewport(square, [holder, inside], {
+      nodes: (entry) => entry.id === "child",
+    });
+    // The child is at (510, 410) with a 50×50 box: its centre is (535, 435).
+    expect(fitted.x).toBeCloseTo(500 - 535 * fitted.zoom, 5);
+    expect(fitted.y).toBeCloseTo(400 - 435 * fitted.zoom, 5);
+  });
+
+  test("a collapsed subtree is not fitted", () => {
+    const hidden = {
+      ...node("b", 5000, 5000, { width: 100, height: 100 }),
+      hidden: true,
+    };
+    expect(
+      fitViewport(square, [
+        node("a", 0, 0, { width: 100, height: 100 }),
+        hidden,
+      ]),
+    ).toEqual(
+      fitViewport(square, [node("a", 0, 0, { width: 100, height: 100 })]),
+    );
+  });
 });

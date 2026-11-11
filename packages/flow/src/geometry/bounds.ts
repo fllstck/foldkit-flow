@@ -46,14 +46,8 @@ export const intersects = (a: Rect, b: Rect): boolean =>
   a.top < b.top + b.height &&
   a.top + a.height > b.top;
 
-/** Bounding box of every node, in absolute flow space. Empty graphs give a zero
- *  rect. */
-export const nodeBounds = <NodeData>(
-  model: Model,
-  nodes: ReadonlyArray<FlowNode<NodeData>>,
-): Rect => {
-  const positions = positionIndex(nodes);
-  const rects = nodes.map((node) => nodeRect(node, model.nodeSizes, positions));
+/** The union of some boxes. An empty list gives a zero rect. */
+export const boundsOfRects = (rects: ReadonlyArray<Rect>): Rect => {
   const [first, ...rest] = rects;
   if (first === undefined) return { left: 0, top: 0, width: 0, height: 0 };
 
@@ -66,5 +60,16 @@ export const nodeBounds = <NodeData>(
       return { left, top, width: right - left, height: bottom - top };
     },
     { ...first },
+  );
+};
+
+/** Bounding box of every node, in absolute flow space. */
+export const nodeBounds = <NodeData>(
+  model: Model,
+  nodes: ReadonlyArray<FlowNode<NodeData>>,
+): Rect => {
+  const positions = positionIndex(nodes);
+  return boundsOfRects(
+    nodes.map((node) => nodeRect(node, model.nodeSizes, positions)),
   );
 };

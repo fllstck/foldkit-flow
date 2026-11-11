@@ -8,6 +8,7 @@ import {
   infiniteExtent as upstreamInfiniteExtent,
   PanOnScrollMode as UpstreamPanOnScrollMode,
   Position as UpstreamPosition,
+  snapPosition as upstreamSnapPosition,
 } from "@xyflow/system";
 
 import type { HandlePosition } from "../model.js";
@@ -140,6 +141,16 @@ export const getSmoothStepPath: GetSmoothStepPath = upstreamGetSmoothStepPath;
 export const getStraightPath: GetStraightPath = upstreamGetStraightPath;
 export const getViewportForBounds: GetViewportForBounds =
   upstreamGetViewportForBounds;
+
+/** `snapPosition(position, snapGrid)` rounds each axis to the nearest multiple of
+ *  the grid; the tuple is the engine's shape, so the Model's `{ x, y }` grid is
+ *  widened here and nowhere else. */
+export type SnapPosition = (
+  position: Readonly<{ x: number; y: number }>,
+  snapGrid?: [number, number],
+) => Readonly<{ x: number; y: number }>;
+
+export const snapPosition: SnapPosition = upstreamSnapPosition;
 
 export const toUpstreamPosition = (
   position: HandlePosition,

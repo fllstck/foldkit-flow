@@ -377,6 +377,8 @@ describe("graph reconciliation", () => {
           pointer: mouse,
           nodeIds: ["n2"],
           origin: { x: 0, y: 0 },
+          anchor: { x: 0, y: 0 },
+          snapGrid: Option.none(),
           delta: { x: 10, y: 10 },
           hasMoved: true,
         }),
@@ -411,6 +413,93 @@ describe("graph reconciliation", () => {
       model((m) => {
         expect(m.selectedNodeIds).toEqual([]);
         expect(isIdle(m.gesture)).toBe(true);
+      }),
+    );
+  });
+});
+
+describe("snap grid", () => {
+  const grid = { x: 20, y: 20 };
+
+  const pressWithGrid = (nodeId: string) =>
+    message(
+      Message.PressedNode({
+        nodeId,
+        point: { x: 10, y: 10 },
+        isAdditive: false,
+        pointer: mouse,
+        snapGrid: grid,
+      }),
+    );
+
+  test("the grabbed node lands on a grid multiple, live during the drag", () => {
+    // n1 starts at (0, 0), so a 23-unit drag snaps to 20 on both axes — and the
+    // overlay already shows 20, not 23, so what is released is what was drawn.
+    story(
+      flow().update,
+      given(initial),
+      pressWithGrid("n1"),
+      message(Message.MovedPointer({ screenX: 33, screenY: 33, pointerId: 1 })),
+      model((m) => {
+        if (!Gesture.guards.DraggingNodes(m.gesture))
+          throw new Error("no drag");
+        expect(m.gesture.delta).toEqual({ x: 20, y: 20 });
+      }),
+      message(Message.ReleasedPointer({ pointerId: 1 })),
+      expectOutMessage(
+        OutMessage.MovedNodes({ nodes: [{ nodeId: "n1", x: 20, y: 20 }] }),
+      ),
+    );
+  });
+
+  test("a node that starts off-grid snaps relative to its own origin", () => {
+    // n2 is at (200, 100) — on the grid — and n3 below is deliberately not: the
+    // snap is "the node you grabbed lands on a multiple", not "the pointer does".
+    const offGrid = graphNode("n3", 203, 101);
+    const shifted: Context = { nodes: [n1, offGrid], edges: [] };
+
+    story(
+      flow(shifted).update,
+      given(initial),
+      message(
+        Message.PressedNode({
+          nodeId: "n3",
+          point: { x: 210, y: 110 },
+          isAdditive: false,
+          pointer: mouse,
+          snapGrid: grid,
+        }),
+      ),
+      message(
+        Message.MovedPointer({ screenX: 220, screenY: 110, pointerId: 1 }),
+      ),
+      model((m) => {
+        if (!Gesture.guards.DraggingNodes(m.gesture))
+          throw new Error("no drag");
+        // 203 + 10 = 213 → 220, so the delta is +17 and the node lands on 200.
+        // The exact value is arithmetic; the invariant is a multiple of the grid.
+        expect((203 + m.gesture.delta.x) % 20).toBe(0);
+      }),
+    );
+  });
+
+  test("without a grid the pointer delta is applied unchanged", () => {
+    story(
+      flow().update,
+      given(initial),
+      message(
+        Message.PressedNode({
+          nodeId: "n1",
+          point: { x: 10, y: 10 },
+          isAdditive: false,
+          pointer: mouse,
+        }),
+      ),
+      message(Message.MovedPointer({ screenX: 33, screenY: 33, pointerId: 1 })),
+      model((m) => {
+        if (!Gesture.guards.DraggingNodes(m.gesture))
+          throw new Error("no drag");
+        expect(m.gesture.delta).toEqual({ x: 23, y: 23 });
       }),
     );
   });
@@ -1261,7 +1350,7 @@ describe("chrome", () => {
   });
 
   test("fit view moves the viewport to the fitted one", () => {
-    const result = update(mounted, Message.ClickedFitView(), context);
+    const result = update(mounted, Message.ClickedFitView({}), context);
 
     // The nodes span 0..300 × 0..140 (100×40 boxes), in a 1000×800 pane: the
     // fitted zoom fills the height first and is clamped by maxZoom.
@@ -1270,7 +1359,7 @@ describe("chrome", () => {
   });
 
   test("fit view on an empty graph changes nothing", () => {
-    const result = update(mounted, Message.ClickedFitView(), {
+    const result = update(mounted, Message.ClickedFitView({}), {
       nodes: [],
       edges: [],
     });

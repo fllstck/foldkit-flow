@@ -209,6 +209,8 @@ describe("edge geometry during a node drag", () => {
         pointer: { pointerId: 1, pointerType: "mouse", button: 0 },
         nodeIds,
         origin: { x: 0, y: 0 },
+        anchor: { x: 0, y: 0 },
+        snapGrid: Option.none(),
         delta: { x: deltaX, y: deltaX / 2 },
         hasMoved: true,
       }),

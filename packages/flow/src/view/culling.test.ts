@@ -1,4 +1,4 @@
-import { Effect } from "effect";
+import { Effect, Option } from "effect";
 import { Server } from "foldkit/experimental";
 import { describe, expect, test } from "vitest";
 
@@ -72,6 +72,8 @@ const dragging = (model: Model, nodeIds: ReadonlyArray<string>): Model => ({
     pointer: { pointerId: 1, pointerType: "mouse", button: 0 },
     nodeIds,
     origin: { x: 0, y: 0 },
+    anchor: { x: 0, y: 0 },
+    snapGrid: Option.none(),
     delta: { x: 3000, y: 0 },
     hasMoved: true,
   }),

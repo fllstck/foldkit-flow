@@ -40,6 +40,7 @@ import type {
   Model,
   Point,
   Pointer,
+  SnapGrid,
 } from "../model.js";
 import {
   blocksDrag,
@@ -58,6 +59,7 @@ import { backgroundView } from "./background.js";
 import type { BackgroundConfig } from "./background.js";
 import * as classes from "./classes.js";
 import { controlsView } from "./controls.js";
+import type { FitViewConfig } from "./controls.js";
 import { descriptionView } from "./description.js";
 import { miniMapView } from "./minimap.js";
 import { createNodeCache } from "./nodeCache.js";
@@ -91,6 +93,12 @@ export type RendererConfig<NodeData, EdgeData> = Readonly<{
   renderEdgeLabel?: (edge: FlowEdge<EdgeData>, h: HtmlBuilder<any>) => Html;
   /** Host-registry key (§2.5, §4.3). */
   paneId: string;
+  /** The grid a drag or a resize snaps to, in flow units (§7 M4). It lives here
+   *  rather than in the Model because nothing in `update` needs it outside a
+   *  gesture: the renderer stamps it onto the press it produces, the gesture
+   *  carries it, and the snap happens once per pointer event. Absent means no
+   *  snapping, and no code path runs. */
+  snapGrid?: SnapGrid;
   /** Render only what the viewport can see, plus one screen of overscan. Off by
    *  default: culling trades a per-frame scan for unmount/remeasure churn at the
    *  edges of the viewport, so it is an explicit choice (§4.5). */
@@ -108,6 +116,12 @@ export type RendererConfig<NodeData, EdgeData> = Readonly<{
    *  reason: chrome a parent does not want in its DOM is a cost it should not
    *  pay (§7 M3). */
   controls?: boolean;
+  /** What the `Controls` fit button fits with (§7 M4): padding, a per-fit zoom
+   *  clamp, and a duration. Absent keeps M3's behaviour — no padding override,
+   *  no clamp, an instant jump. A `nodes` filter is not offered here; a parent
+   *  that wants "fit the selection" calls `Flow.fitViewport` from its own
+   *  update. */
+  fitView?: FitViewConfig;
   /** The minimap. Off by default and memoized when on: the 1k gate measures the
    *  frame distribution, and a per-frame rebuild of 1k rectangles would show up
    *  in it (§7 M3). */
@@ -617,6 +631,9 @@ export const createRenderer = <NodeData = unknown, EdgeData = unknown>(
                       point: toFlowPoint(clientX, clientY),
                       isAdditive: model.isAdditiveModifier,
                       pointer: pointerOf(pointerId, pointerType, button),
+                      ...(config.snapGrid === undefined
+                        ? {}
+                        : { snapGrid: config.snapGrid }),
                     }),
                   ),
                 );
@@ -772,7 +789,7 @@ export const createRenderer = <NodeData = unknown, EdgeData = unknown>(
         ),
         connectionView,
         config.controls === true
-          ? controlsView(input.toParentMessage, h)
+          ? controlsView(input.toParentMessage, h, config.fitView)
           : h.empty,
         config.minimap === true
           ? miniMapView(
