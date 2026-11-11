@@ -22,6 +22,11 @@ import { exampleSource } from "./source";
  */
 const PANE_ID = "pipeline-pane";
 const QA_ID = "qa";
+/** The frame's contents: what "collapse" hides. The frame itself stays drawn —
+ *  a container that disappears takes the affordance with it. */
+const QA_CHILDREN = ["review", "smoke"] as const;
+const QA_BOX = { width: 660, height: 260 } as const;
+const QA_COLLAPSED_BOX = { width: 660, height: 96 } as const;
 
 type Status = "ready" | "running" | "failing";
 
@@ -92,7 +97,7 @@ const buildGraph = (): Graph => ({
         status: "ready",
         kind: "frame",
       },
-      size: { width: 660, height: 260 },
+      size: QA_BOX,
     },
     {
       id: "review",
@@ -388,21 +393,36 @@ export const update = (
     // The parent owns the collapse: it edits its own node and then tells the flow
     // the graph changed, which prunes the collapsed subtree's measurement. The
     // flow never sees a mutation made behind its back (§2.5.9).
+    // Collapsing is the parent editing its own graph: the frame stays, its
+    // contents and the edges touching them go, and the frame's box shrinks to a
+    // summary band. Then `informGraphChanged` prunes what the flow can no longer
+    // see — the flow never sees a mutation made behind its back (§2.5.9).
     ClickedToggleQa: () => {
-      const isCollapsed =
-        model.graph.nodes.find((node) => node.id === QA_ID)?.hidden === true;
+      const isCollapsed = isQaCollapsed(model);
+      const isCheck = (id: string): boolean =>
+        QA_CHILDREN.some((child) => child === id);
       const nodes = model.graph.nodes.map((node) => {
-        if (node.id !== QA_ID) return node;
-        if (node.hidden === true) {
+        if (isCheck(node.id)) {
+          if (!isCollapsed) return { ...node, hidden: true };
           const { hidden: _hidden, ...rest } = node;
           return rest;
         }
-        return { ...node, hidden: true };
+        if (node.id !== QA_ID) return node;
+        return {
+          ...node,
+          size: isCollapsed ? QA_BOX : QA_COLLAPSED_BOX,
+          data: {
+            ...node.data,
+            subtitle: isCollapsed ? "2 checks" : "collapsed · 2 hidden",
+          },
+        };
       });
       const next: Model = {
         ...model,
         graph: { ...model.graph, nodes },
-        lastFact: isCollapsed ? "Expanded QA" : "Collapsed QA",
+        lastFact: isCollapsed
+          ? "Expanded QA"
+          : "Collapsed QA — the frame stays, its two checks go",
       };
       return {
         model: modifyFields(next, {
@@ -482,7 +502,7 @@ const renderer = Flow.createRenderer<NodeData, unknown>({
 });
 
 const isQaCollapsed = (model: Model): boolean =>
-  model.graph.nodes.find((node) => node.id === QA_ID)?.hidden === true;
+  model.graph.nodes.find((node) => node.id === "review")?.hidden === true;
 
 const panel = (model: Model, h: HtmlBuilder<Message>): Html =>
   Flow.panel(

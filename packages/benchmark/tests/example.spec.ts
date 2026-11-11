@@ -100,23 +100,52 @@ test("the example page renders, drags, collapses and resizes", async ({
   expect(after.x).toBeGreaterThan(before.x + 30);
   expect(await fact(page)).toContain("Moved commit");
 
-  // 3. Collapsing is the parent's edit plus `informGraphChanged`: the frame, its
-  // two children and their edges are gone, and the button says how to come back.
+  // 3. Collapsing is the parent's edit plus `informGraphChanged`: the two checks
+  // and all three edges that touch them go, and the frame **stays** as a summary
+  // band. A container that vanished would take the affordance with it — that is
+  // what `hidden` on the container itself does, and it is the wrong example.
+  const qaBefore = await page
+    .locator('.fflow__node[data-nodeid="qa"]')
+    .boundingBox();
+  if (qaBefore === null) throw new Error("no QA frame");
+
   await page.getByRole("button", { name: "Collapse QA" }).click();
-  await page.waitForTimeout(200);
-  expect(await page.locator(".fflow__node").count()).toBe(5);
-  expect(await page.locator('.fflow__node[data-nodeid="qa"]').count()).toBe(0);
+  await page.waitForTimeout(250);
+
+  expect(await page.locator(".fflow__node").count()).toBe(6);
   expect(await page.locator('.fflow__node[data-nodeid="review"]').count()).toBe(
     0,
   );
-  // Three edges touch the collapsed subtree — the two into the children and the
-  // one out of Review — so three of six remain ("half an edge is not a smaller
-  // edge", M4-FINDINGS §2.3).
+  expect(await page.locator('.fflow__node[data-nodeid="smoke"]').count()).toBe(
+    0,
+  );
+  // Three edges touch the collapsed subtree — the two into the checks and the one
+  // out of Review — so three of six remain ("half an edge is not a smaller edge",
+  // M4-FINDINGS §2.3).
   expect(await page.locator(".fflow__edge").count()).toBe(3);
-  expect(await fact(page)).toBe("Collapsed QA");
+
+  const qaCollapsed = await page
+    .locator('.fflow__node[data-nodeid="qa"]')
+    .boundingBox();
+  if (qaCollapsed === null) throw new Error("the QA frame disappeared");
+  expect(qaCollapsed.height).toBeLessThan(qaBefore.height - 40);
+  expect(qaCollapsed.width).toBeCloseTo(qaBefore.width, 0);
+  expect(
+    await page
+      .locator('.fflow__node[data-nodeid="qa"] .ex-node-subtitle')
+      .textContent(),
+  ).toBe("collapsed · 2 hidden");
+  expect(await fact(page)).toContain("Collapsed QA");
+
   await page.getByRole("button", { name: "Expand QA" }).click();
-  await page.waitForTimeout(200);
+  await page.waitForTimeout(250);
   expect(await page.locator(".fflow__node").count()).toBe(8);
+  expect(await page.locator(".fflow__edge").count()).toBe(6);
+  const qaExpanded = await page
+    .locator('.fflow__node[data-nodeid="qa"]')
+    .boundingBox();
+  if (qaExpanded === null) throw new Error("no QA frame after expanding");
+  expect(Math.abs(qaExpanded.height - qaBefore.height)).toBeLessThan(2);
 
   // 4. A resize is visible while the pointer is down, and the consumer's content
   // follows the box — the M4 contract on the second consumer shape.

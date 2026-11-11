@@ -52,14 +52,14 @@ commit that carries this file.
 
 | Leg                      | before    | after    |
 | ------------------------ | --------- | -------- |
-| 625                      | —         | 0.608 ms |
-| 1k culled                | 6.024     | 1.22 ms  |
-| 1k culled + chrome       | 6.012     | 0.94 ms  |
-| 10k collapsed (`hidden`) | —         | 3.128 ms |
-| 10k expanded             | 1 807.858 | 5.404 ms |
+| 625                      | —         | 0.626 ms |
+| 1k culled                | 6.024     | 1.156 ms |
+| 1k culled + chrome       | 6.012     | 0.922 ms |
+| 10k collapsed (`hidden`) | —         | 3.172 ms |
+| 10k expanded             | 1 807.858 | 4.998 ms |
 
 Two rows matter and one is deliberately unimpressive: the 10k **collapsed** page
-barely moves (3.47 at M4 → 3.13 here) because a hidden node short-circuits before
+barely moves (3.47 at M4 → 3.17 here) because a hidden node short-circuits before
 the size lookup, so the collapsed scan never paid the cost being removed. The
 10k output in the before column is not a typo: on the expanded page the old scan
 was **1.8 seconds per call**, which is why the before-run's pan p95 was 5 766 ms.
@@ -75,16 +75,17 @@ The unit suite went from 276 to 279 tests; nothing else in it moved.
 
 | Leg                | drag                     | pan                      | long frames |
 | ------------------ | ------------------------ | ------------------------ | ----------- |
-| 625, React Flow    | not verified (M1 §10)    | 16.7 / 16.7 / 33.4 (496) | 0           |
-| 625, Svelte Flow   | 16.7 / 16.7 / 50.0 (497) | 16.7 / 16.7 / 16.8 (491) | 0           |
-| 625, Foldkit       | 16.7 / 16.7 / 16.8 (498) | 16.7 / 16.8 / 16.8 (476) | 0           |
-| 1k culled          | 16.7 / 16.7 / 16.8 (497) | 16.7 / 16.8 / 33.4 (479) | 0           |
-| 1k culled + chrome | 16.7 / 16.8 / 16.8 (496) | 16.7 / 16.7 / 33.3 (481) | 0           |
+| 625, React Flow    | not verified (M1 §10)    | 16.7 / 16.7 / 16.8 (499) | 0           |
+| 625, Svelte Flow   | 16.7 / 16.8 / 33.4 (499) | 16.7 / 16.7 / 16.8 (488) | 0           |
+| 625, Foldkit       | 16.7 / 16.7 / 16.8 (499) | 16.7 / 16.7 / 33.4 (477) | 0           |
+| 1k culled          | 16.7 / 16.7 / 33.3 (492) | 16.7 / 16.8 / 33.4 (485) | 0           |
+| 1k culled + chrome | 16.7 / 16.7 / 33.3 (494) | 16.7 / 16.7 / 16.8 (483) | 0           |
 
 This is the first milestone whose 625 comparison had **no** frame over 50 ms in
-any library, including the 33 ms dropped frames that used to appear. The 50.0 ms
-frame in Svelte's drag leg is exactly the class boundary, which §4.5 counts as not
-long — the reason the counts are published beside the longest frame.
+any library: the worst frame in the whole 625 comparison is a single 33.4 ms
+interval, one dropped frame, and it appears in a different leg of each run. That is
+the reason the counts are published beside the longest frame — a 50.0 ms frame sits
+exactly on the class boundary and counts as _not_ long (§4.5: **over** 50 ms).
 
 The whole suite gets slower with M5's three new browser files: 3.4 → 4.6 min.
 The gate legs themselves are untouched (the fast loop in `README.md` still names
@@ -98,16 +99,16 @@ nothing collapsed: `makeGraph(100, 100)`, identical node markup to the 625 and 1
 fixtures, at zoom 1. `tests/expanded.spec.ts` measures it; `BENCHMARKS.md` has the
 tables. The result that decides the M6 conversation:
 
-- **Frames are fine**: 255 pan frames at 16.7 / 16.8 / 33.4, zero over 50 ms, 280
+- **Frames are fine**: 257 pan frames at 16.7 / 16.7 / 33.3, zero over 50 ms, 280
   nodes and 300 edges rendered out of 10,000 and 9,900. Culling, not `hidden`, is
   what keeps the DOM small at zoom 1.
-- **Startup is not**: 580 ms to the first view and **1 606 ms to settle**. The
+- **Startup is not**: 587 ms to the first view and **1 598 ms to settle**. The
   first render happens before the pane has been measured, so `isCulling` is false
   for it: all 10,000 nodes are inserted and all 10,000 Mounts run (an observer
   pair each), and only then does the pane measurement turn culling on and cut the
   DOM back to 280.
-- **The scan is now the frame's headroom**: 5.40 ms of a 16.7 ms frame at an
-  expanded 10k (32 %), against 3.6 % at 625.
+- **The scan is now the frame's headroom**: 5.00 ms of a 16.7 ms frame at an
+  expanded 10k (30 %), against 3.7 % at 625.
 
 M5 did **not** fix the first-render behaviour. It is not on the M5 checklist, it
 would change the gate pages' first-render DOM (which the 10k collapsed exploration
@@ -165,7 +166,7 @@ everything on the M6 list.
 The one carried-forward unknown. `tests/stall.spec.ts` is the baseline method the
 handoff asked for: four arms on twelve fresh page loads of the 1k fixture — idle,
 first pan, second pan, and the gate's own drag→pan order — with each frame's
-offset from its own arm. 2,012 frames, **0 over 50 ms**, worst frame 33.3 ms in the
+offset from its own arm. 2,015 frames, **0 over 50 ms**, worst frame 33.4 ms in the
 idle arm. `BENCHMARKS.md` §"The start-of-pan stall" has the table.
 
 What that means, stated as narrowly as it deserves:
@@ -252,10 +253,20 @@ Decisions worth recording:
 
 `tests/example.spec.ts` answers the five-question checklist (`verification.md`) on
 this _second consumer shape_: 8 nodes and 6 edges render with the consumer's own
-markup; a drag writes the parent's data and the panel's fact; collapsing removes
-the frame, two children and all three edges that touch them; and a resize is
-asserted **mid-gesture**, comparing the consumer's root box against the wrapper's
-(the M4 §14 lesson) and after release.
+markup; a drag writes the parent's data and the panel's fact; collapsing hides the
+frame's two checks and all three edges that touch them **while the frame stays,
+shrunk to a summary band**; and a resize is asserted **mid-gesture**, comparing the
+consumer's root box against the wrapper's (the M4 §14 lesson) and after release.
+
+The collapse went through a correction worth recording, because it was a report
+from a person using the page. The first version set `hidden` on the **container**,
+which is exactly the library's semantics — a collapsed node takes its subtree with
+it — and the QA frame vanished along with its children, leaving a gap and no
+affordance where the thing used to be. As a library behaviour that is correct and
+proved (`M4-FINDINGS` §2.3, `hidden` on containers is what the 10k page does); as
+an _example_ it taught the wrong pattern. The page now collapses the container's
+**children** and re-bands the container's own `size`, which is the pattern a graph
+editor uses and the one that keeps the thing you clicked on the canvas.
 
 ## 9. Where the numbers live
 
