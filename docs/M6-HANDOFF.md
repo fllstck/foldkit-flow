@@ -38,7 +38,7 @@ settle) is not advisory.
 | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `packages/flow`    | **1.0.0**, publishable and unpublished: `LICENSE`, `THIRD-PARTY-NOTICES.md`, a package `README.md`, `files`/`exports` verified with `pnpm pack --dry-run`. Surface unchanged since M4; M5 added one internal index (`geometry/bounds.ts`) |
 | `packages/example` | **Two pages, one build**: `/` is the 630-node instrumented playground (unchanged — ten proofs read its fixture), `/example/` is the presentable release pipeline with its own source beside it                                                                     |
-| `packages/benchmark` | Gate legs (625 comparison, 1k culled, 1k + chrome), 10k collapsed, 10k **expanded**, the React Flow **gallery**, and the **pan-stall** diagnostic — 52 Playwright tests in 11 files, 4.6 min |
+| `packages/benchmark` | Gate legs (625 comparison, 1k culled, 1k + chrome), 10k collapsed, 10k **expanded**, the React Flow **gallery**, and the **pan-stall** diagnostic — 53 Playwright tests in 11 files, 4.5 min |
 | Tests              | **279** Vitest tests in 27 files; **52** Playwright tests (45 proofs, 3 gate legs, 3 explorations, 1 gallery)                                                                                    |
 | Docs               | `PLAN.md` (revision 7, unchanged by M5), **[`BENCHMARKS.md`](BENCHMARKS.md)** (the published numbers), [`M5-FINDINGS.md`](M5-FINDINGS.md), M0–M4 findings and reviews, `verification.md`, `IMPLICIT-STATE-AUDIT.md`, `xyflow-internals.md`, `foldkit-constraints.md`, `README.md` |
 | Evidence           | `packages/benchmark/results/`: `benchmark.json`, `benchmark-1k.json`, `benchmark-1k-chrome.json`, `hidden-10k.json`, `expanded-10k.json`, `gallery.json`, `pan-stall.json` — all tracked |
@@ -59,7 +59,7 @@ M6 verdict has to remove anything: every gap M4 named is exactly as M4 left it.
 | 7  | Interactive edge labels (§8)                    | `edge.label` renders as SVG `<text>`; `renderEdgeLabel` replaces its content, not its interactivity |
 | 8  | Multi-node resize (§8)                          | Single node per gesture. A selection can be dragged together, not resized together |
 | 9  | Handle geometry during a resize (§8)           | Handles are measured on the node's own measurement; a resize writes the box as a measurement, and handle geometry is not re-derived per resize frame |
-| 10 | The culling scan (§6, §7)                      | **Partly moved, not closed.** M5 removed the O(measured) factor the plan named (`nodeSizeOf`'s linear lookup, now an index: 6.0 → 1.2 ms at 1k, 1 808 → 5.0 ms at an expanded 10k). A scan is still O(N) per viewport frame, and whether an index or a coarser cadence is right for 10k is still M6's question |
+| 10 | The culling scan (§6, §7)                      | **Partly moved, not closed.** M5 removed the O(measured) factor the plan named (`nodeSizeOf`'s linear lookup, now an index: 6.0 → 1.2 ms at 1k, 1 808 → 4.9 ms at an expanded 10k). A scan is still O(N) per viewport frame, and whether an index or a coarser cadence is right for 10k is still M6's question |
 | 11 | Edge focus and the tab order (§2.10, §10 a11y) | Unchanged: nodes are focusable, edges are not, and the description lists edges without a focus target |
 
 Item 10's research question should be read as "given the index, what is left?" —
@@ -97,8 +97,8 @@ remember that the same page now has a different first-order cost: **startup**
 ## What M5 found that M6 needs
 
 - **The 10k cost moved from frames to startup.** `/large-expanded.html` pans at
-  16.7 / 16.7 / 33.3 with 280 of 10,000 nodes rendered, but takes **1 598 ms to
-  settle**, because the first render happens before the pane is measured: culling
+  16.7 / 16.7 / 33.3 with 280 of 10,000 nodes rendered, but takes **1 357 ms to
+  settle** (1.4–1.6 s across runs), because the first render happens before the pane is measured: culling
   is off for it, so all 10,000 nodes are inserted and all 10,000 Mounts run before
   the pane's measurement cuts the DOM back. This is not on the M6 list — it is a
   candidate found during M5, and it is written down here rather than built. If M6
@@ -168,7 +168,7 @@ pkill -f vite               # a stale preview owns 4173/4174
 pnpm typecheck              # first: vite build does not typecheck
 pnpm build                  # all three: the benchmark inlines the library CSS
 pnpm check                  # typecheck, Enfect lint, Prettier, unit tests
-pnpm bench                  # Playwright: every proof, every leg, ~4.6 min
+pnpm bench                  # Playwright: every proof, every leg, ~4.5 min
 ```
 
 M6 is done when `PLAN.md` §7's list holds — `docs/M6-RESEARCH.md` with one section
@@ -181,7 +181,7 @@ at the verdicts; and all four commands green.
 
 ## Open questions for M6
 
-- **Does item 10 still need its own fix?** The scan is 1.2 ms at 1k and 5.0 ms at
+- **Does item 10 still need its own fix?** The scan is 1.2 ms at 1k and 4.9 ms at
   an expanded 10k. If a spatial index is not warranted, the verdict is "keep out,
   with the numbers" — and the claim that pays for it is that a scan is O(N) per
   viewport frame by design (§4.5).

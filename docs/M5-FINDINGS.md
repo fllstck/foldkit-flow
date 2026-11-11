@@ -52,14 +52,14 @@ commit that carries this file.
 
 | Leg                      | before    | after    |
 | ------------------------ | --------- | -------- |
-| 625                      | —         | 0.626 ms |
-| 1k culled                | 6.024     | 1.156 ms |
-| 1k culled + chrome       | 6.012     | 0.922 ms |
-| 10k collapsed (`hidden`) | —         | 3.172 ms |
-| 10k expanded             | 1 807.858 | 4.998 ms |
+| 625                      | —         | 0.582 ms |
+| 1k culled                | 6.024     | 1.202 ms |
+| 1k culled + chrome       | 6.012     | 0.936 ms |
+| 10k collapsed (`hidden`) | —         | 2.962 ms |
+| 10k expanded             | 1 807.858 | 4.894 ms |
 
 Two rows matter and one is deliberately unimpressive: the 10k **collapsed** page
-barely moves (3.47 at M4 → 3.17 here) because a hidden node short-circuits before
+barely moves (3.47 at M4 → 2.96 here) because a hidden node short-circuits before
 the size lookup, so the collapsed scan never paid the cost being removed. The
 10k output in the before column is not a typo: on the expanded page the old scan
 was **1.8 seconds per call**, which is why the before-run's pan p95 was 5 766 ms.
@@ -68,18 +68,17 @@ The unit suite went from 276 to 279 tests; nothing else in it moved.
 
 ## 3. The gate, at this commit
 
-`pnpm bench`: **52 tests in 4.6 min** (44 proofs + the example proof + 3 gate legs
-
-- 3 explorations + the gallery). The gate legs are unchanged from M4 and all
-  green:
+`pnpm bench`: **53 tests in 4.5 min** (46 proofs + 3 gate legs +
+3 explorations + the gallery). The gate legs are unchanged from M4 and
+all green:
 
 | Leg                | drag                     | pan                      | long frames |
 | ------------------ | ------------------------ | ------------------------ | ----------- |
-| 625, React Flow    | not verified (M1 §10)    | 16.7 / 16.7 / 16.8 (499) | 0           |
-| 625, Svelte Flow   | 16.7 / 16.8 / 33.4 (499) | 16.7 / 16.7 / 16.8 (488) | 0           |
-| 625, Foldkit       | 16.7 / 16.7 / 16.8 (499) | 16.7 / 16.7 / 33.4 (477) | 0           |
-| 1k culled          | 16.7 / 16.7 / 33.3 (492) | 16.7 / 16.8 / 33.4 (485) | 0           |
-| 1k culled + chrome | 16.7 / 16.7 / 33.3 (494) | 16.7 / 16.7 / 16.8 (483) | 0           |
+| 625, React Flow    | not verified (M1 §10)    | 16.7 / 16.8 / 33.4 (494) | 0           |
+| 625, Svelte Flow   | 16.7 / 16.7 / 33.3 (499) | 16.7 / 16.7 / 16.8 (485) | 0           |
+| 625, Foldkit       | 16.7 / 16.8 / 33.3 (498) | 16.7 / 16.7 / 16.8 (479) | 0           |
+| 1k culled          | 16.7 / 16.8 / 33.3 (494) | 16.7 / 16.7 / 33.3 (480) | 0           |
+| 1k culled + chrome | 16.7 / 16.8 / 33.3 (499) | 16.7 / 16.7 / 16.8 (487) | 0           |
 
 This is the first milestone whose 625 comparison had **no** frame over 50 ms in
 any library: the worst frame in the whole 625 comparison is a single 33.4 ms
@@ -87,7 +86,7 @@ interval, one dropped frame, and it appears in a different leg of each run. That
 the reason the counts are published beside the longest frame — a 50.0 ms frame sits
 exactly on the class boundary and counts as _not_ long (§4.5: **over** 50 ms).
 
-The whole suite gets slower with M5's three new browser files: 3.4 → 4.6 min.
+The whole suite gets slower with M5's four new browser files: 3.4 → 4.5 min.
 The gate legs themselves are untouched (the fast loop in `README.md` still names
 each file), and the three additions are an exploration, a diagnostic and a
 comparison — none of them asserts a frame budget.
@@ -99,16 +98,17 @@ nothing collapsed: `makeGraph(100, 100)`, identical node markup to the 625 and 1
 fixtures, at zoom 1. `tests/expanded.spec.ts` measures it; `BENCHMARKS.md` has the
 tables. The result that decides the M6 conversation:
 
-- **Frames are fine**: 257 pan frames at 16.7 / 16.7 / 33.3, zero over 50 ms, 280
+- **Frames are fine**: 253 pan frames at 16.7 / 16.7 / 33.3, zero over 50 ms, 280
   nodes and 300 edges rendered out of 10,000 and 9,900. Culling, not `hidden`, is
   what keeps the DOM small at zoom 1.
-- **Startup is not**: 587 ms to the first view and **1 598 ms to settle**. The
+- **Startup is not**: 554 ms to the first view and **1 357 ms to settle** (1.4–1.6 s
+  across runs). The
   first render happens before the pane has been measured, so `isCulling` is false
   for it: all 10,000 nodes are inserted and all 10,000 Mounts run (an observer
   pair each), and only then does the pane measurement turn culling on and cut the
   DOM back to 280.
-- **The scan is now the frame's headroom**: 5.00 ms of a 16.7 ms frame at an
-  expanded 10k (30 %), against 3.7 % at 625.
+- **The scan is now the frame's headroom**: 4.89 ms of a 16.7 ms frame at an
+  expanded 10k (29 %), against 3.5 % at 625.
 
 M5 did **not** fix the first-render behaviour. It is not on the M5 checklist, it
 would change the gate pages' first-render DOM (which the 10k collapsed exploration
@@ -166,8 +166,8 @@ everything on the M6 list.
 The one carried-forward unknown. `tests/stall.spec.ts` is the baseline method the
 handoff asked for: four arms on twelve fresh page loads of the 1k fixture — idle,
 first pan, second pan, and the gate's own drag→pan order — with each frame's
-offset from its own arm. 2,015 frames, **0 over 50 ms**, worst frame 33.4 ms in the
-idle arm. `BENCHMARKS.md` §"The start-of-pan stall" has the table.
+offset from its own arm. 2,025 frames, **0 over 50 ms**, worst frame 33.3 ms in the
+drag→pan arm. `BENCHMARKS.md` §"The start-of-pan stall" has the table.
 
 What that means, stated as narrowly as it deserves:
 
@@ -267,6 +267,55 @@ proved (`M4-FINDINGS` §2.3, `hidden` on containers is what the 10k page does); 
 an _example_ it taught the wrong pattern. The page now collapses the container's
 **children** and re-bands the container's own `size`, which is the pattern a graph
 editor uses and the one that keeps the thing you clicked on the canvas.
+
+## 8.2 Reported after M5: a pan after the opening fit jumped and shrank
+
+Reported by hand within minutes of trying the example page: _"when I click the
+background and drag it to pan, the graph gets smaller and jumps to the left."_
+Both halves were real, and the cause was in the **library**, not the page.
+
+The example fits the pipeline once, folded from the pane's first `ResizedPane` —
+the pattern this document recommends and the gallery uses. `Flow.setViewport`
+commits the target to the Model and returns a `SyncViewport` Command, and that
+Command is built from `model.paneId`. `MountPane` emitted `MountedPane` (which
+folds that id) **after** the first `ResizedPane`, so at fit time `paneId` was
+`Option.none()`: the fit committed to the Model, emitted _zero_ commands, and the
+engine kept the viewport it had been constructed with. Nothing failed, nothing
+warned. The next pan then applied its delta to the engine's stale transform — from
+`translate(40, 40) scale(0.6)` instead of `translate(163.2, 45) scale(0.5977)`,
+which reads exactly as "smaller, and jumping left".
+
+Why every existing assertion missed it, in `verification.md`'s language:
+
+- The **Model → DOM** layer was right: the view renders the transform from
+  `model.viewport`, so the DOM showed the fitted viewport and every DOM assertion
+  passed (`proof 41`, the fit button, asserts exactly that string).
+- The wrong layer was **DOM/Model → engine**: d3's internal transform is the value
+  the next gesture starts from, and nothing asserted it. A DOM assertion cannot
+  see it, because the DOM is written by the view as well.
+- The gesture is what revealed it, which is why the proofs for this class have to
+  pan **after** the programmatic change (the new proof does).
+
+**The fix** is the message order in `runtime/mountPane.ts`: `MountedPane` is
+offered before the observer's first `emitPaneRect()`. The order is now stated as a
+contract in `message.ts` ("`MountedPane` always precedes the pane's first
+`ResizedPane`") and in the README's `fitViewport` paragraph, because a consumer's
+fit depends on it.
+
+**The proof**, `tests/example.spec.ts` → "a pan continues from the fitted viewport,
+instead of snapping back": it records the transform after the opening fit, drags
+empty pane by a known delta, and asserts the zoom is unchanged to 1e-3 and the
+translation advanced by the drag. **Watched failing**: the first run of that proof
+went against a preview built before the library fix and failed with
+`Expected 0.76327, Received 0.6` — the two numbers in the report, in a test. That
+was the build-skew trap (`verification.md` rule 4) catching me rather than the
+proof being wrong, and it is the cheapest possible confirmation that the assertion
+measures the reported thing.
+
+Regression scope: `proofs.spec.ts` (the demo's pan, sync-viewport and fit proofs),
+`m4.spec.ts` (fit button, minimap click) and `tests/gallery.spec.ts` (both fits)
+all pass with the reorder, and the demo's own `syncs` counter is untouched because
+the fix emits no extra Message.
 
 ## 9. Where the numbers live
 

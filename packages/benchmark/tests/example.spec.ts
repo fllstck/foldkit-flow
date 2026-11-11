@@ -199,3 +199,68 @@ test("the example page renders, drags, collapses and resizes", async ({
   // not a page error; `pageerror` and console errors are).
   expect(errors).toEqual([]);
 });
+
+/**
+ * The reported bug (M5-FINDINGS §8.2): the opening fit is folded from the pane's
+ * first measurement, and that measurement used to arrive **before** the pane's
+ * registration. `Flow.setViewport` could not emit its `SyncViewport` without a
+ * pane id, so the Model (and the DOM, which the view renders from it) moved to the
+ * fitted viewport while d3 kept the one it was constructed with — and the first
+ * pan applied its delta to that stale transform, shrinking the graph and jumping
+ * it left. This asserts the user's layer: press empty pane, drag, and the view must
+ * keep the fitted zoom and advance by the drag.
+ */
+test("a pan continues from the fitted viewport, instead of snapping back", async ({
+  page,
+}) => {
+  await page.goto(EXAMPLE);
+  await waitForExample(page);
+
+  const viewportOf = () =>
+    page.evaluate(() => {
+      const style =
+        document
+          .querySelector("[data-fflow-viewport]")
+          ?.getAttribute("style") ?? "";
+      const match = style.match(
+        /translate\((-?[\d.]+)px, (-?[\d.]+)px\) scale\(([\d.]+)\)/,
+      );
+      if (match === null) throw new Error(`no transform in "${style}"`);
+      return {
+        x: Number(match[1]),
+        y: Number(match[2]),
+        zoom: Number(match[3]),
+      };
+    });
+
+  const before = await viewportOf();
+  // The fit is not the viewport the page was initialised with, or this proof
+  // would pass without the fix.
+  expect(before.zoom).not.toBeCloseTo(0.6, 2);
+
+  const box = await page.locator(".fflow__pane").boundingBox();
+  if (box === null) throw new Error("no pane");
+  // Empty pane: below the pipeline, right of the panel, clear of every node.
+  const x = box.x + box.width - 60;
+  const y = box.y + box.height - 120;
+
+  const stepPx = 8;
+  const steps = 10;
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  for (let step = 1; step <= steps; step += 1) {
+    await page.mouse.move(x + step * stepPx, y + step * stepPx * 0.5);
+    await page.waitForTimeout(16);
+  }
+  await page.mouse.up();
+  await page.waitForTimeout(200);
+
+  const after = await viewportOf();
+  // The zoom the fit chose survives the gesture — a snap back to the initial
+  // viewport is the bug.
+  expect(after.zoom).toBeCloseTo(before.zoom, 3);
+  // And the view moved by the drag, not to somewhere else.
+  expect(after.x - before.x).toBeGreaterThan(steps * stepPx * 0.8);
+  expect(after.y - before.y).toBeGreaterThan(steps * stepPx * 0.3);
+  expect(Math.abs(after.x - (before.x + steps * stepPx))).toBeLessThan(2);
+});

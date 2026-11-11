@@ -158,6 +158,17 @@ export const MountPane = Mount.defineStream("MountPane", {
           panZoom,
         });
 
+        // `MountedPane` goes first, and the order is load-bearing: it is what
+        // folds a pane id into the Model, and `Flow.setViewport` can only emit its
+        // `SyncViewport` Command once that id exists. The first `ResizedPane`
+        // below is what a consumer measures and fits from, so a fit folded from it
+        // must find the registry already populated — otherwise the Model commits
+        // the fitted viewport, the engine keeps the one it was created with, and
+        // the next pan jumps back to it. Reported by hand on the example page,
+        // where a fit folded from the first `ResizedPane` snapped on the first pan
+        // (`docs/M5-FINDINGS.md` §8.2).
+        Queue.offerUnsafe(queue, Message.MountedPane({ paneId }));
+
         // Wires d3's gesture handlers; until this call every engine callback is
         // silent. `syncViewport`/`setViewport` from a Command would move d3's
         // internal transform without touching the DOM otherwise.
@@ -187,8 +198,6 @@ export const MountPane = Mount.defineStream("MountPane", {
           }),
           (observer) => Effect.sync(() => observer.disconnect()),
         );
-
-        Queue.offerUnsafe(queue, Message.MountedPane({ paneId }));
 
         yield* viewStateChanges.pipe(
           Stream.runForEach((state) =>

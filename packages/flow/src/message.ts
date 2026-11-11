@@ -15,7 +15,9 @@ import {
 } from "./model.js";
 
 export const Message = defineMessageUnion({
-  // element lifecycle
+  // element lifecycle. `MountedPane` always precedes the pane's first
+  // `ResizedPane`: the pane id it folds is what `Flow.setViewport` needs to emit
+  // its `SyncViewport`, and a consumer's fit is folded from that measurement.
   MountedPane: { paneId: Schema.String },
   FailedMountPane: { reason: Schema.String },
   ResizedPane: { pane: Rect },
