@@ -43,3 +43,67 @@
   line-height: 1.4;
   white-space: nowrap;
 }
+
+/* Handles carry `.source`/`.target` because the engine's geometry queries those
+   exact class names, and `data-handlepos` decides which edge they sit on. */
+.fflow__handle {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border: 1px solid var(--fflow-node-border);
+  border-radius: 50%;
+  background-color: var(--fflow-pane-background);
+  cursor: crosshair;
+}
+
+.fflow__handle.source {
+  right: -5px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.fflow__handle.target {
+  left: -5px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.fflow__handle[data-handlepos="Top"] {
+  left: 50%;
+  right: auto;
+  top: -5px;
+  transform: translateX(-50%);
+}
+
+.fflow__handle[data-handlepos="Bottom"] {
+  left: 50%;
+  right: auto;
+  bottom: -5px;
+  top: auto;
+  transform: translateX(-50%);
+}
+
+.fflow__handle[data-handlepos="Left"] {
+  left: -5px;
+  right: auto;
+}
+
+.fflow__handle[data-handlepos="Right"] {
+  right: -5px;
+  left: auto;
+}
+
+.fflow__node--selected > .node-shell,
+.fflow__node--selected > .fflow__node-label {
+  border-color: #4c8dff;
+  box-shadow: 0 0 0 1px #4c8dff;
+}
+
+.fflow__node--dragging {
+  cursor: grabbing;
+}
+
+.fflow__connection .fflow__edge-path {
+  stroke: #4c8dff;
+  stroke-dasharray: 4 3;
+}
