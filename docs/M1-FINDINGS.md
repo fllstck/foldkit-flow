@@ -4,30 +4,41 @@ M1 implements the interaction core, measurement and handle bounds, culling, the
 renderer node cache, and the `PLAN.md` §4.5 performance gate. `PLAN.md` was not
 edited; where the code differs from the plan, this file records the diff and why.
 
-Verification at the end of M1 (all read from a real run, not assumed):
+Verification state at the commit that carries this file — the authoritative
+numbers; every earlier figure in this document is historical and marked as such.
 
-| Check                                          | Result                                                      |
-| ---------------------------------------------- | ----------------------------------------------------------- |
-| `pnpm check`                                   | typecheck, Enfect lint, Prettier, **75** Vitest tests green |
-| `pnpm build`                                   | flow → example → benchmark                                  |
-| `packages/benchmark/tests/proofs.spec.ts`      | 4 passed (M0 proofs, unchanged)                             |
-| `packages/benchmark/tests/interaction.spec.ts` | 8 passed, 5.3 s (M1 proofs 8–15), 9 with proof 16           |
-| `packages/benchmark/tests/bench.spec.ts`       | 2 passed, ~1 m 35 s (625 comparison + 1k gate at 23 s)      |
+| Check                                          | Result                                                           |
+| ---------------------------------------------- | ---------------------------------------------------------------- |
+| `pnpm check`                                   | typecheck, Enfect lint, Prettier, **89** Vitest tests green      |
+| `pnpm build`                                   | flow → example → benchmark                                       |
+| `packages/benchmark/tests/proofs.spec.ts`      | 4 passed (M0 proofs 2, 3, 3b, 4)                                 |
+| `packages/benchmark/tests/interaction.spec.ts` | 9 passed (M1 proofs 8–16)                                        |
+| `packages/benchmark/tests/bench.spec.ts`       | 2 passed (625 comparison + 1k culled gate)                       |
+| whole Playwright suite                         | 15 tests = 13 proof tests (9 M1 + 4 M0) + 2 gate tests, 1 m 45 s |
 
 ## 1. Gate results
 
 625 nodes / 624 edges, 10 runs per library, Brave 156 headless, unchanged
-protocol from M0 (`packages/benchmark/results/benchmark.json`):
+protocol from M0 (`packages/benchmark/results/benchmark.json`). This is the run
+at this commit; the figures in §6.4 and the M0 report are superseded:
 
 | Library | drag median            | drag p95 | pan median | pan p95 | frames >50 ms |
 | ------- | ---------------------- | -------- | ---------- | ------- | ------------- |
 | React   | not verified (see §10) | —        | 16.7       | 16.7    | 0             |
 | Svelte  | 16.7                   | 16.7     | 16.7       | 16.7    | 0             |
-| Foldkit | 16.7                   | 16.8     | 16.7       | 16.7    | 0             |
+| Foldkit | 16.7                   | 16.7     | 16.7       | 16.8    | 0             |
+
+Frame counts in that run: 498 drag / 482 pan (Svelte), 497 / 480 (Foldkit), 498
+pan (React). Every leg is non-zero, so every distribution is a distribution of
+real work.
+
+Flow metrics from the same run: `updatePerDispatchMs` 0.0015 (625) / 0.0026
+(1k), `cullScanMs` 2.4 (625) / 5.8 (1k), `cullScanSamples` 21 per run — the
+sample count is the proof that viewport frames arrived at all.
 
 1k nodes, culling on, zoom 1 (`packages/benchmark/results/benchmark-1k.json`):
 drag median 16.7 / p95 16.8 ms, pan median/p95 16.7 ms, no frame over 50 ms. Gate
-was p95 < 33 ms. Both legs are verified to have moved something (§10).
+was p95 < 33 ms. Both legs verified to have moved something (§10).
 
 Every number above comes from a run where the harness proved the gesture did
 work: the pan must move the library's viewport transform, and the drag must move
@@ -331,8 +342,12 @@ cold page loads of the 625-node fixture (11 per library, warm-up discarded) plus
 
 The browser suite is 15 tests: 13 proof tests — 4 M0 (`proofs.spec.ts`: proofs 2,
 3, 3b, 4) plus 9 M1 (`interaction.spec.ts`: proofs 8–16) — and 2 gate tests
-(`bench.spec.ts`: the 625 comparison and the 1k culled gate). Vitest adds 88 more, including the render-level cases Playwright cannot
-reach (`view/connection.test.ts`, `view/culling.test.ts`, `view/cache.test.ts`).
+(`bench.spec.ts`: the 625 comparison and the 1k culled gate). Vitest adds 89,
+including the render-level cases Playwright cannot reach
+(`view/connection.test.ts`, `view/culling.test.ts`, `view/cache.test.ts`).
+The counts in this section as originally written (14 tests, 12 proofs, 88 Vitest
+tests) were correct when §6.4 was written, before proof 16 existed; the table at
+the top is the current one.
 
 ## 7. Response to `docs/M1-REVIEW-2.md`
 
@@ -483,3 +498,25 @@ the preview server was live: the shield appeared, `body` was inert, `main.app`
 never mounted. It clears only when the HTML and the assets come from the same
 build — so: stop every server, `pnpm build`, serve again, hard-reload. A reload
 alone cannot help if the server keeps handing out the mismatched HTML.
+
+## 12. Response to `docs/M1-REVIEW-3.md`
+
+No implementation finding. The one Low item — stale counts in the opening
+verification table — is fixed, and the whole document now separates current from
+historical figures:
+
+- The table at the top reports the state at this commit: **89** Vitest tests,
+  9 interaction proofs (8–16), 4 M0 proofs, 2 gate tests — 15 Playwright tests,
+  13 of them proofs.
+- §1 is labelled as the run at this commit, with the frame counts that prove each
+  leg did work, and the flow metrics from the same run.
+- §6.4 explicitly marks its `14 tests / 12 proofs / 88 Vitest` figures as the
+  state when it was written, before proof 16 existed.
+- §11 covers the "could not start safely" shield and §10 retracts the unverified
+  drag figures, so nothing in the document presents an idle measurement as
+  evidence.
+
+The reviewer's note about the first proof run failing on an occupied port 4173 is
+accurate and is an infrastructure collision, not a test failure: Playwright's
+`webServer` reuse setting means a benchmark preview left running by a previous
+run owns the port. `pkill -f vite` before a full suite run avoids it.
