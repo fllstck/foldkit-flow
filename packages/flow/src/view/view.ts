@@ -1005,7 +1005,23 @@ export const createRenderer = <NodeData = unknown, EdgeData = unknown>(
 
   return {
     view,
-    dispose: () => cache.dispose(),
+    /**
+     * Every renderer-owned cache, not only the node slots. The docblock promises
+     * "returns the renderer to its initial state", and a module-scope renderer (the
+     * documented usage) keeps that state for the life of the page or, under SSR,
+     * the life of the process: the node slots, the flattened handle index, the
+     * memoized edge endpoints, and both chrome memos (implicit-state audit,
+     * finding 1).
+     */
+    dispose: () => {
+      cache.dispose();
+      indexedBounds = undefined;
+      handleIndex = new Map();
+      geometryInputs = undefined;
+      endpointsByEdgeId = new Map();
+      minimapMemo.dispose();
+      descriptionMemo.dispose();
+    },
     cacheSize: () => cache.count(),
   };
 };

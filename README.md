@@ -32,6 +32,11 @@ and the retracted measurements are in
   the layer the user perceives. Six boundaries between the Model and the eye, each
   with the bug it produced here and the assertion that crosses it, plus a five
   question checklist for a visual feature.
+- **[docs/IMPLICIT-STATE-AUDIT.md](docs/IMPLICIT-STATE-AUDIT.md)** — an audit of the
+  mutable state outside `Flow.Model.gesture` (renderer caches, memos, Mounts,
+  observers, the host registry), with the response in
+  `docs/M4-FINDINGS.md` §15. It and `verification.md` are complementary: one looks
+  at lifetime, the other at the layer.
 - **[docs/M0-FINDINGS.md](docs/M0-FINDINGS.md)** — what M0 proved, the benchmark
   numbers, what needed workarounds, and proposed `docs/PLAN.md` diffs.
 - **[docs/M0-REVIEW.md](docs/M0-REVIEW.md)** — the independent M0 review.

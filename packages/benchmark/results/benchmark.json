@@ -21,19 +21,19 @@
         "longFrames": 0
       },
       "pan": {
-        "count": 499,
+        "count": 498,
         "median": 16.7,
         "p95": 16.7,
-        "longest": 33.4,
+        "longest": 33.3,
         "longFrames": 0
       }
     },
     "svelte": {
       "drag": {
-        "count": 502,
+        "count": 498,
         "median": 16.7,
         "p95": 16.7,
-        "longest": 16.8,
+        "longest": 50,
         "longFrames": 0
       },
       "pan": {
@@ -46,10 +46,10 @@
     },
     "foldkit": {
       "drag": {
-        "count": 500,
+        "count": 498,
         "median": 16.7,
         "p95": 16.8,
-        "longest": 33.4,
+        "longest": 33.3,
         "longFrames": 0
       },
       "pan": {
@@ -63,9 +63,9 @@
   },
   "flow": {
     "updates": 1925,
-    "updateTotalMs": 3.9,
-    "updatePerDispatchMs": 0.002,
-    "cullScanMs": 3.754,
+    "updateTotalMs": 5,
+    "updatePerDispatchMs": 0.0026,
+    "cullScanMs": 2.832,
     "cullScanSamples": 21
   }
 }

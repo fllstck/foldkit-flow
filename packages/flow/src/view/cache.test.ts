@@ -5,7 +5,7 @@ import { describe, expect, test } from "vitest";
 
 import type { Message } from "../message.js";
 import { init } from "../model.js";
-import type { FlowNode, Model } from "../model.js";
+import type { FlowEdge, FlowNode, Model } from "../model.js";
 import { createRenderer } from "./view.js";
 
 const toParentMessage = (message: Message): Message => message;
@@ -25,7 +25,17 @@ const nodeB: FlowNode = {
   data: null,
 };
 
-type Pass = Readonly<{ model: Model; nodes: ReadonlyArray<FlowNode> }>;
+type Pass = Readonly<{
+  model: Model;
+  nodes: ReadonlyArray<FlowNode>;
+  edges?: ReadonlyArray<FlowEdge>;
+}>;
+
+/** A step is a render pass, or `dispose()` between two of them. */
+type Step = Pass | Readonly<{ dispose: true }>;
+
+const isDispose = (step: Step): step is Readonly<{ dispose: true }> =>
+  "dispose" in step;
 
 /**
  * Builds one render pass per entry inside a single runtime frame. Every pass
@@ -77,6 +87,114 @@ const renderPasses = async (
 
   return { calls: counter.calls, renderer };
 };
+
+/**
+ * Drives a renderer through steps in one runtime frame and counts how often the
+ * consumer's node content is built and how often `accessibleName` is called — the
+ * second count is what shows whether the **description memo** survived, because a
+ * hit skips the description's own calls and leaves only the per-node aria labels.
+ */
+const renderSteps = async (
+  steps: ReadonlyArray<Step>,
+): Promise<{
+  calls: number;
+  names: number;
+  renderer: ReturnType<typeof createRenderer>;
+}> => {
+  const counter = { calls: 0, names: 0 };
+
+  const renderer = createRenderer({
+    paneId: "test-pane",
+    renderNode: (node, _tools, h) => {
+      counter.calls += 1;
+      return h.div([h.Class("node-body")], [node.id]);
+    },
+    accessibleName: (node) => {
+      counter.names += 1;
+      return node.id;
+    },
+  });
+
+  const view = (current: Model, h: HtmlBuilder<Message>) => {
+    const built: Array<ReturnType<typeof renderer.view>> = [];
+    steps.forEach((step) => {
+      if (isDispose(step)) {
+        renderer.dispose();
+        return;
+      }
+      built.push(
+        renderer.view(
+          {
+            model: step.model,
+            nodes: step.nodes,
+            edges: step.edges ?? [],
+            toParentMessage,
+          },
+          h,
+        ),
+      );
+    });
+
+    // Only the first pass is placed in the tree; the rest exist to drive the cache.
+    return {
+      title: "cache",
+      body: h.div([h.Class("root")], [built[0] ?? h.empty]),
+    };
+  };
+
+  await Effect.runPromise(
+    Server.renderToString(
+      { init: () => ({ model }), view },
+      { isHydratable: false },
+    ),
+  );
+
+  return { calls: counter.calls, names: counter.names, renderer };
+};
+
+describe("renderer dispose (implicit-state audit, finding 1)", () => {
+  test("drops the chrome memos as well as the node slots", async () => {
+    // One array, two passes: the parent hands the flow the same graph across
+    // frames, which is what the description memo keys on.
+    // Both arrays are the parent's, held across frames: that is what the
+    // description memo keys on, so the test has to hand over the same references.
+    const nodes: ReadonlyArray<FlowNode> = [nodeA, nodeB];
+    const edges: ReadonlyArray<FlowEdge> = [];
+
+    // Pass one pays 2 aria labels plus the description's own 2 names; pass two pays
+    // only its aria labels, because the description memo hits.
+    const cached = await renderSteps([
+      { model, nodes, edges },
+      { model, nodes, edges },
+    ]);
+    expect(cached.names).toBe(6);
+
+    // The same two passes with a dispose between them: the description is rebuilt,
+    // so the second pass pays its own `accessibleName` calls again.
+    const disposed = await renderSteps([
+      { model, nodes, edges },
+      { dispose: true },
+      { model, nodes, edges },
+    ]);
+    // 4 per pass: the description did not survive the dispose.
+    expect(disposed.names).toBe(8);
+    // …and the node slots were dropped too.
+    expect(disposed.calls).toBe(4);
+    expect(disposed.renderer.cacheSize()).toBe(2);
+  });
+
+  test("a disposed renderer is back to its initial state, then repopulates", async () => {
+    const { calls, renderer } = await renderSteps([
+      { model, nodes: [nodeA] },
+      { dispose: true },
+      { model, nodes: [nodeA] },
+    ]);
+
+    // The rebuild is not a leak in the other direction: the cache is usable again.
+    expect(calls).toBe(2);
+    expect(renderer.cacheSize()).toBe(1);
+  });
+});
 
 describe("renderer node cache", () => {
   test("reuses a slot when the node and its inputs are unchanged", async () => {

@@ -693,3 +693,92 @@ mistake in between are collected as a standing rule in
 the eye, the assertion that crosses each, and a five-question checklist for a visual
 feature. That file is the durable form of this section; this one stays as the record
 of what happened.
+
+## 15. Response to `docs/IMPLICIT-STATE-AUDIT.md`
+
+Read and checked line by line. **Both findings are real and are fixed**; the
+"intentional imperative state" list is accurate as far as it goes, with one
+addition and one framing correction below. This audit is the first one that looked
+at state rather than output, and it found something the 276 tests did not.
+
+### 15.1 MEDIUM — `dispose()` reset only the node cache: fixed, and the contract was the tell
+
+Correct, and it was a **contract violation** rather than only a leak. The
+`Renderer.dispose` docblock says "drops every cached VNode and returns the renderer
+to its initial state" (§3.3); the implementation called `cache.dispose()` and left
+`indexedBounds`, `handleIndex`, `geometryInputs`, `endpointsByEdgeId`, the minimap
+memo and the description memo in place. After a dispose the renderer was neither
+disposed nor new, and a re-render with the same graph arrays reused every one of
+them.
+
+`dispose()` now clears all six, and `ViewMemo` gained a `dispose()` for the two
+chrome memos to be clearable at all. Regression test, watched failing against the
+old body: `view/cache.test.ts` → "drops the chrome memos as well as the node
+slots" renders two passes over the same `nodes`/`edges` arrays (description memo
+hits: `accessibleName` called 6 times), then the same two passes with a `dispose()`
+between them (8 times), and "a disposed renderer is back to its initial state, then
+repopulates" asserts the cache is usable again afterwards.
+
+**Why I would raise the severity.** The documented usage is a renderer created once
+at module or app scope (§3.3, README), and the demo does exactly that. A
+module-scope renderer means these caches live for the life of the page — or, under
+SSR, for the life of the **process**, shared across requests, which is the same
+shape as the M3 §10 report where a module-scope renderer made the dev server's
+served markup disagree with the client's first view. `dispose()` is the only lever
+a consumer has, so "dispose means dispose" matters more than a MEDIUM leak
+suggests. That is a consequence of the design (VNode caches must be owned somewhere
+stable), not something M4 can remove, and it is now stated in the docblock.
+
+### 15.2 LOW — `ViewMemo` retained the builder on a cache hit: fixed
+
+Correct, and the mechanism is exactly as described: `on` assigned `pending = build`
+before `slot(run, inputs)`, and a hit returns the cached VNode without calling
+`run`, leaving the newest builder — with the HTML builder, graph arrays and the
+dispatcher it closes over — referenced until the next miss.
+
+The fix is two lines: clear `pending` after the slot call (a miss has already
+consumed it; a hit now drops it). A second option the audit offered — resetting
+disposal/reset on the memo — was needed anyway for finding 1, so `ViewMemo` now has
+`dispose()` and a `hasPending()` diagnostic. Tests:
+`view/viewMemo.test.ts` covers the hit (same VNode, one build), the retention
+(`hasPending()` false after a hit — fails against the old order), and dispose
+(rebuilds, new VNode, nothing pending).
+
+One constraint the fix makes explicit: `run` cannot be re-created per call because
+the lazy slot compares the function reference, so `pending` is instance state and a
+memo instance is **not re-entrant** — a builder must not call `on` on the same memo.
+Both memos in the renderer are distinct instances, so nothing does. That is now in
+the docblock.
+
+### 15.3 The intentional list: agreed, with one addition
+
+The list matches the code. Two things I would add to the same category:
+
+- **The DOM transform written by `MountPane` before the Model.** `onPanZoom` writes
+  `translate(...) scale(...)` straight to the viewport element and only then queues
+  a throttled `MovedViewport` (§4.5), so for part of a frame the DOM value and
+  `model.viewport` disagree by design. It is the one piece of state the library
+  deliberately keeps _ahead_ of the Model, and proofs 3b/16 pin the consequences
+  (the terminal commit, and a node drag that must not pan). `XYPanZoom`'s internal
+  transform is listed; the DOM copy is the separate, deliberate one.
+- **The renderer's own caches are read during `view`.** `createRenderer` mutates
+  `indexedBounds`, the endpoint memo and the chrome memos while building the tree.
+  That is purity with respect to the Model, not purity overall, and it is the frame
+  in which both findings live. M3 §10 has the cautionary tale: exposing
+  `cacheSize()` in the demo's markup made the dev server's SSR output disagree with
+  the client's first view.
+
+### 15.4 What the audit did not find, and why that is expected
+
+The two findings are lifecycle bugs, which is what a static read of mutable state
+finds well. It cannot see the class of bug the four post-milestone reports were
+(the wrong layer, not the wrong lifetime) — that is `docs/verification.md`'s job.
+The two documents are complementary and are now cross-referenced from the README.
+
+### 15.5 Verification at this commit
+
+`pnpm typecheck`, `pnpm build`, `pnpm check` (**276** Vitest tests in 27 files, 5
+new), `pnpm bench` **48 passed in 3.3 min**, gate unchanged (625 parity, both 1k
+legs p95 16.8, zero long frames). The two new test groups were run against the
+pre-fix code and failed there (`viewMemo.test.ts` 3/3, `cache.test.ts` "drops the
+chrome memos…").
