@@ -4,6 +4,12 @@ export const Edges = "fflow__edges";
 export const Edge = "fflow__edge";
 export const EdgePath = "fflow__edge-path";
 export const EdgeEndpoint = "fflow__edge-endpoint";
+export const Marker = "fflow__marker";
+export const MarkerPath = "fflow__marker-path";
+/** `fflow__marker--arrow` / `--arrow-closed`, from the kind's name. */
+export const MarkerOf = (kind: string): string =>
+  `fflow__marker--${kind.replace(/([a-z])([A-Z])/g, "$1-$2").toLowerCase()}`;
+export const EdgeLabel = "fflow__edge-label";
 export const Nodes = "fflow__nodes";
 export const Node = "fflow__node";
 export const NodeLabel = "fflow__node-label";

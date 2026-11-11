@@ -149,6 +149,38 @@
   stroke-dasharray: 4 3;
 }
 
+/* Edge markers and labels (§7 M4). The marker is our own glyph; it inherits the
+   edge colour rather than taking a colour from the parent edge, so one <marker>
+   serves every edge that asks for it. `markerUnits="userSpaceOnUse"` (set on the
+   element) is what makes it scale with the viewport instead of with the
+   non-scaling stroke. */
+.fflow__marker--arrow .fflow__marker-path {
+  fill: none;
+  stroke: var(--fflow-edge-stroke);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.fflow__marker--arrow-closed .fflow__marker-path {
+  fill: var(--fflow-edge-stroke);
+  stroke: none;
+}
+
+/* A label is legible over the edge it sits on without a measured box: the halo
+   is the pane's own background painted as a stroke *under* the glyphs
+   (`paint-order`), not a `<rect>` whose size would have to be measured. */
+.fflow__edge-label {
+  fill: var(--fflow-pane-foreground);
+  font-size: 11px;
+  paint-order: stroke;
+  stroke: var(--fflow-pane-background);
+  stroke-width: 4px;
+  stroke-linejoin: round;
+  pointer-events: none;
+  user-select: none;
+}
+
 /* ---------------------------------------------------------------------------
    Chrome (§7 M3): our own design. No upstream stylesheet is imported anywhere
    in this package, so every rule below is written against the `fflow__` prefix

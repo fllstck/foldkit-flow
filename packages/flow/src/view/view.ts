@@ -62,6 +62,7 @@ import { controlsView } from "./controls.js";
 import type { FitViewConfig } from "./controls.js";
 import { descriptionView } from "./description.js";
 import { miniMapView } from "./minimap.js";
+import { markerDefs, markerReference } from "./markers.js";
 import { createNodeCache } from "./nodeCache.js";
 import type { NodeCache } from "./nodeCache.js";
 import { createViewMemo } from "./viewMemo.js";
@@ -505,59 +506,90 @@ export const createRenderer = <NodeData = unknown, EdgeData = unknown>(
         }),
         h.Attribute("aria-hidden", "true"),
       ],
-      edges.flatMap((edge) => {
-        const maybeEndpoints =
-          endpointsByEdgeId.get(edge.id) ?? Option.none<EdgeEndpoints>();
-        if (Option.isNone(maybeEndpoints)) return [];
-        const base = maybeEndpoints.value;
+      [
+        ...markerDefs(edges, config.paneId, h),
+        ...edges.flatMap((edge) => {
+          const maybeEndpoints =
+            endpointsByEdgeId.get(edge.id) ?? Option.none<EdgeEndpoints>();
+          if (Option.isNone(maybeEndpoints)) return [];
+          const base = maybeEndpoints.value;
 
-        // A node being dragged is drawn at `position + delta`, and the parent's
-        // positions are not touched until release (§4.5). An edge attached to it
-        // has to follow the same overlay or it hangs behind the node for the
-        // length of the gesture. Only the anchors of dragged nodes move, so the
-        // memoized geometry above is still reused as-is.
-        const endpoints: EdgeEndpoints = {
-          source: shiftForDrag(base.source, edge.source),
-          target: shiftForDrag(base.target, edge.target),
-        };
+          // A node being dragged is drawn at `position + delta`, and the parent's
+          // positions are not touched until release (§4.5). An edge attached to it
+          // has to follow the same overlay or it hangs behind the node for the
+          // length of the gesture. Only the anchors of dragged nodes move, so the
+          // memoized geometry above is still reused as-is.
+          const endpoints: EdgeEndpoints = {
+            source: shiftForDrag(base.source, edge.source),
+            target: shiftForDrag(base.target, edge.target),
+          };
 
-        const geometry = edgePath(
-          edge.type ?? "Bezier",
-          pathInput(endpoints.source, endpoints.target),
-        );
+          const geometry = edgePath(
+            edge.type ?? "Bezier",
+            pathInput(endpoints.source, endpoints.target),
+          );
 
-        const label =
-          edge.label !== undefined && config.renderEdgeLabel !== undefined
-            ? [
-                h.text(
-                  [
-                    h.Attribute("x", String(geometry.labelX)),
-                    h.Attribute("y", String(geometry.labelY)),
-                    h.Attribute("text-anchor", "middle"),
-                    h.Class(classes.EdgePath),
-                  ],
-                  [edge.label],
-                ),
-              ]
-            : [];
+          // The label is drawn by the library with the consumer's markup when one
+          // is configured, at the path's own label point. The halo is a stroke in
+          // the pane's background colour (see `flow.css`), so a label needs no
+          // measured box to be readable over the edge it sits on.
+          const label =
+            edge.label !== undefined
+              ? [
+                  h.text(
+                    [
+                      h.Attribute("x", String(geometry.labelX)),
+                      h.Attribute("y", String(geometry.labelY)),
+                      h.Attribute("text-anchor", "middle"),
+                      h.Attribute("dominant-baseline", "middle"),
+                      h.Class(classes.EdgeLabel),
+                    ],
+                    [
+                      config.renderEdgeLabel === undefined
+                        ? edge.label
+                        : config.renderEdgeLabel(edge, h),
+                    ],
+                  ),
+                ]
+              : [];
 
-        return [
-          h.keyed("g")(
-            edge.id,
-            [h.Class(classes.Edge), h.DataAttribute("edgeid", edge.id)],
-            [
-              h.path([h.Attribute("d", geometry.d), h.Class(classes.EdgePath)]),
-              ...label,
-              ...(config.reconnect === true
-                ? [
-                    edgeEndpoint(edge.id, "Source", endpoints.source, h),
-                    edgeEndpoint(edge.id, "Target", endpoints.target, h),
-                  ]
-                : []),
-            ],
-          ),
-        ];
-      }),
+          return [
+            h.keyed("g")(
+              edge.id,
+              [h.Class(classes.Edge), h.DataAttribute("edgeid", edge.id)],
+              [
+                h.path([
+                  h.Attribute("d", geometry.d),
+                  h.Class(classes.EdgePath),
+                  ...(edge.markerStart === undefined
+                    ? []
+                    : [
+                        h.Attribute(
+                          "marker-start",
+                          markerReference(config.paneId, edge.markerStart),
+                        ),
+                      ]),
+                  ...(edge.markerEnd === undefined
+                    ? []
+                    : [
+                        h.Attribute(
+                          "marker-end",
+                          markerReference(config.paneId, edge.markerEnd),
+                        ),
+                      ]),
+                ]),
+                ...label,
+                ...(config.reconnect === true
+                  ? [
+                      edgeEndpoint(edge.id, "Source", endpoints.source, h),
+                      edgeEndpoint(edge.id, "Target", endpoints.target, h),
+                    ]
+                  : []),
+              ],
+            ),
+          ];
+        }),
+      ],
     );
 
     const toFlowPoint = (clientX: number, clientY: number): Point =>
