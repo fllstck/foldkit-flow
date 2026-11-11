@@ -21,23 +21,23 @@
         "longFrames": 0
       },
       "pan": {
-        "count": 491,
+        "count": 496,
         "median": 16.7,
-        "p95": 16.8,
+        "p95": 16.7,
         "longest": 33.4,
         "longFrames": 0
       }
     },
     "svelte": {
       "drag": {
-        "count": 500,
+        "count": 497,
         "median": 16.7,
-        "p95": 16.8,
-        "longest": 16.8,
+        "p95": 16.7,
+        "longest": 50,
         "longFrames": 0
       },
       "pan": {
-        "count": 487,
+        "count": 491,
         "median": 16.7,
         "p95": 16.7,
         "longest": 16.8,
@@ -48,12 +48,12 @@
       "drag": {
         "count": 498,
         "median": 16.7,
-        "p95": 16.8,
+        "p95": 16.7,
         "longest": 16.8,
         "longFrames": 0
       },
       "pan": {
-        "count": 480,
+        "count": 476,
         "median": 16.7,
         "p95": 16.8,
         "longest": 16.8,
@@ -63,9 +63,9 @@
   },
   "flow": {
     "updates": 1925,
-    "updateTotalMs": 3.1,
-    "updatePerDispatchMs": 0.0016,
-    "cullScanMs": 0.604,
+    "updateTotalMs": 6.6,
+    "updatePerDispatchMs": 0.0034,
+    "cullScanMs": 0.608,
     "cullScanSamples": 21
   }
 }

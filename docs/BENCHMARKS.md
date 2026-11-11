@@ -108,11 +108,16 @@ parentheses.
 delivered and the node box does not change. The harness reports that as
 unverified rather than recording idle frames (M1-FINDINGS §10).
 
+² 50.0 ms is exactly the class boundary. §4.5 counts a frame as long when it is
+**over** 50 ms, so this is one dropped frame, not a long one — the sort of figure
+that a single "longest frame" column would misreport and that the count does not.
+
 Parity holds where it can be compared: on the 625 fixture React Flow's pan is
-16.7 / 16.8 / 33.4 and Foldkit's is 16.7 / 16.8 / 16.8, so the median and the p95
-are identical and the longest frame is shorter. The 1k legs are inside the 33 ms
-p95 gate; the single 33.4 ms frame is a dropped frame, not a stall, and the 2 %
-bound at 1k is 10 frames.
+16.7 / 16.7 / 33.4 (496 frames) and Foldkit's is 16.7 / 16.8 / 16.8 (476), so the
+median is identical, the p95 is 0.1 ms apart (0.6 %, inside the 10 % rule) and the
+longest frame is half the length. The 1k legs are inside the 33 ms p95 gate; the
+single 33.4 ms frame in each is a dropped frame, not a stall, and the 2 % bound at
+1k is 10 frames.
 
 Per-dispatch and per-scan cost from the same runs:
 
@@ -147,11 +152,11 @@ full pair of runs is in `docs/M5-FINDINGS.md` §2:
 
 | Leg                | before      | after       |
 | ------------------ | ----------- | ----------- |
-| 625                | —           | **0.60 ms** |
-| 1k culled          | 6.02 ms     | **1.20 ms** |
-| 1k culled + chrome | 6.01 ms     | **0.84 ms** |
-| 10k collapsed      | —           | **3.20 ms** |
-| 10k expanded       | 1 807.86 ms | **5.10 ms** |
+| 625                | —           | **0.61 ms** |
+| 1k culled          | 6.02 ms     | **1.22 ms** |
+| 1k culled + chrome | 6.01 ms     | **0.94 ms** |
+| 10k collapsed      | —           | **3.13 ms** |
+| 10k expanded       | 1 807.86 ms | **5.40 ms** |
 
 M4 recorded 2.83 / 6.63 / 6.13 for the three gate legs. Those figures are
 historical, from another commit, and superseded by the rows above.
@@ -162,7 +167,7 @@ short-circuits before the size lookup, so that scan never paid the cost being
 removed. And the 10k expanded "before" figure is not a typo: the old scan took
 **1.8 seconds per call** on that page, which is why its before-run p95 was 5 766 ms.
 
-The scan is now ~3.6 % of a 16.7 ms frame at 625, ~7 % at 1k, and ~30 % at an
+The scan is now ~3.6 % of a 16.7 ms frame at 625, ~7 % at 1k, and ~32 % at an
 expanded 10k. It remains O(N) per viewport frame by design (§4.5); a spatial index
 would make it O(log N) for a graph that needs one, and nothing measured yet does.
 
@@ -177,10 +182,10 @@ measured, so nothing asserts a budget on either.
 | Metric                     | Value                 |
 | -------------------------- | --------------------- |
 | rendered nodes             | 200 of 10,000         |
-| pan frames                 | 248                   |
+| pan frames                 | 247                   |
 | pan median / p95 / longest | 16.7 / 16.8 / 33.3 ms |
 | long frames (> 50 ms)      | 0                     |
-| cull scan per call         | 3.20 ms               |
+| cull scan per call         | 3.13 ms               |
 
 **Expanded** (`/large-expanded.html`, `results/expanded-10k.json`): the same
 10,000 nodes with nothing collapsed, at zoom 1 — 280 nodes and 300 edges are
@@ -190,12 +195,12 @@ inside the culling region, 9,720 nodes and 9,600 edges are not.
 | -------------------------- | --------------------- |
 | rendered nodes             | 280 of 10,000         |
 | rendered edges             | 300 of 9,900          |
-| pan frames                 | 257                   |
-| pan median / p95 / longest | 16.7 / 16.7 / 16.8 ms |
+| pan frames                 | 255                   |
+| pan median / p95 / longest | 16.7 / 16.8 / 33.4 ms |
 | long frames (> 50 ms)      | 0                     |
-| cull scan per call         | 5.10 ms               |
-| time to first view         | 578 ms                |
-| time to settle             | **1 586 ms**          |
+| cull scan per call         | 5.40 ms               |
+| time to first view         | 580 ms                |
+| time to settle             | **1 606 ms**          |
 
 So the frame rate is **not** where 10k breaks. Two things are, and both are
 stated rather than smoothed over:
@@ -206,14 +211,14 @@ stated rather than smoothed over:
   `MutationObserver` each), and only then does the pane's measurement turn culling
   on and cut the DOM back to 280. That is the 1.6 s. It is a startup cost, not a
   frame cost, and it is the first thing a 10k consumer feels.
-- **The culling scan is O(N) per viewport frame** — 5.1 ms of a 16.7 ms frame at
-  an expanded 10k. It still fits, with the whole frame at 16.7 / 16.7 / 16.8, but
+- **The culling scan is O(N) per viewport frame** — 5.4 ms of a 16.7 ms frame at
+  an expanded 10k. It still fits, with the whole frame at 16.7 / 16.8 / 33.4, but
   the headroom is now the scan rather than the renderer.
 
 The structural escape the library offers is `hidden`: collapse a subtree and it is
 not drawn, not measured, not selected, not described, and not scanned past a set
-lookup. That is what turns the collapsed page's 9,720 off-screen nodes into 3.2 ms
-of scan instead of 5.1 ms and — more importantly — into 200 DOM nodes instead of
+lookup. That is what turns the collapsed page's 9,720 off-screen nodes into 3.1 ms
+of scan instead of 5.4 ms and — more importantly — into 200 DOM nodes instead of
 10,000 at startup.
 
 Nothing in M5 changed either startup behaviour. Both are named in the M6 handoff
@@ -233,12 +238,12 @@ start (`results/pan-stall.json`):
 
 | Arm        | frames | median / p95 / longest | long frames |
 | ---------- | ------ | ---------------------- | ----------- |
-| idle       | 288    | 16.7 / 16.8 / 33.4 ms  | 0           |
-| first pan  | 585    | 16.7 / 16.7 / 16.8 ms  | 0           |
-| second pan | 576    | 16.7 / 16.8 / 33.3 ms  | 0           |
-| drag→pan   | 591    | 16.7 / 16.8 / 16.8 ms  | 0           |
+| idle       | 290    | 16.7 / 16.7 / 33.3 ms  | 0           |
+| first pan  | 575    | 16.7 / 16.7 / 16.8 ms  | 0           |
+| second pan | 566    | 16.7 / 16.8 / 16.8 ms  | 0           |
+| drag→pan   | 581    | 16.7 / 16.8 / 16.8 ms  | 0           |
 
-**2,040 frames, zero over 50 ms, worst frame 33.4 ms** — one dropped frame, in the
+**2,012 frames, zero over 50 ms, worst frame 33.3 ms** — one dropped frame, in the
 idle arm, which is the machine and not the gesture. The point of the four arms is
 that a stall belonging to the pan's own work would appear at the start of _both_
 pans and not in the idle window; a stall belonging to the page's first frames
@@ -247,7 +252,7 @@ would appear in the idle arm too. Neither appeared.
 What that does and does not settle:
 
 - **Settled**: the failure is not reproduced at this commit by the arms that would
-  localise it, and the gate's own two 1k legs recorded 0 long frames in 954 pan
+  localise it, and the gate's own two 1k legs recorded 0 long frames in 960 pan
   frames at this commit.
 - **Not settled**: the cause. Twelve invocations is enough to show the rate is far
   below the historical one, not enough to declare a mechanism. The 2 % bound stays

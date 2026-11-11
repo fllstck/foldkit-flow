@@ -59,7 +59,7 @@ M6 verdict has to remove anything: every gap M4 named is exactly as M4 left it.
 | 7  | Interactive edge labels (§8)                    | `edge.label` renders as SVG `<text>`; `renderEdgeLabel` replaces its content, not its interactivity |
 | 8  | Multi-node resize (§8)                          | Single node per gesture. A selection can be dragged together, not resized together |
 | 9  | Handle geometry during a resize (§8)           | Handles are measured on the node's own measurement; a resize writes the box as a measurement, and handle geometry is not re-derived per resize frame |
-| 10 | The culling scan (§6, §7)                      | **Partly moved, not closed.** M5 removed the O(measured) factor the plan named (`nodeSizeOf`'s linear lookup, now an index: 6.0 → 1.2 ms at 1k, 1 808 → 5.1 ms at an expanded 10k). A scan is still O(N) per viewport frame, and whether an index or a coarser cadence is right for 10k is still M6's question |
+| 10 | The culling scan (§6, §7)                      | **Partly moved, not closed.** M5 removed the O(measured) factor the plan named (`nodeSizeOf`'s linear lookup, now an index: 6.0 → 1.2 ms at 1k, 1 808 → 5.4 ms at an expanded 10k). A scan is still O(N) per viewport frame, and whether an index or a coarser cadence is right for 10k is still M6's question |
 | 11 | Edge focus and the tab order (§2.10, §10 a11y) | Unchanged: nodes are focusable, edges are not, and the description lists edges without a focus target |
 
 Item 10's research question should be read as "given the index, what is left?" —
@@ -97,7 +97,7 @@ remember that the same page now has a different first-order cost: **startup**
 ## What M5 found that M6 needs
 
 - **The 10k cost moved from frames to startup.** `/large-expanded.html` pans at
-  16.7 / 16.7 / 16.8 with 280 of 10,000 nodes rendered, but takes **1 586 ms to
+  16.7 / 16.8 / 33.4 with 280 of 10,000 nodes rendered, but takes **1 606 ms to
   settle**, because the first render happens before the pane is measured: culling
   is off for it, so all 10,000 nodes are inserted and all 10,000 Mounts run before
   the pane's measurement cuts the DOM back. This is not on the M6 list — it is a
@@ -181,7 +181,7 @@ at the verdicts; and all four commands green.
 
 ## Open questions for M6
 
-- **Does item 10 still need its own fix?** The scan is 1.2 ms at 1k and 5.1 ms at
+- **Does item 10 still need its own fix?** The scan is 1.2 ms at 1k and 5.4 ms at
   an expanded 10k. If a spatial index is not warranted, the verdict is "keep out,
   with the numbers" — and the claim that pays for it is that a scan is O(N) per
   viewport frame by design (§4.5).
