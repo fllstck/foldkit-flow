@@ -1,13 +1,19 @@
 import { Option } from "effect";
 import { describe, expect, test } from "vitest";
 
-import { nodeBounds } from "./bounds.js";
+import { nodeBounds, nodeSizeOf } from "./bounds.js";
 import { findHandle, handleCenter, isSameHandle } from "./handles.js";
 import { hitTestHandle, oppositeHandleType } from "./hitTest.js";
 import { dragDelta, flowToScreen, screenToFlow } from "./screen.js";
 import { visibleEdges, visibleNodes } from "./visible.js";
 import { Gesture, init } from "../model.js";
-import type { Context, FlowEdge, FlowNode, HandleBounds } from "../model.js";
+import type {
+  Context,
+  FlowEdge,
+  FlowNode,
+  HandleBounds,
+  NodeSize,
+} from "../model.js";
 
 const node = (
   id: string,
@@ -112,6 +118,66 @@ describe("culling", () => {
       width: 300,
       height: 140,
     });
+  });
+});
+
+describe("the measured-size index (M4-FINDINGS §6, §7)", () => {
+  test("the first measurement for an id wins, as the linear find did", () => {
+    const sizes: ReadonlyArray<NodeSize> = [
+      { nodeId: "a", width: 10, height: 20 },
+      { nodeId: "a", width: 30, height: 40 },
+    ];
+
+    expect(nodeSizeOf(node("a", 0, 0), sizes)).toEqual({
+      width: 10,
+      height: 20,
+    });
+  });
+
+  test("an unmeasured node uses its own size, then the shared fallback", () => {
+    expect(nodeSizeOf(node("a", 0, 0), [])).toEqual({ width: 100, height: 40 });
+    expect(
+      nodeSizeOf({ id: "b", position: { x: 0, y: 0 }, data: null }, []),
+    ).toEqual({ width: 151, height: 40 });
+  });
+
+  test("a culling scan does not pay a linear lookup per node", () => {
+    // The scan used to `find` in `nodeSizes` once per node (twice more per edge),
+    // so a 10k scan was O(N × measured): 9.8 s for these twenty scans before the
+    // index (≈490 ms each, dev build), against 6.2–6.8 ms per 1k scan in the
+    // browser (M4-FINDINGS §6). Twenty scans over the same arrays — what a pan
+    // frame does — are ~20 ms now, so 400 ms is a 20x margin over the fix and far
+    // below the scan it replaced.
+    const count = 10_000;
+    const large: ReadonlyArray<FlowNode> = Array.from(
+      { length: count },
+      (_, index) =>
+        node(`n${index}`, (index % 100) * 200, Math.floor(index / 100) * 100),
+    );
+    const sizes: ReadonlyArray<NodeSize> = large.map((entry) => ({
+      nodeId: entry.id,
+      width: 100,
+      height: 40,
+    }));
+    const largeModel = {
+      ...init({ x: 0, y: 0, zoom: 1 }).model,
+      pane: { width: 900, height: 600, left: 0, top: 0 },
+      nodeSizes: sizes,
+    };
+
+    const startedAt = performance.now();
+    const visible = Array.from(
+      { length: 20 },
+      (_, step) =>
+        // A different viewport each time, so every scan really runs.
+        visibleNodes(
+          { ...largeModel, viewport: { x: step * 7, y: 0, zoom: 1 } },
+          large,
+        ).length,
+    );
+
+    expect(visible[0]).toBeGreaterThan(0);
+    expect(performance.now() - startedAt).toBeLessThan(400);
   });
 });
 

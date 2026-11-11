@@ -6,15 +6,59 @@ import type { PositionIndex } from "./positions.js";
 /** Used for edge paths and culling before the node Mount has measured a box. */
 export const fallbackSize: Size = { width: 151, height: 40 };
 
-/** Measured size → the node's own size hint → the shared fallback. */
+/**
+ * Measured sizes by node id, memoized on the `nodeSizes` array's reference —
+ * the same shape as `positionIndex`, and for the same reason: a measurement
+ * commits by replacing the array, so identity is a sound "unchanged".
+ *
+ * Without it `nodeSizeOf` is a linear `find`, and a culling scan is
+ * O(N × measured): 2.8–3.9 ms at 625 nodes and 6.2–6.8 ms at 1k, about a third
+ * of a 16.7 ms frame, with every edge's two endpoints paying the same find
+ * again (M4-FINDINGS §6, §7). The first entry wins, as `find`'s did.
+ *
+ * The stored `Size` is handed out as-is, so callers treat it as read-only — the
+ * rule the Model's own sizes already follow.
+ */
+const sizeMemo: WeakMap<
+  ReadonlyArray<NodeSize>,
+  ReadonlyMap<string, Size>
+> = new WeakMap();
+
+const buildSizeIndex = (
+  nodeSizes: ReadonlyArray<NodeSize>,
+): ReadonlyMap<string, Size> => {
+  const index = new Map<string, Size>();
+  nodeSizes.forEach((size) => {
+    if (!index.has(size.nodeId)) {
+      index.set(size.nodeId, { width: size.width, height: size.height });
+    }
+  });
+  return index;
+};
+
+export const nodeSizeIndex = (
+  nodeSizes: ReadonlyArray<NodeSize>,
+): ReadonlyMap<string, Size> => {
+  const cached = sizeMemo.get(nodeSizes);
+  if (cached !== undefined) return cached;
+
+  const built = buildSizeIndex(nodeSizes);
+  sizeMemo.set(nodeSizes, built);
+  return built;
+};
+
+/**
+ * Measured size → the node's own size hint → the shared fallback.
+ *
+ * The signature is the public one (`README.md`, `Flow.nodeSizeOf`), so the
+ * lookup behind it is an index rather than a scan: see `nodeSizeIndex`.
+ */
 export const nodeSizeOf = (
   node: FlowNode<unknown>,
   nodeSizes: ReadonlyArray<NodeSize>,
 ): Size => {
-  const measured = nodeSizes.find((size) => size.nodeId === node.id);
-  if (measured !== undefined) {
-    return { width: measured.width, height: measured.height };
-  }
+  const measured = nodeSizeIndex(nodeSizes).get(node.id);
+  if (measured !== undefined) return measured;
   if (node.size !== undefined) return node.size;
   return fallbackSize;
 };
