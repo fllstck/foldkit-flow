@@ -21,10 +21,10 @@
         "longFrames": 0
       },
       "pan": {
-        "count": 497,
+        "count": 500,
         "median": 16.7,
-        "p95": 16.7,
-        "longest": 33.2,
+        "p95": 16.8,
+        "longest": 33.4,
         "longFrames": 0
       }
     },
@@ -32,8 +32,8 @@
       "drag": {
         "count": 510,
         "median": 16.7,
-        "p95": 16.7,
-        "longest": 49.9,
+        "p95": 16.8,
+        "longest": 33.3,
         "longFrames": 0
       },
       "pan": {
@@ -48,12 +48,12 @@
       "drag": {
         "count": 497,
         "median": 16.7,
-        "p95": 16.7,
-        "longest": 33.3,
+        "p95": 16.8,
+        "longest": 33.4,
         "longFrames": 0
       },
       "pan": {
-        "count": 497,
+        "count": 495,
         "median": 16.7,
         "p95": 16.8,
         "longest": 33.4,
@@ -63,9 +63,9 @@
   },
   "flow": {
     "updates": 1925,
-    "updateTotalMs": 3.8,
-    "updatePerDispatchMs": 0.002,
-    "cullScanMs": 2.778,
+    "updateTotalMs": 4,
+    "updatePerDispatchMs": 0.0021,
+    "cullScanMs": 2.588,
     "cullScanSamples": 21
   }
 }

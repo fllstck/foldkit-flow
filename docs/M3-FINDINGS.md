@@ -230,17 +230,37 @@ moved something. M3 added a third gate test that measures the **same** fixture w
 all of M3's chrome on (`/large-chrome.html`), so the minimap's 1000 rectangles are
 a measured cost rather than an assumption.
 
-| Run at this commit                 | drag median / p95 / longest | pan median / p95 / longest | long frames (> 50 ms) |
-| ---------------------------------- | --------------------------- | -------------------------- | --------------------- |
-| 1k culled, 10 runs                 | 16.7 / 16.7 / 16.8 (498)    | 16.7 / 16.8 / 33.4 (548)   | drag 0, pan 0         |
-| 1k culled **with chrome**, 10 runs | 16.7 / 16.7 / 33.4 (504)    | 16.7 / 16.8 / 33.4 (578)   | drag 0, pan 0         |
-| 625 comparison, React pan          | drag leg not verifiable     | 16.7 / 16.7 / 33.2 (497)   | 0                     |
-| 625 comparison, Svelte drag / pan  | 16.7 / 16.7 / 49.9 (510)    | 16.7 / 16.7 / 16.8 (488)   | 0                     |
-| 625 comparison, Foldkit drag / pan | 16.7 / 16.7 / 33.3 (497)    | 16.7 / 16.8 / 33.4 (497)   | 0                     |
+Two full gate runs at this commit, because the first one is not the whole story
+(§5.1):
 
-Flow metrics from the same runs: `updatePerDispatchMs` 0.0020 (625) / 0.0024 (1k) /
-0.0025 (1k + chrome), `cullScanMs` 2.78 (625) / 5.75 (1k) / 5.90 (1k + chrome),
-`cullScanSamples` 21 per run. React's drag leg is still unverified by the harness
+| Run at this commit (2 runs)        | drag median / p95 / longest | pan median / p95 / longest | long frames (> 50 ms) |
+| ---------------------------------- | --------------------------- | -------------------------- | --------------------- |
+| 1k culled, run A                   | 16.7 / 16.7 / 16.8 (498)    | 16.7 / 16.8 / 33.4 (548)   | drag 0, pan 0         |
+| 1k culled, run B                   | 16.7 / 16.7 / 16.8 (498)    | 16.7 / 16.8 / 66.7 (551)   | drag 0, **pan 3**     |
+| 1k culled **with chrome**, run A   | 16.7 / 16.7 / 33.4 (504)    | 16.7 / 16.8 / 33.4 (578)   | drag 0, pan 0         |
+| 1k culled **with chrome**, run B   | 16.7 / 16.7 / 16.8 (514)    | 16.7 / 16.8 / 33.4 (602)   | drag 0, pan 0         |
+| 625 comparison, React pan          | drag leg not verifiable     | 16.7 / 16.7 / 33.4 (500)   | 0                     |
+| 625 comparison, Svelte drag / pan  | 16.7 / 16.8 / 33.3 (510)    | 16.7 / 16.7 / 16.8 (488)   | 0                     |
+| 625 comparison, Foldkit drag / pan | 16.7 / 16.8 / 33.4 (497)    | 16.7 / 16.8 / 33.4 (495)   | 0                     |
+
+Flow metrics from the same runs: `updatePerDispatchMs` 0.0021 (625) / 0.0023–0.0024
+(1k) / 0.0025–0.0031 (1k + chrome), `cullScanMs` 2.59–2.78 (625) / 5.78–5.90 (1k and
+1k + chrome), `cullScanSamples` 21 per run. The 1k figures are from
+`packages/benchmark/results/benchmark-1k.json` and `benchmark-1k-chrome.json`,
+which `.gitignore` excludes along with the rest of `results/` except
+`benchmark.json` (the 625 comparison, which is committed); both files are rewritten
+by `pnpm bench`, so the numbers above are reproducible by running the gate.
+
+**Chrome costs nothing measurable.** In both runs the chrome leg's p95 equals the
+bare leg's, its longest frame is 33.4 ms, and it records **0 long frames** — while
+the bare page recorded 0 in one run and 3 in the other. That is the memoization
+doing its job: the minimap rebuilds its `<g>` of 1000 rects only when `nodes` or
+`nodeSizes` change, a pan changes neither, so a pan frame writes the background's
+two style properties and the minimap's viewport rectangle and nothing else. It is
+also not a claim that chrome makes the library faster — the two legs differ by the
+same noise the next section is about.
+
+React's drag leg is still unverified by the harness
 (M1-FINDINGS §10): `CanDrag` is false for it and the JSON records `drag.count: 0`
 with a `dragCoverage` note.
 
@@ -271,11 +291,19 @@ tree at `2c585ab`, three invocations of the 1k gate:
 
 So the baseline is "1–2 long frames at the start of a pan in two invocations of
 three", which is the M2 rate (§4: "0–3 long frames in roughly one invocation in
-three"). At the commit this document describes, the same leg recorded **0 long
-frames in two consecutive runs**, with the same median and p95. Two runs are not
-enough to claim the stall is gone — it was always intermittent — but it does mean
-no M3 frame is being read as it, and the bound stayed where M2 set it (2% of
-recorded frames) rather than being moved to fit a new cost.
+three").
+
+At the commit this document describes, the bare 1k pan leg recorded **0** long
+frames in run A and **3** in run B (longest 66.7 ms); the chrome leg recorded 0 in
+both. So the stall is exactly where M2 left it: intermittent, in the pan leg, at
+the start of the gesture, and _not_ attributable to M3 — it appears in a run whose
+code is identical to the run where it does not, and the leg that carries all of the
+new rendering work is the one that has not produced it. The bound stayed where M2
+set it (2% of recorded frames, 12 of 551 in run B) rather than being moved to fit a
+new cost, and no M3 frame is being read as the old noise. Anyone picking this up
+should treat "3 long frames in one invocation of two" as the current rate of an
+unexplained browser-side stall, not as a regression from a number this milestone
+recorded.
 
 ## 6. Test coverage map for M3
 
