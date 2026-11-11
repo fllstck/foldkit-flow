@@ -62,6 +62,30 @@ pnpm format:check
 pnpm --filter @fllstck/foldkit-flow-benchmark exec playwright test
 ```
 
+`pnpm check` typechecks `packages/example` and `packages/benchmark` against the
+library's `dist/*.d.ts`, so run `pnpm build` first after changing the library's
+public surface.
+
+### The fast loop
+
+The full browser suite is the frame gate and takes ~1.8 min: 3 libraries × 11
+cold loads of the 625-node fixture, then 11 of the 1k fixture, one worker at a
+time because the measured quantity is a frame-time distribution. Run the files
+you touched instead, and save the whole suite for a change to the render path:
+
+```sh
+pkill -f vite   # a preview left running owns port 4173 and the run fails on it
+
+cd packages/benchmark
+pnpm exec playwright test tests/connection.spec.ts   # 4 connection proofs, ~4 s
+pnpm exec playwright test tests/interaction.spec.ts  # pointer layer, ~8 s
+pnpm exec playwright test --grep "1000-node"         # the 1k gate alone, ~26 s
+pnpm exec playwright test tests/bench.spec.ts        # both gate tests, ~1.5 min
+```
+
+Playwright starts the two preview servers itself (`reuseExistingServer`), so a
+targeted run costs a few seconds of server boot on top of the test.
+
 `@enfect/oxlint`'s recommended Effect rules apply to `packages/*/src`; the
 incompatible rules and the reasons for each exception are documented in
 `oxlint.config.ts`. Playwright harnesses are plain browser drivers and are linted
