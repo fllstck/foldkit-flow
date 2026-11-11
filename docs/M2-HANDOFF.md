@@ -1,7 +1,8 @@
 # M2 handoff
 
 This is the starting point for the next session. M0 and M1 are complete; the plan
-was not re-litigated. The repo is on `main`, working tree clean at `898bb46`.
+was not re-litigated. The repo is on `main`, working tree clean at `0a1db9a` (the
+commit that adds this file).
 Commit `c40ae47` is M0 and `a0a3fdc` is the M1 handoff — do not amend either, and
 do not rewrite history. Commit M2 work at logical checkpoints.
 
@@ -13,7 +14,7 @@ do not rewrite history. Commit M2 work at logical checkpoints.
 > `docs/M1-FINDINGS.md` §5–§12, and `docs/M1-REVIEW-3.md`. Do not re-plan or
 > re-litigate the locked decisions. Extend the existing M1 code; run `pnpm check`,
 > `pnpm build`, and `pnpm bench` before claiming anything is done. The tree is
-> clean at `898bb46`; do not amend `c40ae47` or `a0a3fdc`. Commit M2 work at
+> clean at `0a1db9a`; do not amend `c40ae47` or `a0a3fdc`. Commit M2 work at
 > logical checkpoints, and put deviations in `docs/M2-FINDINGS.md`.
 
 ## Current state
@@ -31,7 +32,7 @@ Commits, newest last: `c17964e` (M1 library), `0faf42b` (example + benchmark),
 `4afe982` (findings), `58a1436` (review 1 fixes), `e0ac2ee` (probe timeouts +
 proofs 14–15), `f240d9e` (demo instrumentation), `d78a5ac` (doc counts),
 `cc25b5a` (node press panned; benchmark idle legs), `0039750` (verify every
-scripted gesture; drop `?cull`), `898bb46` (doc evidence).
+scripted gesture; drop `?cull`), `898bb46` (doc evidence), `0a1db9a` (this file).
 
 ## Read first
 
