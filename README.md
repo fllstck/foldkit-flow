@@ -4,7 +4,10 @@ A flow / node-graph canvas for [Foldkit](https://foldkit.dev), in the spirit of
 React Flow and Svelte Flow — but Foldkit-native: one Model, pure `update`, every
 effect at a named seam.
 
-**Status: M2 complete.** The plan is at revision 7, and v0.1 (M0–M2) ships here.
+**Status: M2 complete, M3 next.** The plan is at revision 7, and v0.1 (M0–M2)
+ships here; v1.0 runs to M5. M2's own chrome and a11y work — `Background`,
+`Controls`, `MiniMap`, `Panel`, focusable nodes and the description region — is
+M3, and its starting state is **[docs/M3-HANDOFF.md](docs/M3-HANDOFF.md)**.
 The interaction core (drag, select, delete, connect, reconnect), measured handle
 geometry for both hit-testing and edge endpoints, the `isValidConnection`
 predicate, viewport culling, the renderer node cache, and the performance gate are
@@ -32,6 +35,9 @@ p95 gate. Evidence, deviations, and the retracted measurements are in
   the gotchas the next session should not re-learn.
 - **[docs/M2-FINDINGS.md](docs/M2-FINDINGS.md)** — what M2 shipped, the decisions
   it took, and the proofs that back them.
+- **[docs/M3-HANDOFF.md](docs/M3-HANDOFF.md)** — what M3 inherits, the chrome and
+  a11y scope, and the three gaps a session would otherwise rediscover by building
+  them.
 
 Decisions locked: package `@fllstck/foldkit-flow`; MIT; our own CSS and visual
 identity (no upstream stylesheet, no attribution component); Foldkit-native API

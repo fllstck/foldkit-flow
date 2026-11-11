@@ -50,7 +50,8 @@ M2 findings.
    break by accident.
 4. `docs/PLAN.md` §3.3 — the renderer, `RendererConfig`, and the DOM the renderer
    produces, including the `div.foldkit-flow__controls` / `div.foldkit-flow__minimap`
-   slots the plan reserves as siblings of the viewport.
+   slots the plan reserves as siblings of the viewport (the sketch's prefix predates
+   the `fflow__` one §2.4 settled on).
 5. `docs/PLAN.md` §3.4 — the pure helper surface. `Flow.fitViewport(model, nodes, padding?)`
    is in that list and is **not implemented**; M3's `Controls` fit button needs it.
 6. `docs/PLAN.md` §2.5.6 and §4.5 — culling is derived from the Model's viewport,
