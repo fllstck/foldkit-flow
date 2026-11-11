@@ -52,11 +52,27 @@ const nodeCenter = async (page: Page, nodeId: string) => {
   return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
 };
 
-const paneBox = async (page: Page) => {
-  const box = await page.locator(".fflow__pane").first().boundingBox();
-  if (box === null) throw new Error("pane not found");
-  return box;
-};
+/**
+ * A point inside the pane that nothing is drawn on: the pane itself, not a node,
+ * an edge, or any of M3's chrome. The corners used to be safe by construction
+ * (the graph starts at the viewport's origin), but a panel or a minimap can sit
+ * in a corner, and a proof that presses chrome is measuring the wrong thing.
+ */
+const emptyPanePoint = (page: Page) =>
+  page.evaluate(() => {
+    const pane = document.querySelector(".fflow__pane");
+    const box = pane?.getBoundingClientRect();
+    if (pane === null || box === undefined) throw new Error("pane not found");
+    const fractions = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9];
+    for (const fx of fractions) {
+      for (const fy of fractions) {
+        const x = box.left + box.width * fx;
+        const y = box.top + box.height * fy;
+        if (document.elementFromPoint(x, y) === pane) return { x, y };
+      }
+    }
+    throw new Error("no empty pane point found");
+  });
 
 test("proof 8: a drag moves the node and commits one position update", async ({
   page,
@@ -261,7 +277,6 @@ test("proof 13: a wheel over .fflow__nowheel does not zoom the pane", async ({
   await page.goto(DEMO);
   await waitForMount(page);
 
-  const box = await paneBox(page);
   const before = await attr(page, "data-viewport");
 
   // The opt-out region inside a node wins over zoom (§4.6).
@@ -275,8 +290,9 @@ test("proof 13: a wheel over .fflow__nowheel does not zoom the pane", async ({
   await page.waitForTimeout(250);
   expect(await attr(page, "data-viewport")).toBe(before);
 
-  // The pane itself still zooms.
-  await page.mouse.move(box.x + box.width - 40, box.y + box.height - 40);
+  // The pane itself still zooms, from a point no chrome covers.
+  const empty = await emptyPanePoint(page);
+  await page.mouse.move(empty.x, empty.y);
   await page.mouse.wheel(0, -240);
   await page.waitForTimeout(250);
   expect(await attr(page, "data-viewport")).not.toBe(before);
@@ -418,13 +434,13 @@ test("proof 16: dragging a node does not pan the pane", async ({ page }) => {
   await page.mouse.up();
   await page.waitForTimeout(100);
 
-  // A drag on empty pane still pans. The top-left corner is outside every node
-  // at this viewport, which matters: a press that lands on a node is a node
-  // drag, and the whole point here is that the pane still pans where it should.
-  const paneBounds = await page.locator(".fflow__pane").first().boundingBox();
-  if (paneBounds === null) throw new Error("pane not found");
-  const px = paneBounds.x + 10;
-  const py = paneBounds.y + 10;
+  // A drag on empty pane still pans. The press point has to be on the pane and
+  // not on a node or on chrome, which matters: a press that lands on a node is a
+  // node drag, and the whole point here is that the pane still pans where it
+  // should.
+  const emptyPoint = await emptyPanePoint(page);
+  const px = emptyPoint.x;
+  const py = emptyPoint.y;
   await page.mouse.move(px, py);
   await page.mouse.down();
   for (let step = 1; step <= 6; step += 1) {

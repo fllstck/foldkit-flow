@@ -11,6 +11,7 @@ export default defineConfig({
         svelte: "svelte.html",
         foldkit: "foldkit.html",
         large: "large.html",
+        "large-chrome": "large-chrome.html",
         shadow: "shadow.html",
       },
     },

@@ -174,7 +174,7 @@ test("proof 3: XYPanZoom survives re-renders and a Command can syncViewport it",
   await waitForMount(page);
 
   const before = await styleAttributeOf(page);
-  expect(before).toContain("translate(20px, 30px) scale(0.9)");
+  expect(before).toContain("translate(20px, 200px) scale(0.9)");
 
   await page.click("#rerender");
   await page.waitForFunction(
@@ -315,7 +315,7 @@ test("proof 4: server HTML carries the transform and hydration does not move it"
 }) => {
   const served = await page.request.get(DEMO);
   const html = await served.text();
-  expect(html).toContain("transform: translate(20px, 30px) scale(0.9)");
+  expect(html).toContain("transform: translate(20px, 200px) scale(0.9)");
 
   const noJs = await browser.newContext({ javaScriptEnabled: false });
   const noJsPage = await noJs.newPage();
@@ -323,14 +323,14 @@ test("proof 4: server HTML carries the transform and hydration does not move it"
   const serverTransform = await styleAttributeOf(noJsPage);
   await noJs.close();
 
-  expect(serverTransform).toContain("translate(20px, 30px) scale(0.9)");
+  expect(serverTransform).toContain("translate(20px, 200px) scale(0.9)");
 
   await installStyleObserver(page);
   await page.goto(DEMO);
   await waitForMount(page);
 
   const hydratedTransform = await styleAttributeOf(page);
-  expect(hydratedTransform).toContain("translate(20px, 30px) scale(0.9)");
+  expect(hydratedTransform).toContain("translate(20px, 200px) scale(0.9)");
 
   const changes = await page.evaluate(
     () =>
@@ -345,6 +345,6 @@ test("proof 4: server HTML carries the transform and hydration does not move it"
   );
 
   for (const change of changes) {
-    expect(change.value).toContain("translate(20px, 30px) scale(0.9)");
+    expect(change.value).toContain("translate(20px, 200px) scale(0.9)");
   }
 });

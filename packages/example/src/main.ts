@@ -115,7 +115,9 @@ export type Init = Readonly<{ model: Model }>;
 
 export const init = (): Init => ({
   model: {
-    flow: Flow.init({ x: 20, y: 30, zoom: 0.9 }).model,
+    // Far enough down that the pane's own chrome — the panel at its top-left
+    // corner — does not cover the first row of nodes at the initial viewport.
+    flow: Flow.init({ x: 20, y: 200, zoom: 0.9 }).model,
     graph: buildGraph("Node"),
     label: "Node",
     isFlowMounted: true,
@@ -471,7 +473,17 @@ const renderNode = (
     [h.Class("node-shell")],
     [
       h.span([h.Class("node-label")], [node.data.label]),
-      h.div([h.Class("fflow__nowheel")], ["no zoom"]),
+      // Three things a real node contains, each with a different relationship to
+      // the flow's keyboard and pointer layers: a scroll region that must not
+      // zoom, a focusable no-key region that must not nudge, and a text input
+      // that must not nudge either (§7 M3).
+      h.div([h.Class("fflow__nowheel fflow__nokey"), h.Tabindex(0)], []),
+      h.input([
+        h.Class("node-input fflow__nokey"),
+        h.Type("text"),
+        h.AriaLabel(`Note for ${node.data.label}`),
+        h.Placeholder("note"),
+      ]),
       tools.handle({ id: "in", type: "Target", position: "Left" }),
       tools.handle({ id: "out", type: "Source", position: "Right" }),
     ],
@@ -498,7 +510,7 @@ const renderer = Flow.createRenderer<{ label: string }, unknown>({
  *  through `ViewInput.panel` rather than through the renderer's config. */
 const demoPanel = (h: HtmlBuilder<Message>) =>
   Flow.panel(
-    { position: "TopLeft", label: "Graph actions" },
+    { position: "TopRight", label: "Graph actions" },
     [
       h.span([h.Class("panel-title")], ["Graph"]),
       h.button(

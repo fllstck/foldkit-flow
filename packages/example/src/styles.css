@@ -107,13 +107,29 @@ button:hover {
 }
 
 .node-label {
-  min-width: 96px;
+  min-width: 64px;
+}
+
+/* Small on purpose: a node has to stay narrower than the grid's column pitch,
+   or its neighbours' handles end up inside it (M2 moved the pitch for exactly
+   this reason). */
+.node-input {
+  width: 46px;
+  padding: 1px 3px;
+  border: 1px solid #3a4150;
+  border-radius: 4px;
+  background: #0f1115;
+  color: #e6e8ee;
+  font: inherit;
+  font-size: 10px;
 }
 
 .fflow__nowheel {
+  /* A fixed, small box: it is a scroll region to wheel over, and it must leave
+     the grid's column pitch wide enough for the handles and the reconnect ring
+     that sit between neighbouring nodes (M2-FINDINGS §3). */
+  width: 30px;
+  height: 12px;
   border: 1px dashed #596273;
   border-radius: 4px;
-  padding: 0 6px;
-  color: #9aa3b2;
-  font-size: 10px;
 }

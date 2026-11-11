@@ -4,17 +4,19 @@ A flow / node-graph canvas for [Foldkit](https://foldkit.dev), in the spirit of
 React Flow and Svelte Flow — but Foldkit-native: one Model, pure `update`, every
 effect at a named seam.
 
-**Status: M2 complete, M3 next.** The plan is at revision 7, and v0.1 (M0–M2)
-ships here; v1.0 runs to M5. M2's own chrome and a11y work — `Background`,
-`Controls`, `MiniMap`, `Panel`, focusable nodes and the description region — is
-M3, and its starting state is **[docs/M3-HANDOFF.md](docs/M3-HANDOFF.md)**.
-The interaction core (drag, select, delete, connect, reconnect), measured handle
-geometry for both hit-testing and edge endpoints, the `isValidConnection`
-predicate, viewport culling, the renderer node cache, and the performance gate are
+**Status: M3 complete, M4 next.** The plan is at revision 7; v0.1 shipped at M2,
+and v1.0 runs to M5. M3 added our own chrome (`Background`, `Controls`,
+`MiniMap`, `Panel`) and the accessibility layer (focusable nodes, arrow-key
+nudging, the description region) on top of the interaction core (drag, select,
+delete, connect, reconnect), measured handle geometry, `isValidConnection`,
+viewport culling, and the renderer node cache. The gate is unchanged and still
 green: 625 nodes at parity with React Flow on pan, and 1k culled under the 33 ms
-p95 gate. Evidence, deviations, and the retracted measurements are in
-**[docs/M1-FINDINGS.md](docs/M1-FINDINGS.md)** and
-**[docs/M2-FINDINGS.md](docs/M2-FINDINGS.md)**. Start with:
+p95 gate — including with all of M3's chrome on. Evidence, deviations, and the
+retracted measurements are in
+**[docs/M0-FINDINGS.md](docs/M0-FINDINGS.md)**,
+**[docs/M1-FINDINGS.md](docs/M1-FINDINGS.md)**,
+**[docs/M2-FINDINGS.md](docs/M2-FINDINGS.md)** and
+**[docs/M3-FINDINGS.md](docs/M3-FINDINGS.md)**. Start with:
 
 - **[docs/PLAN.md](docs/PLAN.md)** — the design: ownership split, public API, runtime
   wiring, performance budget, milestones, decisions.
@@ -35,9 +37,11 @@ p95 gate. Evidence, deviations, and the retracted measurements are in
   the gotchas the next session should not re-learn.
 - **[docs/M2-FINDINGS.md](docs/M2-FINDINGS.md)** — what M2 shipped, the decisions
   it took, and the proofs that back them.
-- **[docs/M3-HANDOFF.md](docs/M3-HANDOFF.md)** — what M3 inherits, the chrome and
-  a11y scope, and the three gaps a session would otherwise rediscover by building
-  them.
+- **[docs/M3-HANDOFF.md](docs/M3-HANDOFF.md)** — what M3 inherited, the chrome and
+  a11y scope, and the three gaps it had to close first.
+- **[docs/M3-FINDINGS.md](docs/M3-FINDINGS.md)** — what M3 shipped, the stacking
+  bug its own CSS introduced, the a11y contract, and the gate numbers with chrome
+  on.
 
 Decisions locked: package `@fllstck/foldkit-flow`; MIT; our own CSS and visual
 identity (no upstream stylesheet, no attribution component); Foldkit-native API
@@ -74,19 +78,21 @@ public surface.
 
 ### The fast loop
 
-The full browser suite is the frame gate and takes ~1.8 min: 3 libraries × 11
-cold loads of the 625-node fixture, then 11 of the 1k fixture, one worker at a
-time because the measured quantity is a frame-time distribution. Run the files
-you touched instead, and save the whole suite for a change to the render path:
+The full browser suite is the frame gate and takes ~2.5 min: 3 libraries × 11
+cold loads of the 625-node fixture, then 11 of the 1k fixture, then 11 of the same
+fixture with M3's chrome on, one worker at a time because the measured quantity is
+a frame-time distribution. Run the files you touched instead, and save the whole
+suite for a change to the render path:
 
 ```sh
 pkill -f vite   # a preview left running owns port 4173 and the run fails on it
 
 cd packages/benchmark
-pnpm exec playwright test tests/connection.spec.ts   # 4 connection proofs, ~4 s
-pnpm exec playwright test tests/interaction.spec.ts  # pointer layer, ~8 s
-pnpm exec playwright test --grep "1000-node"         # the 1k gate alone, ~26 s
-pnpm exec playwright test tests/bench.spec.ts        # both gate tests, ~1.5 min
+pnpm exec playwright test tests/chrome.spec.ts       # chrome + a11y proofs, ~9 s
+pnpm exec playwright test tests/connection.spec.ts   # 5 connection proofs, ~5 s
+pnpm exec playwright test tests/interaction.spec.ts  # pointer layer, ~9 s
+pnpm exec playwright test --grep "1000-node"         # both 1k gates, ~53 s
+pnpm exec playwright test tests/bench.spec.ts        # every gate test, ~2.1 min
 ```
 
 Playwright starts the two preview servers itself (`reuseExistingServer`), so a
@@ -174,3 +180,85 @@ centre, and it leaves along the handle's own `position`. An edge that names no
 handle uses the node's first handle of that type; a handle that is unmeasured or
 missing falls back to the node-border anchor, so an edge never disappears because
 measurement has not landed yet.
+
+## Chrome
+
+Chrome is ours: `packages/flow/style/flow.css` is written from scratch against the
+`fflow__` prefix, and no upstream stylesheet or visual component is imported
+(`docs/PLAN.md` §2.4). Every piece of it is off by default and opt-in through
+`createRenderer`:
+
+```ts
+const renderer = Flow.createRenderer({
+  paneId: "main-flow",
+  renderNode,
+  background: { variant: "dots" }, // or { variant: "lines", gap: 30 }
+  controls: true, // zoom in, zoom out, fit
+  minimap: true, // every node + the viewport rectangle
+  accessibleName: (node) => node.data.label, // a11y; see below
+});
+```
+
+| Piece        | What it is                                                                                                                          | Cost it opts into                                                       |
+| ------------ | ----------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `background` | dots or lines, one CSS `background-image` whose position and size follow the viewport transform                                     | two style properties per viewport frame, no elements                    |
+| `controls`   | zoom in / zoom out / fit buttons, dispatching `ClickedZoomIn`, `ClickedZoomOut`, `ClickedFitView`                                   | three buttons; all three messages route to `zoomBy`/`setViewport`       |
+| `minimap`    | every node as a `<rect>` in a `viewBox` of the graph's bounds, plus the pane's rectangle in flow space                              | one memoized `<g>` of `nodes.length` rects, rebuilt only when nodes move |
+| `panel(...)` | a positioned container for your own chrome, threaded through `ViewInput.panel` so its markup stays in your boundary and its buttons dispatch your messages | nothing beyond your markup                                              |
+
+The pattern is transform-aware without being inside the transform: the background
+element is a sibling of `.fflow__viewport`, so the content's `scale()` cannot
+double-apply the zoom. Its `background-position` is the viewport's `x`/`y` and its
+`background-size` is `gap × zoom`, which is what makes it pan and zoom with the
+graph while the dots stay one pixel.
+
+Everything above the viewport is a press target inside the pane, so chrome carries
+`fflow__nopan` (the pane's d3 filter skips it, and `closest` covers its children)
+and `data-fflow-chrome` (the pane's own handler declines it, so a control press
+never clears the selection). A consumer panel built by hand needs both; `panel(...)`
+adds them for you.
+
+**`Flow.fitViewport(model, nodes, padding?)`** is the pure helper behind the fit
+button: `getViewportForBounds` over `nodeBounds`, clamped by the Model's zoom
+bounds, returning the current viewport unchanged for an empty graph or an
+unmeasured pane. Call it from your own `update` and fold `setViewport` if you
+would rather animate the fit yourself.
+
+**Zoom bounds have one source of truth.** `Model.minZoom`/`maxZoom` are seeded by
+`init(viewport, { minZoom, maxZoom })`, passed to the pan/zoom engine as its
+`scaleExtent`, and enforced once in `setViewport`. At a bound a control press
+changes nothing and dispatches nothing — the Model never holds a zoom the engine
+would refuse. (`RendererConfig.minZoom`/`maxZoom` used to be declared and were
+never read; they are gone.)
+
+`Flow.viewportRect(model)` is the pane's box in flow space with no overscan.
+`Flow.visibleRegion` is that box plus one screen on each side — culling's buffer,
+which is exactly what a minimap must **not** draw as the viewport rectangle.
+
+## Accessibility
+
+What the flow provides:
+
+- **Focusable nodes.** Each node wrapper is `tabindex="0"`, `role="button"`,
+  `aria-pressed` (the selection is a toggle), and named by the `accessibleName`
+  hook — falling back to the node id, because the flow cannot read `node.data`.
+  Tab order is the DOM's: nodes are tabbed in render order, with whatever
+  focusable content you put inside them, and Tab is not trapped.
+- **Arrow-key nudging.** With a node focused, arrow keys move it by
+  `Flow.nudgeStep` (1) or `Flow.nudgeLargeStep` (10) with Shift, one `MovedNodes`
+  OutMessage per press. The keys are ignored while the event target is an input,
+  a textarea, a select, `contenteditable`, or inside `.fflow__nokey`, and the
+  page does not scroll (`preventDefault`).
+- **A description region.** A visually hidden `role="region"` listing the summary,
+  each node, and its incoming and outgoing connections — 50 nodes and 6
+  connections per node, with a count of what is omitted. It is **not** a live
+  region: it describes the graph and is memoized on `nodes`/`edges`, so a pan or a
+  drag produces no DOM work in it. It sits beside the viewport, outside the
+  transform.
+- **The minimap is `aria-hidden`** — it is a picture of what the description says
+  in words.
+
+What you have to supply: `accessibleName`, and the same `flow.css`. A node without
+it is announced by its id. If a node contains controls, mark the ones that must not
+trigger the flow's keyboard with `fflow__nokey` (delete, escape, and nudging all
+read that class) and the ones that must not zoom with `fflow__nowheel`.

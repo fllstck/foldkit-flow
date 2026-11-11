@@ -16,6 +16,10 @@ export type BenchPageConfig = Readonly<{
   graph: BenchGraph;
   viewport: { x: number; y: number; zoom: number };
   cull: boolean;
+  /** Draw the M3 chrome (background, controls, minimap). Off for the pages the
+   *  M1/M2 gate measures, so their distribution stays comparable with the
+   *  previous milestones; the chrome cost has its own leg (§7 M3). */
+  chrome?: boolean;
 }>;
 
 /**
@@ -121,10 +125,16 @@ export const mountBenchPage = (config: BenchPageConfig): void => {
     toParentMessage,
   });
 
+  const chrome: Partial<Flow.RendererConfig<{ label: string }, unknown>> =
+    config.chrome === true
+      ? { background: { variant: "dots" }, controls: true, minimap: true }
+      : {};
+
   const renderer = Flow.createRenderer<{ label: string }, unknown>({
     paneId: config.paneId,
     renderNode,
     cull: config.cull,
+    ...chrome,
   });
 
   const view = (model: Model, h: HtmlBuilder<Message>): Html =>

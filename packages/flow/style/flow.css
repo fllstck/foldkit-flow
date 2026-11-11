@@ -159,9 +159,11 @@
   background-repeat: repeat;
 }
 
-.fflow__viewport,
-.fflow__edges,
-.fflow__nodes {
+/* Only the viewport is stacked here. The edges layer and the nodes layer must
+   keep `z-index: auto` so the browser's own painting order decides between them:
+   giving the edges svg an explicit z-index lifted every edge path above every
+   node, which made the edges intercept presses meant for node content. */
+.fflow__viewport {
   z-index: 1;
 }
 

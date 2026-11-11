@@ -466,3 +466,69 @@ test("1000-node culled drag and pan gate", async ({ browser }) => {
   expect(drag.longFrames).toBeLessThanOrEqual(Math.ceil(drag.count * 0.02));
   expect(pan.longFrames).toBeLessThanOrEqual(Math.ceil(pan.count * 0.02));
 });
+
+const largeChromeLibrary: Library = {
+  ...largeLibrary,
+  path: "/large-chrome.html",
+};
+
+test("1000-node culled gate with M3 chrome on", async ({ browser }) => {
+  test.setTimeout(600_000);
+
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  const samples: Sample[] = [];
+
+  const open = async () => {
+    await page.goto("/large-chrome.html");
+    await page.waitForSelector(".fflow__pane", { timeout: 20_000 });
+    await page.waitForSelector('[data-nodeid="n0"]', { timeout: 20_000 });
+    // The chrome has to be there, or this leg measures the bare page again.
+    await page.waitForSelector("[data-fflow-background]", { timeout: 20_000 });
+    await page.waitForSelector("[data-fflow-minimap]", { timeout: 20_000 });
+    await page.waitForTimeout(500);
+    await installRecorder(page);
+  };
+
+  await open();
+  await runOnce(page, largeChromeLibrary);
+
+  for (let run = 0; run < RUNS; run += 1) {
+    await open();
+    samples.push(await runOnce(page, largeChromeLibrary));
+  }
+
+  const metrics = await readFlowMetrics(page);
+  const minimapRects = await page
+    .locator(".fflow__minimap .fflow__minimap-node")
+    .count();
+  await context.close();
+
+  const drag = statsOf(samples.flatMap((sample) => sample.drag));
+  const pan = statsOf(samples.flatMap((sample) => sample.pan));
+
+  const output = {
+    fixture: { nodes: 1000, culling: true, zoom: 1 },
+    chrome: { background: "dots", controls: true, minimap: true, minimapRects },
+    runs: RUNS,
+    browser: "Brave 156.1.98.63 (Chromium 156), headless",
+    machine: "MacBook Air (Apple M5), macOS 26.6.2",
+    drag,
+    pan,
+    flow: metrics,
+  };
+
+  const outPath = resolve(process.cwd(), "results/benchmark-1k-chrome.json");
+  await mkdir(dirname(outPath), { recursive: true });
+  await writeFile(outPath, `${JSON.stringify(output, null, 2)}\n`, "utf8");
+
+  console.log(JSON.stringify(output, null, 2));
+  // The chrome must not move the gate. The minimap draws every node — 1000
+  // rectangles — but memoized on `nodes`/`nodeSizes`, so a pan frame rebuilds
+  // the viewport rectangle and nothing else.
+  expect(minimapRects).toBe(1000);
+  expect(drag.p95).toBeLessThan(33);
+  expect(pan.p95).toBeLessThan(33);
+  expect(drag.longFrames).toBeLessThanOrEqual(Math.ceil(drag.count * 0.02));
+  expect(pan.longFrames).toBeLessThanOrEqual(Math.ceil(pan.count * 0.02));
+});
