@@ -1,6 +1,6 @@
 import { Runtime } from "foldkit";
 
-import { Model, init, update, view } from "./main";
+import { Model, init, subscriptions, update, view } from "./main";
 import "./styles.css";
 
 const application = Runtime.makeApplication({
@@ -8,6 +8,7 @@ const application = Runtime.makeApplication({
   init,
   update,
   view,
+  subscriptions,
   container: document.getElementById("root"),
 });
 

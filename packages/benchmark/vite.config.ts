@@ -10,6 +10,8 @@ export default defineConfig({
         react: "react.html",
         svelte: "svelte.html",
         foldkit: "foldkit.html",
+        large: "large.html",
+        shadow: "shadow.html",
       },
     },
   },

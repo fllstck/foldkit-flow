@@ -1,0 +1,273 @@
+import { expect, test } from "@playwright/test";
+import type { Page } from "@playwright/test";
+
+const DEMO = "http://127.0.0.1:4174/";
+
+const attr = async (page: Page, name: string) =>
+  (await page.locator("main.app").getAttribute(name)) ?? "";
+
+const waitForMount = async (page: Page) => {
+  await page.waitForFunction(() => {
+    const main = document.querySelector("main.app");
+    return (
+      main?.getAttribute("data-measured-nodes") === "625" &&
+      main?.getAttribute("data-pane-mounts") === "1"
+    );
+  });
+};
+
+// Handles carry `data-nodeid` too (the engine's geometry contract), so node
+// selectors are scoped to the node wrapper.
+const nodeTransform = (page: Page, nodeId: string) =>
+  page.evaluate(
+    (id) =>
+      document
+        .querySelector(`.fflow__node[data-nodeid="${id}"]`)
+        ?.getAttribute("style") ?? "",
+    nodeId,
+  );
+
+/** The transform alone: the hydrated DOM normalizes `top: 0` to `top: 0px`, so a
+ *  raw style-string comparison would test the serializer, not the position. */
+const nodeTranslate = async (page: Page, nodeId: string) => {
+  const style = await nodeTransform(page, nodeId);
+  return /translate\([^)]*\)/.exec(style)?.[0] ?? "";
+};
+
+const nodeCenter = async (page: Page, nodeId: string) => {
+  const box = await page
+    .locator(`.fflow__node[data-nodeid="${nodeId}"]`)
+    .first()
+    .boundingBox();
+  if (box === null) throw new Error(`node not found: ${nodeId}`);
+  return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+};
+
+const paneBox = async (page: Page) => {
+  const box = await page.locator(".fflow__pane").first().boundingBox();
+  if (box === null) throw new Error("pane not found");
+  return box;
+};
+
+test("proof 8: a drag moves the node and commits one position update", async ({
+  page,
+}) => {
+  await page.goto(DEMO);
+  await waitForMount(page);
+
+  const before = await nodeTranslate(page, "n0");
+  const { x, y } = await nodeCenter(page, "n0");
+
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  for (let step = 1; step <= 10; step += 1) {
+    await page.mouse.move(x + step * 6, y + step * 4);
+    await page.waitForTimeout(16);
+  }
+  await page.mouse.up();
+  await page.waitForTimeout(150);
+
+  expect(await attr(page, "data-selected-nodes")).toBe("n0");
+  expect(await attr(page, "data-gesture")).toBe("Idle");
+  expect(await nodeTranslate(page, "n0")).not.toBe(before);
+});
+
+test("proof 9: pointer events from another pointer are ignored", async ({
+  page,
+}) => {
+  await page.goto(DEMO);
+  await waitForMount(page);
+
+  const before = await nodeTranslate(page, "n0");
+  const { x, y } = await nodeCenter(page, "n0");
+
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+
+  // A second pointer (a palm on a touch screen, a second mouse) must not steer
+  // the gesture the first one owns.
+  await page.evaluate(
+    ({ clientX, clientY }) => {
+      const pane = document.querySelector(".fflow__pane");
+      pane?.dispatchEvent(
+        new PointerEvent("pointermove", {
+          pointerId: 99,
+          pointerType: "touch",
+          bubbles: true,
+          composed: true,
+          clientX,
+          clientY,
+        }),
+      );
+    },
+    { clientX: x + 400, clientY: y + 300 },
+  );
+  await page.waitForTimeout(50);
+
+  expect(await attr(page, "data-gesture")).toBe("DraggingNodes");
+  expect(await nodeTranslate(page, "n0")).toBe(before);
+
+  await page.mouse.up();
+  await page.waitForTimeout(100);
+});
+
+test("proof 10: pointercancel drops the overlay without committing a move", async ({
+  page,
+}) => {
+  await page.goto(DEMO);
+  await waitForMount(page);
+
+  const before = await nodeTranslate(page, "n0");
+  const { x, y } = await nodeCenter(page, "n0");
+
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  for (let step = 1; step <= 6; step += 1) {
+    await page.mouse.move(x + step * 8, y + step * 6);
+    await page.waitForTimeout(16);
+  }
+  expect(await attr(page, "data-gesture")).toBe("DraggingNodes");
+
+  // The subscription listens on the pane's root (`document` here), which is
+  // where a real `pointercancel` from an OS gesture is dispatched.
+  await page.evaluate(() => {
+    document.dispatchEvent(
+      new PointerEvent("pointercancel", {
+        pointerId: 1,
+        pointerType: "mouse",
+        bubbles: true,
+        composed: true,
+      }),
+    );
+  });
+  await page.waitForTimeout(50);
+
+  expect(await attr(page, "data-gesture")).toBe("Idle");
+  // The overlay is gone and nothing was committed, so the node is back.
+  expect(await nodeTranslate(page, "n0")).toBe(before);
+
+  await page.mouse.up();
+  await page.waitForTimeout(50);
+});
+
+test("proof 11: a handle change re-measures without a remount", async ({
+  page,
+}) => {
+  await page.goto(DEMO);
+  await waitForMount(page);
+
+  const before = Number(await attr(page, "data-handle-measurements"));
+
+  await page.evaluate(() => {
+    const handle = document.querySelector('[data-nodeid="n0"] .fflow__handle');
+    handle?.setAttribute("data-handlepos", "Bottom");
+  });
+
+  await page.waitForFunction(
+    (previous) =>
+      Number(
+        document
+          .querySelector("main.app")
+          ?.getAttribute("data-handle-measurements") ?? "0",
+      ) > previous,
+    before,
+  );
+
+  // A re-measure is not a remount: the pane still has its single Mount.
+  expect(await attr(page, "data-pane-mounts")).toBe("1");
+  expect(await attr(page, "data-measured-nodes")).toBe("625");
+});
+
+test("proof 12: a flow inside a ShadowRoot still drags", async ({ page }) => {
+  await page.goto("/shadow.html");
+  await page.waitForSelector(".fflow__pane", { timeout: 60_000 });
+  await page.waitForTimeout(400);
+
+  const shadowBox = await page.locator("#shadow-host").boundingBox();
+  if (shadowBox === null) throw new Error("shadow host not found");
+
+  const box = await page.evaluate(() => {
+    const host = document.getElementById("shadow-host");
+    const node = host?.shadowRoot?.querySelector(".fflow__node");
+    const rect = node?.getBoundingClientRect();
+    return rect === undefined
+      ? null
+      : { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
+  });
+  if (box === null) throw new Error("shadow node not found");
+
+  const x = box.x + box.width / 2;
+  const y = box.y + box.height / 2;
+
+  const readTransform = () =>
+    page.evaluate(() => {
+      const host = document.getElementById("shadow-host");
+      return (
+        host?.shadowRoot
+          ?.querySelector(".fflow__node")
+          ?.getAttribute("style") ?? null
+      );
+    });
+
+  const before = await readTransform();
+
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  for (let step = 1; step <= 8; step += 1) {
+    await page.mouse.move(x + step * 5, y + step * 3);
+    await page.waitForTimeout(16);
+  }
+
+  expect(await readTransform()).not.toBe(before);
+
+  await page.mouse.up();
+  await page.waitForTimeout(100);
+
+  // The pointer listeners had to attach to the ShadowRoot for the press to
+  // reach the flow at all; the committed position is the proof they did.
+  const after = await page.evaluate(() => {
+    const host = document.getElementById("shadow-host");
+    return (
+      host?.shadowRoot?.querySelector(".fflow__node")?.getAttribute("style") ??
+      null
+    );
+  });
+  expect(after).toContain("translate(40px, 40px)");
+
+  const paneId = await page.evaluate(() => {
+    const host = document.getElementById("shadow-host");
+    return (
+      host?.shadowRoot
+        ?.querySelector(".fflow__pane")
+        ?.getAttribute("data-paneid") ?? null
+    );
+  });
+  expect(paneId).toBe("shadow-pane");
+});
+
+test("proof 13: a wheel over .fflow__nowheel does not zoom the pane", async ({
+  page,
+}) => {
+  await page.goto(DEMO);
+  await waitForMount(page);
+
+  const box = await paneBox(page);
+  const before = await attr(page, "data-viewport");
+
+  // The opt-out region inside a node wins over zoom (§4.6).
+  const nowheel = await page.locator(".fflow__nowheel").first().boundingBox();
+  if (nowheel === null) throw new Error("nowheel region not found");
+  await page.mouse.move(
+    nowheel.x + nowheel.width / 2,
+    nowheel.y + nowheel.height / 2,
+  );
+  await page.mouse.wheel(0, -240);
+  await page.waitForTimeout(250);
+  expect(await attr(page, "data-viewport")).toBe(before);
+
+  // The pane itself still zooms.
+  await page.mouse.move(box.x + box.width - 40, box.y + box.height - 40);
+  await page.mouse.wheel(0, -240);
+  await page.waitForTimeout(250);
+  expect(await attr(page, "data-viewport")).not.toBe(before);
+});

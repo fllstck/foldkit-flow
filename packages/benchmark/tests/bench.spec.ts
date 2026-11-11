@@ -172,10 +172,39 @@ const runOnce = async (
   return readFrames(page);
 };
 
+type FlowMetrics = Readonly<{
+  updates: number;
+  updateTotalMs: number;
+  updatePerDispatchMs: number;
+  cullScanMs: number;
+  cullScanSamples: number;
+}>;
+
+const readFlowMetrics = (page: Page): Promise<FlowMetrics> =>
+  page.evaluate(() => {
+    const stats = window.__flowStats ?? {
+      updateTotalMs: 0,
+      updateCount: 0,
+      cullScanMs: 0,
+      cullScanSamples: 0,
+    };
+    return {
+      updates: stats.updateCount,
+      updateTotalMs: Number(stats.updateTotalMs.toFixed(2)),
+      updatePerDispatchMs:
+        stats.updateCount === 0
+          ? 0
+          : Number((stats.updateTotalMs / stats.updateCount).toFixed(4)),
+      cullScanMs: Number(stats.cullScanMs.toFixed(4)),
+      cullScanSamples: stats.cullScanSamples,
+    };
+  });
+
 test("625-node drag and pan frame times", async ({ browser }) => {
   test.setTimeout(600_000);
 
   const results: Record<string, { drag: Stats; pan: Stats }> = {};
+  const metrics: Record<string, FlowMetrics> = {};
 
   for (const library of libraries) {
     const context = await browser.newContext();
@@ -201,6 +230,10 @@ test("625-node drag and pan frame times", async ({ browser }) => {
       pan: statsOf(samples.flatMap((sample) => sample.pan)),
     };
 
+    if (library.name === "foldkit") {
+      metrics.foldkit = await readFlowMetrics(page);
+    }
+
     await context.close();
   }
 
@@ -210,6 +243,10 @@ test("625-node drag and pan frame times", async ({ browser }) => {
     browser: "Brave 156.1.98.63 (Chromium 156), headless",
     machine: "MacBook Air (Apple M5), macOS 26.6.2",
     libraries: results,
+    // The three extra columns §4.5 asks for: per-dispatch fold cost, the culling
+    // scan, and the interaction frame distribution above. Heap after churn is
+    // not recorded (see docs/M1-FINDINGS.md).
+    flow: metrics.foldkit,
   };
 
   const outPath = resolve(process.cwd(), "results/benchmark.json");
@@ -219,4 +256,69 @@ test("625-node drag and pan frame times", async ({ browser }) => {
   console.log(JSON.stringify(output, null, 2));
   expect(results.react?.drag.count ?? 0).toBeGreaterThan(0);
   expect(results.foldkit?.pan.count ?? 0).toBeGreaterThan(0);
+});
+
+test("1000-node culled drag and pan gate", async ({ browser }) => {
+  test.setTimeout(600_000);
+
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  const samples: Sample[] = [];
+
+  const open = async () => {
+    await page.goto("/large.html");
+    await page.waitForSelector(".fflow__pane", { timeout: 60_000 });
+    await page.waitForSelector('[data-nodeid="n0"]', { timeout: 60_000 });
+    await page.waitForTimeout(500);
+    await installRecorder(page);
+  };
+
+  await open();
+  // Warm-up, discarded.
+  await runOnce(page, {
+    name: "foldkit",
+    path: "/large.html",
+    pane: ".fflow__pane",
+    node: '[data-nodeid="n0"]',
+    ready: ".fflow__pane",
+  });
+
+  for (let run = 0; run < RUNS; run += 1) {
+    await open();
+    samples.push(
+      await runOnce(page, {
+        name: "foldkit",
+        path: "/large.html",
+        pane: ".fflow__pane",
+        node: '[data-nodeid="n0"]',
+        ready: ".fflow__pane",
+      }),
+    );
+  }
+
+  const metrics = await readFlowMetrics(page);
+  await context.close();
+
+  const drag = statsOf(samples.flatMap((sample) => sample.drag));
+  const pan = statsOf(samples.flatMap((sample) => sample.pan));
+
+  const output = {
+    fixture: { nodes: 1000, culling: true, zoom: 1 },
+    runs: RUNS,
+    browser: "Brave 156.1.98.63 (Chromium 156), headless",
+    machine: "MacBook Air (Apple M5), macOS 26.6.2",
+    drag,
+    pan,
+    flow: metrics,
+  };
+
+  const outPath = resolve(process.cwd(), "results/benchmark-1k.json");
+  await mkdir(dirname(outPath), { recursive: true });
+  await writeFile(outPath, `${JSON.stringify(output, null, 2)}\n`, "utf8");
+
+  console.log(JSON.stringify(output, null, 2));
+  expect(drag.p95).toBeLessThan(33);
+  expect(pan.p95).toBeLessThan(33);
+  expect(drag.longFrames).toBe(0);
+  expect(pan.longFrames).toBe(0);
 });

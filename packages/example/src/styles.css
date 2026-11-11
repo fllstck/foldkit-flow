@@ -90,3 +90,30 @@ button:hover {
   box-sizing: border-box;
   font-size: 11px;
 }
+
+.node-shell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-sizing: border-box;
+  padding: 6px 10px;
+  border: 1px solid #3a4150;
+  border-radius: 6px;
+  background: #1b1f27;
+  font-size: 12px;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.node-label {
+  min-width: 96px;
+}
+
+.fflow__nowheel {
+  border: 1px dashed #596273;
+  border-radius: 4px;
+  padding: 0 6px;
+  color: #9aa3b2;
+  font-size: 10px;
+}

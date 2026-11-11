@@ -9,14 +9,14 @@
   "libraries": {
     "react": {
       "drag": {
-        "count": 419,
+        "count": 415,
         "median": 16.7,
-        "p95": 16.8,
-        "longest": 16.8,
+        "p95": 16.7,
+        "longest": 33.4,
         "longFrames": 0
       },
       "pan": {
-        "count": 410,
+        "count": 412,
         "median": 16.7,
         "p95": 16.7,
         "longest": 16.8,
@@ -25,26 +25,26 @@
     },
     "svelte": {
       "drag": {
-        "count": 415,
+        "count": 413,
         "median": 16.7,
         "p95": 16.7,
         "longest": 16.8,
         "longFrames": 0
       },
       "pan": {
-        "count": 402,
+        "count": 401,
         "median": 16.7,
-        "p95": 16.7,
+        "p95": 16.8,
         "longest": 16.8,
         "longFrames": 0
       }
     },
     "foldkit": {
       "drag": {
-        "count": 417,
+        "count": 426,
         "median": 16.7,
-        "p95": 16.7,
-        "longest": 16.8,
+        "p95": 16.8,
+        "longest": 33.3,
         "longFrames": 0
       },
       "pan": {
@@ -55,5 +55,12 @@
         "longFrames": 0
       }
     }
+  },
+  "flow": {
+    "updates": 1923,
+    "updateTotalMs": 2.9,
+    "updatePerDispatchMs": 0.0015,
+    "cullScanMs": 4.332,
+    "cullScanSamples": 41
   }
 }
