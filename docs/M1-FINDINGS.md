@@ -201,6 +201,9 @@ Beyond §3.3/§3.4:
 | zoom leaves bounds alone             | `src/state.test.ts`                                                    |
 | `informGraphChanged`                 | `src/state.test.ts` (`graph reconciliation`)                           |
 | connection start/hover/complete      | `src/state.test.ts` (`connections`, incl. `Command.expectExact`)       |
+| connection anchor follows handle id  | `src/geometry/geometry.test.ts`, `src/view/connection.test.ts`         |
+| culling keeps dragged nodes/edges    | `src/view/culling.test.ts`, Playwright proof 15                        |
+| additive press from the DOM          | Playwright proof 14, `src/state.test.ts` (modifier state)              |
 | viewport commit                      | `src/state.test.ts` (`viewport`), M0 `update.test.ts`                  |
 | screen/flow, culling, hit-testing    | `src/geometry/geometry.test.ts`                                        |
 | cache hit/miss/sweep/dispose         | `src/view/cache.test.ts` (two passes inside one runtime frame)         |
@@ -223,3 +226,98 @@ geometry contract), so node selectors must be scoped to `.fflow__node`.
   (M2). The predicate is a one-line addition to the `Connecting` release path.
 - No fit-view control, minimap, background, or focus/keyboard navigation (M3).
 - Heap-after-churn is not measured (§1).
+
+## 6. Response to `docs/M1-REVIEW.md`
+
+Three findings, all addressed in code with tests that fail without the fix.
+
+### 6.1 High — connection preview ignored the selected handle id
+
+Correct, and it was two sites, not one. The renderer's preview anchor compared
+`nodeId` + `type` only, and `update`'s connection-start anchor compared
+`nodeId` + `handleId` while dropping `type` — either way the identity was
+incomplete the moment a node declared two handles of the same kind.
+
+Fix: `geometry/handles.ts` owns the one comparison —
+`isSameHandle(ref, bounds)` = `nodeId` + `type` + `handleId`, with
+`Option.getOrUndefined` on both sides so an unset id matches an unset measured
+id. `findHandle` and `handleCenter` are built on it, and both `update`
+(`StartedConnection`'s start point) and the renderer (preview anchor) now call
+`handleCenter` instead of carrying their own `find`.
+
+Tests:
+
+- `src/geometry/geometry.test.ts` → `handle identity`: two same-type handles,
+  identity comparison, unset-id matching, `findHandle`/`handleCenter` on the
+  requested handle, missing handle → `None`.
+- `src/view/connection.test.ts` → renders a real `Connecting` gesture through
+  the renderer and asserts the emitted `d` string: `handleId: "out-b"` anchors at
+  `M204,70`, `"out-a"` at `M104,70`. Without the fix both render `M104,70`.
+
+### 6.2 Medium — culling could remove a node during a drag
+
+Accepted as a defect, not a documented gap. The rendered node set is now
+`visible ∪ dragged` (and edges are kept when either endpoint is dragged), so a
+node cannot disappear from under the pointer that owns the gesture. See §2.5
+item 3.
+
+The review's suggested browser test ("drag past the overscan, assert it stays
+rendered") cannot fail on the current demo: the demo only applies `MovedNodes` on
+release, so the _graph_ position — the only input to culling — never leaves the
+region during the gesture. I wrote that proof, watched it pass with the fix
+reverted, and moved the invariant to `src/view/culling.test.ts`, where it does
+have teeth:
+
+- `renders the viewport plus one screen of overscan` (control)
+- `a dragged node stays rendered while its graph position is outside` — fails
+  with the union removed
+- `an idle node outside the region stays culled` (so the union is not a blanket
+  "render everything")
+- `an edge carried by a dragged node is rendered with it` — fails with the
+  edge half removed
+
+`tests/interaction.spec.ts` proof 15 keeps the end-to-end half: culling is
+active (`165` of `625` nodes rendered at 900×600/0.9), the node keeps its element
+and its overlay transform through a drag that pushes the pointer 6,000 px past
+the pane.
+
+### 6.3 Medium — additive selection was unreachable from the pointer layer
+
+The review offered two resolutions. The first is not possible as stated:
+Foldkit's `h.OnPointerDown` callback receives `(pointerType, button, screenX,
+screenY, timeStamp, clientX, clientY, pointerId, target)` — `KeyboardModifiers`
+is extracted from `KeyboardEvent` only, so a pointer press carries no modifier
+state and there is nothing to read.
+
+Resolved the other way, by making it reachable:
+
+- `Message.ChangedModifierState({ isAdditive })` + `model.isAdditiveModifier`.
+- A `modifierKeys` subscription on the pane root maps Shift/Meta/Control
+  `keydown`/`keyup` to that Message, using the event's own flags (which already
+  reflect the state after the key change, so releasing one of two held modifiers
+  is correct), plus a `window` `blur` reset so an alt-tab that swallows the
+  `keyup` cannot leave every later press additive.
+- The renderer stamps `isAdditive: model.isAdditiveModifier` onto `PressedNode`
+  and `PressedPane`, so §4.6's additive semantics now work from a real browser
+  press with no consumer plumbing.
+
+Tests: `src/state.test.ts` → `the additive modifier is tracked in the Model`
+(set and clear); `tests/interaction.spec.ts` proof 14 → click `n0`, hold Shift,
+click `n1` (`data-selected-nodes` becomes `n0,n1`), release Shift, click `n2`
+(selection becomes `n2`). The demo exposes `data-additive` so the proof waits on
+the state instead of racing the key event.
+
+### 6.4 Harness — why the suite felt slow, and the fix
+
+Not rendering: `page.waitForFunction` has **no default timeout** in Playwright (it
+inherits the 600 s test budget), so one assertion that never becomes true hangs
+for ten minutes instead of failing. Two of my own M1 proofs did exactly that
+(`data-handlepos` measurement and the ShadowRoot pane), which is what made runs
+feel unbounded.
+
+Every `waitForFunction` in `proofs.spec.ts` and `interaction.spec.ts` now passes
+an explicit `WAIT = { timeout: 15_000 }`, and the heavy-page `waitForSelector`
+calls use 20 s. The suite's cost is now dominated by what it actually does: 33
+cold page loads of the 625-node fixture (11 per library, warm-up discarded) plus
+11 of the 1k fixture, which is the §4.5 protocol, and 14 tests complete in 1 m
+38 s.

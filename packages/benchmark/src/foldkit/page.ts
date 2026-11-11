@@ -89,6 +89,7 @@ export const mountBenchPage = (config: BenchPageConfig): void => {
           CancelledGesture: () => model.measured,
           PressedDeleteKey: () => model.measured,
           PressedEscape: () => model.measured,
+          ChangedModifierState: () => model.measured,
           StartedConnection: () => model.measured,
           HoveredHandle: () => model.measured,
           CompletedSyncViewport: () => model.measured,

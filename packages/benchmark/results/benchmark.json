@@ -9,14 +9,14 @@
   "libraries": {
     "react": {
       "drag": {
-        "count": 415,
+        "count": 417,
         "median": 16.7,
-        "p95": 16.7,
-        "longest": 33.4,
+        "p95": 16.8,
+        "longest": 16.8,
         "longFrames": 0
       },
       "pan": {
-        "count": 412,
+        "count": 406,
         "median": 16.7,
         "p95": 16.7,
         "longest": 16.8,
@@ -25,14 +25,14 @@
     },
     "svelte": {
       "drag": {
-        "count": 413,
+        "count": 414,
         "median": 16.7,
-        "p95": 16.7,
-        "longest": 16.8,
+        "p95": 16.8,
+        "longest": 33.4,
         "longFrames": 0
       },
       "pan": {
-        "count": 401,
+        "count": 403,
         "median": 16.7,
         "p95": 16.8,
         "longest": 16.8,
@@ -43,7 +43,7 @@
       "drag": {
         "count": 426,
         "median": 16.7,
-        "p95": 16.8,
+        "p95": 16.7,
         "longest": 33.3,
         "longFrames": 0
       },
@@ -60,7 +60,7 @@
     "updates": 1923,
     "updateTotalMs": 2.9,
     "updatePerDispatchMs": 0.0015,
-    "cullScanMs": 4.332,
+    "cullScanMs": 4.818,
     "cullScanSamples": 41
   }
 }

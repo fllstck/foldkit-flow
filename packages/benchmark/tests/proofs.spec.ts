@@ -3,17 +3,25 @@ import type { Page } from "@playwright/test";
 
 const DEMO = "http://127.0.0.1:4174/";
 
+/** Explicit short waits: `waitForFunction` has no default timeout, so a broken
+ *  assertion would otherwise run to the 600 s test budget. */
+const WAIT = { timeout: 15_000 } as const;
+
 const attr = async (page: Page, name: string) =>
   (await page.locator("main.app").getAttribute(name)) ?? "";
 
 const waitForMount = async (page: Page) => {
-  await page.waitForFunction(() => {
-    const main = document.querySelector("main.app");
-    return (
-      main?.getAttribute("data-measured-nodes") === "625" &&
-      main?.getAttribute("data-pane-mounts") === "1"
-    );
-  });
+  await page.waitForFunction(
+    () => {
+      const main = document.querySelector("main.app");
+      return (
+        main?.getAttribute("data-measured-nodes") === "625" &&
+        main?.getAttribute("data-pane-mounts") === "1"
+      );
+    },
+    undefined,
+    WAIT,
+  );
 };
 
 const styleAttributeOf = (page: Page) =>
@@ -136,6 +144,8 @@ test("proof 2: a re-render does not restart the node or pane Mounts", async ({
     () =>
       document.querySelector("main.app")?.getAttribute("data-label") ===
       "Rerendered",
+    undefined,
+    WAIT,
   );
   await page.waitForTimeout(300);
 
@@ -171,6 +181,8 @@ test("proof 3: XYPanZoom survives re-renders and a Command can syncViewport it",
     () =>
       document.querySelector("main.app")?.getAttribute("data-label") ===
       "Rerendered",
+    undefined,
+    WAIT,
   );
 
   await installViewportRecorder(page);
@@ -178,6 +190,8 @@ test("proof 3: XYPanZoom survives re-renders and a Command can syncViewport it",
   await page.waitForFunction(
     () =>
       document.querySelector("main.app")?.getAttribute("data-syncs") === "1",
+    undefined,
+    WAIT,
   );
   await page.waitForTimeout(300);
 
@@ -206,6 +220,8 @@ test("proof 3: XYPanZoom survives re-renders and a Command can syncViewport it",
   await page.waitForFunction(
     () =>
       document.querySelector("main.app")?.getAttribute("data-label") === "Node",
+    undefined,
+    WAIT,
   );
   await page.waitForTimeout(300);
   expect(await attr(page, "data-viewport")).toBe("-200,-100,1.25");
@@ -222,13 +238,17 @@ test("proof 3: XYPanZoom survives re-renders and a Command can syncViewport it",
   expect(await page.locator(".fflow__pane").count()).toBe(0);
 
   await page.click("#toggle-flow");
-  await page.waitForFunction(() => {
-    const main = document.querySelector("main.app");
-    return (
-      main?.getAttribute("data-pane-mounts") === "2" &&
-      document.querySelector(".fflow__pane") !== null
-    );
-  });
+  await page.waitForFunction(
+    () => {
+      const main = document.querySelector("main.app");
+      return (
+        main?.getAttribute("data-pane-mounts") === "2" &&
+        document.querySelector(".fflow__pane") !== null
+      );
+    },
+    undefined,
+    WAIT,
+  );
   expect(await attr(page, "data-viewport")).toBe("-200,-100,1.25");
   expect(parseTransform(await styleAttributeOf(page))).toEqual({
     x: -200,
@@ -276,6 +296,8 @@ test("proof 3b: a pointer pan commits the terminal viewport to the Model", async
     () =>
       document.querySelector("main.app")?.getAttribute("data-label") ===
       "Rerendered",
+    undefined,
+    WAIT,
   );
   await page.waitForTimeout(300);
   expect(parseTransform(await styleAttributeOf(page))).toEqual(committed);

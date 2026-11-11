@@ -3,17 +3,26 @@ import type { Page } from "@playwright/test";
 
 const DEMO = "http://127.0.0.1:4174/";
 
+/** Waits are explicit and short: `page.waitForFunction` defaults to no timeout,
+ *  so a selector that never matches would burn the whole 600 s test budget
+ *  instead of failing. */
+const WAIT = { timeout: 15_000 } as const;
+
 const attr = async (page: Page, name: string) =>
   (await page.locator("main.app").getAttribute(name)) ?? "";
 
 const waitForMount = async (page: Page) => {
-  await page.waitForFunction(() => {
-    const main = document.querySelector("main.app");
-    return (
-      main?.getAttribute("data-measured-nodes") === "625" &&
-      main?.getAttribute("data-pane-mounts") === "1"
-    );
-  });
+  await page.waitForFunction(
+    () => {
+      const main = document.querySelector("main.app");
+      return (
+        main?.getAttribute("data-measured-nodes") === "625" &&
+        main?.getAttribute("data-pane-mounts") === "1"
+      );
+    },
+    undefined,
+    WAIT,
+  );
 };
 
 // Handles carry `data-nodeid` too (the engine's geometry contract), so node
@@ -171,6 +180,7 @@ test("proof 11: a handle change re-measures without a remount", async ({
           ?.getAttribute("data-handle-measurements") ?? "0",
       ) > previous,
     before,
+    WAIT,
   );
 
   // A re-measure is not a remount: the pane still has its single Mount.
@@ -180,7 +190,7 @@ test("proof 11: a handle change re-measures without a remount", async ({
 
 test("proof 12: a flow inside a ShadowRoot still drags", async ({ page }) => {
   await page.goto("/shadow.html");
-  await page.waitForSelector(".fflow__pane", { timeout: 60_000 });
+  await page.waitForSelector(".fflow__pane", { timeout: 20_000 });
   await page.waitForTimeout(400);
 
   const shadowBox = await page.locator("#shadow-host").boundingBox();
@@ -270,4 +280,103 @@ test("proof 13: a wheel over .fflow__nowheel does not zoom the pane", async ({
   await page.mouse.wheel(0, -240);
   await page.waitForTimeout(250);
   expect(await attr(page, "data-viewport")).not.toBe(before);
+});
+
+test("proof 14: holding a modifier makes presses additive", async ({
+  page,
+}) => {
+  await page.goto(DEMO);
+  await waitForMount(page);
+
+  const first = await nodeCenter(page, "n0");
+  await page.mouse.click(first.x, first.y);
+  await page.waitForTimeout(50);
+  expect(await attr(page, "data-selected-nodes")).toBe("n0");
+
+  // Shift reaches the flow through the modifier subscription, not the pointer
+  // event: Foldkit's `OnPointerDown` carries no modifier state.
+  await page.keyboard.down("Shift");
+  await page.waitForFunction(
+    () =>
+      document.querySelector("main.app")?.getAttribute("data-additive") ===
+      "true",
+    undefined,
+    WAIT,
+  );
+
+  const second = await nodeCenter(page, "n1");
+  await page.mouse.click(second.x, second.y);
+  await page.waitForTimeout(50);
+  expect(await attr(page, "data-selected-nodes")).toBe("n0,n1");
+
+  await page.keyboard.up("Shift");
+  await page.waitForFunction(
+    () =>
+      document.querySelector("main.app")?.getAttribute("data-additive") ===
+      "false",
+    undefined,
+    WAIT,
+  );
+
+  // Without the modifier a press replaces the selection.
+  const third = await nodeCenter(page, "n2");
+  await page.mouse.click(third.x, third.y);
+  await page.waitForTimeout(50);
+  expect(await attr(page, "data-selected-nodes")).toBe("n2");
+});
+
+test("proof 15: culling renders only the viewport and still drags", async ({
+  page,
+}) => {
+  await page.goto(`${DEMO}?cull=1`);
+  await waitForMount(page);
+
+  // Culling is active: the grid is wider than the viewport plus its overscan.
+  // `node-count` lives on the pane (it is the renderer's own count), not on the
+  // harness's `main.app` element.
+  expect(await attr(page, "data-culled")).toBe("true");
+  const rendered = Number(
+    await page.locator(".fflow__pane").getAttribute("data-node-count"),
+  );
+  expect(rendered).toBeGreaterThan(0);
+  expect(rendered).toBeLessThan(625);
+
+  const node = page.locator('.fflow__node[data-nodeid="n0"]');
+  const box = await node.boundingBox();
+  if (box === null) throw new Error("node n0 is not rendered");
+
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+
+  // Push the pointer far past the overscan. The mouse cannot leave the window,
+  // so the drag continues with a synthetic move from the same pointer.
+  await page.evaluate(
+    ({ clientX, clientY }) => {
+      document.querySelector(".fflow__pane")?.dispatchEvent(
+        new PointerEvent("pointermove", {
+          pointerId: 1,
+          pointerType: "mouse",
+          bubbles: true,
+          composed: true,
+          clientX,
+          clientY,
+        }),
+      );
+    },
+    { clientX: box.x + 6000, clientY: box.y },
+  );
+  await page.waitForTimeout(80);
+
+  expect(await attr(page, "data-gesture")).toBe("DraggingNodes");
+  // The node keeps its element and its overlay transform for the whole gesture,
+  // which is the end-to-end half of the retention rule; the culling filter's own
+  // invariant (a node whose *graph* position is outside the region but which is
+  // being dragged stays rendered) is pinned in `src/view/culling.test.ts`,
+  // because this demo does not commit positions per frame.
+  expect(await page.locator('.fflow__node[data-nodeid="n0"]').count()).toBe(1);
+  const during = await nodeTranslate(page, "n0");
+  expect(during).not.toBe("translate(0px, 0px)");
+
+  await page.mouse.up();
+  await page.waitForTimeout(100);
 });
