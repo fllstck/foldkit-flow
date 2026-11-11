@@ -195,6 +195,7 @@ const countMessage = (stats: Stats, message: Flow.Message): Stats =>
     ClickedZoomOut: () => stats,
     ClickedFitView: () => stats,
     NudgedNode: () => stats,
+    ActivatedNode: () => stats,
   });
 
 const applyPositions = (

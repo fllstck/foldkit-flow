@@ -12,14 +12,14 @@ numbers; every earlier figure in this document is historical and marked as such.
 | Check                                          | Result                                                                |
 | ---------------------------------------------- | --------------------------------------------------------------------- |
 | `pnpm build`                                   | flow → example → benchmark                                            |
-| `pnpm check`                                   | typecheck, Enfect lint, Prettier, **176** Vitest tests green          |
-| `packages/flow` unit tests                     | 176 in 19 files (M2 had 123 in 14)                                    |
-| `packages/benchmark/tests/chrome.spec.ts`      | 10 passed (M3 proofs 22–30)                                           |
+| `pnpm check`                                   | typecheck, Enfect lint, Prettier, **184** Vitest tests green          |
+| `packages/flow` unit tests                     | 184 in 19 files (M2 had 123 in 14)                                    |
+| `packages/benchmark/tests/chrome.spec.ts`      | 11 passed (M3 proofs 22–31)                                           |
 | `packages/benchmark/tests/connection.spec.ts`  | 5 passed (M2 proofs 17–21)                                            |
 | `packages/benchmark/tests/interaction.spec.ts` | 9 passed (M1 proofs 8–16)                                             |
 | `packages/benchmark/tests/proofs.spec.ts`      | 4 passed (M0 proofs 2, 3, 3b, 4)                                      |
 | `packages/benchmark/tests/bench.spec.ts`       | 3 passed (625 comparison, 1k culled gate, 1k culled gate with chrome) |
-| whole Playwright suite                         | 31 tests = 28 proof tests + 3 gate tests, 31 passed in 2 m 30 s       |
+| whole Playwright suite                         | 32 tests = 29 proof tests + 3 gate tests, 32 passed in 2 m 30 s       |
 
 `pnpm check` still needs a build first when the public surface changed: the
 example and the benchmark typecheck against the library's `dist/*.d.ts`. That is
@@ -57,7 +57,8 @@ the M2 trap, unchanged.
 8. **Focusable nodes** — `tabindex="0"`, `role="button"`, `aria-pressed` (the
    selection is a toggle), `aria-label` from a new `RendererConfig.accessibleName`
    hook with the node id as fallback. The focus ring is ours and lives on the
-   wrapper.
+   wrapper. Enter and Space activate the focused node (`Message.ActivatedNode`),
+   so the role's keyboard contract is honoured rather than advertised (§8.2).
 9. **Arrow-key nudging** — `Message.NudgedNode({ nodeId, delta })` from the
    keyboard subscription, `OutMessage.MovedNodes` for one node, one per press.
    `nudgeDelta` (pure) maps the four arrows and Shift; the existing
@@ -67,9 +68,10 @@ the M2 trap, unchanged.
     memoized on `nodes`/`edges` (§4.3 of the handoff: "a live region that changes
     60×/s is worse than none"). Not a live region at all; 50 nodes and 6
     connections per node, with counts of what is omitted.
-11. **Tests** — 53 new Vitest tests (fit, viewportRect, nudge, domTarget chrome and
-    focus guards, chrome rendering, the description text, chrome Messages in
-    `state.test.ts`), and 10 new Playwright proofs.
+11. **Tests** — 61 new Vitest tests (fit, viewportRect, nudge, domTarget chrome and
+    focus guards, chrome rendering, the description text, chrome Messages and
+    keyboard activation in `state.test.ts`, description memo identity), and 10 new
+    Playwright proofs (22–30) plus proof 31 for keyboard activation (§8.2).
 
 ## 2. Where the code differs from `PLAN.md`
 
@@ -233,32 +235,34 @@ a measured cost rather than an assumption.
 Two full gate runs at this commit, because the first one is not the whole story
 (§5.1):
 
-| Run at this commit (2 runs)        | drag median / p95 / longest | pan median / p95 / longest | long frames (> 50 ms) |
+| Run at this commit (3 runs)        | drag median / p95 / longest | pan median / p95 / longest | long frames (> 50 ms) |
 | ---------------------------------- | --------------------------- | -------------------------- | --------------------- |
-| 1k culled, run A                   | 16.7 / 16.7 / 16.8 (498)    | 16.7 / 16.8 / 33.4 (548)   | drag 0, pan 0         |
-| 1k culled, run B                   | 16.7 / 16.7 / 16.8 (498)    | 16.7 / 16.8 / 66.7 (551)   | drag 0, **pan 3**     |
+| 1k culled, run A (pre-review)      | 16.7 / 16.7 / 16.8 (498)    | 16.7 / 16.8 / 33.4 (548)   | drag 0, pan 0         |
+| 1k culled, run B (pre-review)      | 16.7 / 16.7 / 16.8 (498)    | 16.7 / 16.8 / 66.7 (551)   | drag 0, **pan 3**     |
+| 1k culled, run C (this commit)     | 16.7 / 16.8 / 16.8 (495)    | 16.7 / 16.8 / 66.7 (505)   | drag 0, **pan 3**     |
 | 1k culled **with chrome**, run A   | 16.7 / 16.7 / 33.4 (504)    | 16.7 / 16.8 / 33.4 (578)   | drag 0, pan 0         |
 | 1k culled **with chrome**, run B   | 16.7 / 16.7 / 16.8 (514)    | 16.7 / 16.8 / 33.4 (602)   | drag 0, pan 0         |
-| 625 comparison, React pan          | drag leg not verifiable     | 16.7 / 16.7 / 33.4 (500)   | 0                     |
-| 625 comparison, Svelte drag / pan  | 16.7 / 16.8 / 33.3 (510)    | 16.7 / 16.7 / 16.8 (488)   | 0                     |
-| 625 comparison, Foldkit drag / pan | 16.7 / 16.8 / 33.4 (497)    | 16.7 / 16.8 / 33.4 (495)   | 0                     |
+| 1k culled **with chrome**, run C   | 16.7 / 16.7 / 33.4 (501)    | 16.7 / 16.8 / 16.8 (515)   | drag 0, pan 0         |
+| 625 comparison, React pan          | drag leg not verifiable     | 16.7 / 16.8 / 33.3 (496)   | 0                     |
+| 625 comparison, Svelte drag / pan  | 16.7 / 16.7 / 33.3 (500)    | 16.7 / 16.7 / 16.8 (492)   | 0                     |
+| 625 comparison, Foldkit drag / pan | 16.7 / 16.7 / 33.3 (498)    | 16.7 / 16.8 / 33.4 (480)   | 0                     |
 
-Flow metrics from the same runs: `updatePerDispatchMs` 0.0021 (625) / 0.0023–0.0024
-(1k) / 0.0025–0.0031 (1k + chrome), `cullScanMs` 2.59–2.78 (625) / 5.78–5.90 (1k and
-1k + chrome), `cullScanSamples` 21 per run. The 1k figures are from
+Flow metrics from the same runs: `updatePerDispatchMs` 0.0019–0.0027 across the
+three legs, `cullScanMs` 2.55 (625) / 5.72–5.81 (1k and 1k + chrome),
+`cullScanSamples` 21 per run. The 1k figures are from
 `packages/benchmark/results/benchmark-1k.json` and `benchmark-1k-chrome.json`,
 which `.gitignore` excludes along with the rest of `results/` except
 `benchmark.json` (the 625 comparison, which is committed); both files are rewritten
 by `pnpm bench`, so the numbers above are reproducible by running the gate.
 
-**Chrome costs nothing measurable.** In both runs the chrome leg's p95 equals the
-bare leg's, its longest frame is 33.4 ms, and it records **0 long frames** — while
-the bare page recorded 0 in one run and 3 in the other. That is the memoization
-doing its job: the minimap rebuilds its `<g>` of 1000 rects only when `nodes` or
-`nodeSizes` change, a pan changes neither, so a pan frame writes the background's
-two style properties and the minimap's viewport rectangle and nothing else. It is
-also not a claim that chrome makes the library faster — the two legs differ by the
-same noise the next section is about.
+**Chrome costs nothing measurable.** Across three runs the chrome leg's p95 equals
+the bare leg's, its longest frame is 33.4 ms, and it records **0 long frames** —
+while the bare page recorded 0, 3 and 3. That is the memoization doing its job: the
+minimap rebuilds its `<g>` of 1000 rects only when `nodes` or `nodeSizes` change, a
+pan changes neither, so a pan frame writes the background's two style properties
+and the minimap's viewport rectangle and nothing else. It is also not a claim that
+chrome makes the library faster — the two legs differ by the same noise the next
+section is about.
 
 React's drag leg is still unverified by the harness
 (M1-FINDINGS §10): `CanDrag` is false for it and the JSON records `drag.count: 0`
@@ -293,37 +297,39 @@ So the baseline is "1–2 long frames at the start of a pan in two invocations o
 three", which is the M2 rate (§4: "0–3 long frames in roughly one invocation in
 three").
 
-At the commit this document describes, the bare 1k pan leg recorded **0** long
-frames in run A and **3** in run B (longest 66.7 ms); the chrome leg recorded 0 in
-both. So the stall is exactly where M2 left it: intermittent, in the pan leg, at
-the start of the gesture, and _not_ attributable to M3 — it appears in a run whose
-code is identical to the run where it does not, and the leg that carries all of the
-new rendering work is the one that has not produced it. The bound stayed where M2
-set it (2% of recorded frames, 12 of 551 in run B) rather than being moved to fit a
-new cost, and no M3 frame is being read as the old noise. Anyone picking this up
-should treat "3 long frames in one invocation of two" as the current rate of an
-unexplained browser-side stall, not as a regression from a number this milestone
-recorded.
+At the commits this document describes, the bare 1k pan leg recorded **0** long
+frames in run A, **3** in run B (longest 66.7 ms) and **3** in run C; the chrome leg
+recorded 0 in all three. So the stall is exactly where M2 left it: intermittent, in
+the pan leg, at the start of the gesture, and _not_ attributable to M3 — it appears
+in runs of identical code that do not agree with each other, and the leg that
+carries all of the new rendering work is the one that has not produced it. The bound
+stayed where M2 set it (2% of recorded frames, 11 of 505 in run C) rather than being
+moved to fit a new cost, and no M3 frame is being read as the old noise. Anyone
+picking this up should treat "3 long frames in most invocations" as the current rate
+of an unexplained browser-side stall, not as a regression from a number a previous
+milestone recorded.
 
 ## 6. Test coverage map for M3
 
-| Requirement (§7 M3)                                    | Where                                                                                                        |
-| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------ |
-| `fitViewport` is pure and tested without a DOM         | `src/geometry/fit.test.ts` (7 cases: centre, padding, empty, unmeasured pane/node, bounds, two nodes)        |
-| fit moves the viewport in a browser                    | Playwright proof 24 (transform before/after, every node inside the pane afterwards)                          |
-| zoom stops at the engine's bounds, one source of truth | `src/state.test.ts` (`chrome`), Playwright proof 23 (12 presses, then a no-op press)                         |
-| background moves with the viewport                     | `src/view/chrome.test.ts`, Playwright proof 22 (position/size at two viewports)                              |
-| background is outside the transform                    | `src/view/chrome.test.ts`, Playwright proof 22                                                               |
-| no upstream CSS or visual identity                     | `packages/flow/style/flow.css` is the only stylesheet; no import of `@xyflow/*` outside `runtime/adapter.ts` |
-| minimap draws the graph and `viewportRect`             | `src/view/chrome.test.ts`, Playwright proof 26 (625 rects, rectangle vs `pane/zoom`)                         |
-| minimap does not break the 1k gate                     | `tests/bench.spec.ts` "1000-node culled gate with M3 chrome on"                                              |
-| nodes focusable and named                              | `src/view/chrome.test.ts`, Playwright proof 27 (`role`, `aria-pressed`, `aria-label`, tab order)             |
-| arrows nudge the focused node into one `MovedNodes`    | `src/runtime/nudge.test.ts`, `src/state.test.ts`, Playwright proof 27 (1px, 10px)                            |
-| neither works from an input or `.fflow__nokey`         | `src/runtime/domTarget.test.ts`, Playwright proof 28                                                         |
-| description lists nodes and their connections          | `src/view/description.test.ts`, `src/view/chrome.test.ts`, Playwright proof 29                               |
-| description updates at commit rate, not per frame      | Playwright proof 29 (`MutationObserver`: 0 records during a 10-step pan), proof 29b                          |
-| chrome does not pan or clear the selection             | Playwright proofs 25 (controls) and 30 (panel)                                                               |
-| pane/chrome propagation rules                          | `src/runtime/domTarget.test.ts` (`chrome guard`), `src/state.test.ts`                                        |
+| Requirement (§7 M3)                                      | Where                                                                                                        |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `fitViewport` is pure and tested without a DOM           | `src/geometry/fit.test.ts` (7 cases: centre, padding, empty, unmeasured pane/node, bounds, two nodes)        |
+| fit moves the viewport in a browser                      | Playwright proof 24 (transform before/after, every node inside the pane afterwards)                          |
+| zoom stops at the engine's bounds, one source of truth   | `src/state.test.ts` (`chrome`), Playwright proof 23 (12 presses, then a no-op press)                         |
+| background moves with the viewport                       | `src/view/chrome.test.ts`, Playwright proof 22 (position/size at two viewports)                              |
+| background is outside the transform                      | `src/view/chrome.test.ts`, Playwright proof 22                                                               |
+| no upstream CSS or visual identity                       | `packages/flow/style/flow.css` is the only stylesheet; no import of `@xyflow/*` outside `runtime/adapter.ts` |
+| minimap draws the graph and `viewportRect`               | `src/view/chrome.test.ts`, Playwright proof 26 (625 rects, rectangle vs `pane/zoom`)                         |
+| minimap does not break the 1k gate                       | `tests/bench.spec.ts` "1000-node culled gate with M3 chrome on"                                              |
+| nodes focusable and named                                | `src/view/chrome.test.ts`, Playwright proof 27 (`role`, `aria-pressed`, `aria-label`, tab order)             |
+| arrows nudge the focused node into one `MovedNodes`      | `src/runtime/nudge.test.ts`, `src/state.test.ts`, Playwright proof 27 (1px, 10px)                            |
+| neither works from an input or `.fflow__nokey`           | `src/runtime/domTarget.test.ts`, Playwright proof 28                                                         |
+| Enter and Space activate the focused node                | `src/state.test.ts` (`keyboard activation`), Playwright proof 31                                             |
+| the description is not rebuilt by a viewport-only render | `src/view/chrome.test.ts` (`description memo identity`)                                                      |
+| description lists nodes and their connections            | `src/view/description.test.ts`, `src/view/chrome.test.ts`, Playwright proof 29                               |
+| description updates at commit rate, not per frame        | Playwright proof 29 (`MutationObserver`: 0 records during a 10-step pan), proof 29b                          |
+| chrome does not pan or clear the selection               | Playwright proofs 25 (controls) and 30 (panel)                                                               |
+| pane/chrome propagation rules                            | `src/runtime/domTarget.test.ts` (`chrome guard`), `src/state.test.ts`                                        |
 
 ## 7. What M3 deliberately does not do
 
@@ -347,3 +353,74 @@ recorded.
   (M1-FINDINGS §6). Its effect is measured where it matters — the chrome gate leg
   above — and the DOM is identical either way, so a DOM assertion would prove
   nothing.
+
+## 8. Response to `docs/M3-REVIEW.md`
+
+Two findings, both MEDIUM. One was a false positive with a real question behind it;
+the other was correct and is fixed.
+
+### 8.1 The description memo does not invalidate on every render (measured)
+
+The review's premise is that `accessibleNameOf` is declared inside `view()` and is
+therefore a new function on every render, changing the memo's input identity. It is
+not: `packages/flow/src/view/view.ts:245` declares it in the `createRenderer`
+closure, above `view` (line 248), so it is created once per renderer — and the other
+three inputs are the parent's `nodes`/`edges` arrays and `config.paneId`.
+
+Rather than argue from the source, I measured it through the public API. With a
+two-node graph, `accessibleName` is called twice per render for the node wrappers,
+and twice more only when the description is rebuilt. Two renders of the same
+renderer, the second with a different viewport, count **4 then 2**: the description
+was not rebuilt. A rebuild would have made it 4 then 4. The same property through
+the _live_ runtime is invisible to a browser proof (identical text produces no
+mutations either way), which is why it is now pinned by
+`src/view/chrome.test.ts` (`description memo identity`): a viewport-only render does
+not rebuild, a selection change does not either, and a **new `nodes` array does**.
+
+That last case is the honest caveat to attach to the review's finding: the memo is
+keyed on references, so a parent that rebuilds `nodes`/`edges` on every render
+defeats it. That is the same requirement the node cache already places on a parent
+(§3.3: node identity is the cache key) and the demo satisfies it, but it is worth
+stating as a test rather than as a claim.
+
+The review's alternative remedy — "use stable configuration references directly in
+the memo inputs" — would not have changed anything, because `accessibleNameOf` is
+already stable. `createLazy` also mixes the dispatcher and the Mount render owner
+into its key, which looked like a second suspect; both are stable per runtime
+(`runtime/runtime.js` creates one `htmlBuilder` per runtime and
+`runtime/renderer.js` reuses it, and the boundary registry is supplied per runtime),
+and the probe above crosses two independent renders, so a frame-driven miss would
+have shown up in the counts.
+
+### 8.2 Enter and Space now activate a node — fixed
+
+Correct, and a real gap: `role="button"` with `aria-pressed` promises activation a
+keyboard user could not perform. Added:
+
+- `Message.ActivatedNode({ nodeId, isAdditive })`, dispatched by the keyboard
+  subscription for `Enter` and `" "` when the focused element is inside a node;
+- the selection rules are **shared with `PressedNode`** (`nextNodeSelection` in
+  `update.ts`), so the two input paths cannot diverge: a modifier toggles, a bare
+  activation replaces the selection, a node that opts out of selection leaves it
+  alone, and an id the parent no longer has is ignored;
+- activation arms no drag (there is no pointer to own a gesture) and clears
+  `selectedEdgeIds` unless the modifier is held, exactly like a press;
+- Shift comes from the event, so `Shift+Enter` is the additive toggle that
+  `Shift + press` already was. Space is `preventDefault`ed on a focused node — it
+  would otherwise scroll — and left alone everywhere else, so `Enter` on a focused
+  chrome button still clicks it.
+
+Coverage: `src/state.test.ts` (`keyboard activation`) for the four selection cases
+and the no-drag rule, and Playwright proof 31 for the browser: `Shift+Enter` toggles
+`aria-pressed` to `false`, Space turns it back on without moving the node, Space
+inside the node's text input types a space and activates nothing, and Enter with a
+control button focused zooms instead of selecting.
+
+Adding the variant surfaced both exhaustive `Flow.Message.match` sites (the demo's
+statistics counter and the benchmark page) as a **runtime crash**, not a type error,
+because `vite build` does not typecheck: the proof failed with Foldkit's crash view
+and "(intermediate value)(intermediate value)(intermediate value) is not a
+function". `pnpm typecheck` named both sites immediately. The fast loop for a
+Message change therefore starts with `pnpm typecheck`, not with `pnpm build` — the
+`dist` only matters for the example and benchmark typechecks, which are the same
+command.

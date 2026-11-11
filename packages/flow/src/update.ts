@@ -88,6 +88,27 @@ const toggle = (
 const nodeById = (context: Context, nodeId: string) =>
   context.nodes.find((node) => node.id === nodeId);
 
+/**
+ * The selection a press or a keyboard activation produces. `undefined` means the
+ * parent no longer has the node, which is the one case both callers ignore; a
+ * node that opts out of selection leaves the selection alone, exactly as the
+ * pointer path always has. Shared so the two input paths cannot diverge (§4.6).
+ */
+const nextNodeSelection = (
+  model: Model,
+  context: Context,
+  nodeId: string,
+  isAdditive: boolean,
+): ReadonlyArray<string> | undefined => {
+  const node = nodeById(context, nodeId);
+  if (node === undefined) return undefined;
+  if (node.selectable === false) return model.selectedNodeIds;
+
+  const isSelected = model.selectedNodeIds.includes(nodeId);
+  if (isAdditive) return toggle(model.selectedNodeIds, nodeId);
+  return isSelected ? model.selectedNodeIds : [nodeId];
+};
+
 const isDraggable = (context: Context, nodeId: string): boolean =>
   nodeById(context, nodeId)?.draggable !== false;
 
@@ -246,18 +267,13 @@ export const update = (
         : withSelection({ ...model, gesture: Gesture.Idle() }, []),
 
     PressedNode: ({ nodeId, point, isAdditive, pointer }) => {
-      const node = nodeById(context, nodeId);
-      if (node === undefined) return { model };
-
-      const isSelectable = node.selectable !== false;
-      const isSelected = model.selectedNodeIds.includes(nodeId);
-      const nextSelected = isSelectable
-        ? isAdditive
-          ? toggle(model.selectedNodeIds, nodeId)
-          : isSelected
-            ? model.selectedNodeIds
-            : [nodeId]
-        : model.selectedNodeIds;
+      const nextSelected = nextNodeSelection(
+        model,
+        context,
+        nodeId,
+        isAdditive,
+      );
+      if (nextSelected === undefined) return { model };
 
       const dragged = draggingNodeIds(model, context, nextSelected);
       const next: Model = {
@@ -522,6 +538,25 @@ export const update = (
           ],
         }),
       };
+    },
+
+    // Enter or Space on the focused node. `role="button"` advertises activation,
+    // so it exists: the selection rules are the pointer's, without the drag the
+    // pointer path arms (there is no pointer to own one).
+    ActivatedNode: ({ nodeId, isAdditive }) => {
+      const nextSelected = nextNodeSelection(
+        model,
+        context,
+        nodeId,
+        isAdditive,
+      );
+      if (nextSelected === undefined) return { model };
+
+      return withSelection(
+        model,
+        nextSelected,
+        isAdditive ? model.selectedEdgeIds : [],
+      );
     },
   });
 

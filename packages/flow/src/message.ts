@@ -94,6 +94,11 @@ export const Message = defineMessageUnion({
   // which modifier was held are DOM details the keyboard subscription resolves,
   // so `update` only applies a delta it is handed (§7 M3).
   NudgedNode: { nodeId: Schema.String, delta: Point },
+
+  // Keyboard activation (Enter or Space on the focused node). The counterpart of
+  // `PressedNode` for a keyboard user: it selects and toggles, and arms no drag
+  // because there is no pointer (§7 M3).
+  ActivatedNode: { nodeId: Schema.String, isAdditive: Schema.Boolean },
 });
 
 export type Message = typeof Message.Type;
@@ -131,3 +136,4 @@ export type ClickedZoomIn = ReturnType<typeof Message.ClickedZoomIn>;
 export type ClickedZoomOut = ReturnType<typeof Message.ClickedZoomOut>;
 export type ClickedFitView = ReturnType<typeof Message.ClickedFitView>;
 export type NudgedNode = ReturnType<typeof Message.NudgedNode>;
+export type ActivatedNode = ReturnType<typeof Message.ActivatedNode>;

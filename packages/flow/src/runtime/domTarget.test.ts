@@ -6,7 +6,7 @@ import {
   isDeleteKeyAllowed,
   isEdgeEndpointTarget,
   isEditableTarget,
-  nudgedNodeId,
+  focusedNodeId,
 } from "./domTarget.js";
 
 /**
@@ -84,7 +84,7 @@ describe("chrome guard", () => {
   });
 });
 
-describe("nudged node", () => {
+describe("focused node", () => {
   const nodeTarget = (nodeId: string): EventTarget =>
     ({
       closest: (selector: string) =>
@@ -94,11 +94,11 @@ describe("nudged node", () => {
     }) as unknown as EventTarget;
 
   test("the focused node is the one the event target belongs to", () => {
-    expect(nudgedNodeId(nodeTarget("n1"))).toBe("n1");
+    expect(focusedNodeId(nodeTarget("n1"))).toBe("n1");
   });
 
   test("a keystroke outside every node nudges nothing", () => {
-    expect(nudgedNodeId(fakeTarget([]))).toBe(null);
-    expect(nudgedNodeId(null)).toBe(null);
+    expect(focusedNodeId(fakeTarget([]))).toBe(null);
+    expect(focusedNodeId(null)).toBe(null);
   });
 });

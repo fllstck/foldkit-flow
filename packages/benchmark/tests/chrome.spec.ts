@@ -632,3 +632,59 @@ test("proof 30: a consumer panel is chrome, not an empty pane press", async ({
     WAIT,
   );
 });
+
+test("proof 31: Enter and Space activate the focused node", async ({
+  page,
+}) => {
+  await page.goto(DEMO);
+  await waitForMount(page);
+
+  // Focus the node by pressing its own label: a press on the input inside it
+  // would focus the input instead.
+  const body = await nodeBodySelectPoint(page, "n0");
+  await page.mouse.click(body.x, body.y);
+  await page.waitForTimeout(80);
+  expect(await attr(page, "data-selected-nodes")).toBe("n0");
+  const before = await nodeTranslate(page, "n0");
+
+  // Shift+Enter toggles it off, which is the state `aria-pressed` claims.
+  await page.keyboard.down("Shift");
+  await page.keyboard.press("Enter");
+  await page.keyboard.up("Shift");
+  await page.waitForTimeout(120);
+  expect(await attr(page, "data-selected-nodes")).toBe("");
+  expect(
+    await page
+      .locator('.fflow__node[data-nodeid="n0"]')
+      .evaluate((node) => node.getAttribute("aria-pressed")),
+  ).toBe("false");
+
+  // Space turns it back on...
+  await page.keyboard.press(" ");
+  await page.waitForTimeout(120);
+  expect(await attr(page, "data-selected-nodes")).toBe("n0");
+
+  // ...without moving the node: activation is not a nudge.
+  expect(await nodeTranslate(page, "n0")).toBe(before);
+  expect(await attr(page, "data-gesture")).toBe("Idle");
+
+  // Space in a node's text input types a space and activates nothing.
+  const input = page.locator('.fflow__node[data-nodeid="n0"] input').first();
+  await input.focus();
+  await page.waitForTimeout(80);
+  await page.keyboard.type("a b");
+  await page.waitForTimeout(120);
+  expect(await input.inputValue()).toBe("a b");
+  expect(await attr(page, "data-selected-nodes")).toBe("n0");
+
+  // With focus outside every node the key keeps its default action: Enter on a
+  // focused control button is the button's click (the viewport zooms), and no
+  // node gets selected by it.
+  await page.locator('[data-fflow-control="ZoomIn"]').focus();
+  await page.waitForTimeout(80);
+  const zoomBefore = (await viewportOf(page)).zoom;
+  await page.keyboard.press("Enter");
+  await page.waitForTimeout(250);
+  expect((await viewportOf(page)).zoom).toBeGreaterThan(zoomBefore);
+  expect(await attr(page, "data-selected-nodes")).toBe("n0");
+});

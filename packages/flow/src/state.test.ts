@@ -1217,3 +1217,60 @@ describe("chrome", () => {
     );
   });
 });
+
+describe("keyboard activation", () => {
+  test("Enter selects the node it is pressed on", () => {
+    story(
+      flow().update,
+      given(initial),
+      message(Message.ActivatedNode({ nodeId: "n1", isAdditive: false })),
+      expectOutMessage(
+        OutMessage.SelectedElements({ nodeIds: ["n1"], edgeIds: [] }),
+      ),
+    );
+  });
+
+  test("a modifier toggles it, the way a press does", () => {
+    story(
+      flow().update,
+      given({ ...initial, selectedNodeIds: ["n1"] }),
+      message(Message.ActivatedNode({ nodeId: "n1", isAdditive: true })),
+      expectOutMessage(
+        OutMessage.SelectedElements({ nodeIds: [], edgeIds: [] }),
+      ),
+    );
+  });
+
+  test("activation arms no drag: there is no pointer to own one", () => {
+    story(
+      flow().update,
+      given(initial),
+      message(Message.ActivatedNode({ nodeId: "n1", isAdditive: false })),
+      model((current) => {
+        expect(isIdle(current.gesture)).toBe(true);
+      }),
+    );
+  });
+
+  test("a node the parent no longer has is ignored", () => {
+    story(
+      flow().update,
+      given(initial),
+      message(Message.ActivatedNode({ nodeId: "gone", isAdditive: false })),
+      expectNoOutMessage(),
+    );
+  });
+
+  test("a node that opts out of selection leaves the selection alone", () => {
+    const unselectable = {
+      nodes: [graphNode("n1", 0, 0, { selectable: false })],
+      edges: [],
+    };
+    story(
+      flow(unselectable).update,
+      given({ ...initial, selectedNodeIds: ["n2"] }),
+      message(Message.ActivatedNode({ nodeId: "n1", isAdditive: false })),
+      expectNoOutMessage(),
+    );
+  });
+});

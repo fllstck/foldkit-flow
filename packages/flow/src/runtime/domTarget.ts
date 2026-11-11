@@ -68,7 +68,8 @@ export const isChromeTarget = (target: EventTarget | null): boolean =>
  * The node a keyboard event is about: the node wrapper that contains the focused
  * element, or nothing when focus is elsewhere. This is why focus needs no Model
  * state — the DOM answers "which node" at event time (§7 M3), and an arrow key
- * pressed while a parent control has focus nudges nothing.
+ * pressed while a parent control has focus nudges nothing. The same answer
+ * decides whether Enter or Space activates a node.
  */
-export const nudgedNodeId = (target: EventTarget | null): string | null =>
+export const focusedNodeId = (target: EventTarget | null): string | null =>
   closestOrNull(target, nodeSelector)?.getAttribute("data-nodeid") ?? null;

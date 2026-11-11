@@ -102,6 +102,7 @@ export const mountBenchPage = (config: BenchPageConfig): void => {
           ClickedZoomOut: () => model.measured,
           ClickedFitView: () => model.measured,
           NudgedNode: () => model.measured,
+          ActivatedNode: () => model.measured,
         });
 
         return {

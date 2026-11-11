@@ -275,3 +275,137 @@ describe("panel", () => {
     );
   });
 });
+
+describe("description memo identity", () => {
+  /**
+   * The review of M3 raised the possibility that the description rebuilds on
+   * every render — which a pan would pay for once per frame — because a memo
+   * input might be rebuilt per render. It is not: `accessibleNameOf` is created
+   * once per renderer (`view.ts`), the other inputs are the parent's arrays, and
+   * the slot therefore survives a viewport-only render.
+   *
+   * Counted through the public hook rather than by inspecting VNodes: with N
+   * nodes, one render calls `accessibleName` N times for the node wrappers and —
+   * only when the description is rebuilt — N more for its text.
+   */
+  const nameCallsOverTwoRenders = async (
+    first: Model,
+    second: Model,
+  ): Promise<ReadonlyArray<number>> => {
+    const counts: Array<number> = [];
+    const renderer = createRenderer<Data, unknown>({
+      paneId: "memo-pane",
+      renderNode: (node, _tools, h) => h.div([], [node.data.label]),
+      accessibleName: (node) => {
+        counts.push(1);
+        return node.data.label;
+      },
+    });
+
+    const view = (current: Model, h: Parameters<typeof renderer.view>[1]) => ({
+      title: "memo",
+      body: renderer.view(
+        {
+          model: current,
+          nodes,
+          edges,
+          toParentMessage: (message: Message) => message,
+        },
+        h,
+      ),
+    });
+
+    const renderOnce = (current: Model) =>
+      Effect.runPromise(
+        Server.renderToString(
+          { init: () => ({ model: current }), view },
+          { isHydratable: false },
+        ),
+      );
+
+    await renderOnce(first);
+    const afterFirst = counts.length;
+    await renderOnce(second);
+
+    return [afterFirst, counts.length - afterFirst];
+  };
+
+  test("a viewport-only render does not rebuild it", async () => {
+    // nodes.length names per render, plus names for the description's text on a
+    // rebuild only. Two nodes here.
+    const [first, second] = await nameCallsOverTwoRenders(baseModel, {
+      ...baseModel,
+      viewport: { x: -300, y: -200, zoom: 2 },
+    });
+
+    expect(first).toBe(4);
+    expect(second).toBe(2);
+  });
+
+  test("selection and node sizes are not description inputs", async () => {
+    const [first, second] = await nameCallsOverTwoRenders(baseModel, {
+      ...baseModel,
+      selectedNodeIds: ["a"],
+    });
+
+    // Selection is not a description input either: it is a node-wrapper
+    // concern, so the text is reused here too.
+    expect(first).toBe(4);
+    expect(second).toBe(2);
+
+    const [, afterGraphChange] = await nameCallsOverTwoRenders(baseModel, {
+      ...baseModel,
+      nodeSizes: [{ nodeId: "a", width: 120, height: 60 }],
+    });
+    // `nodeSizes` alone does not change the description's text either.
+    expect(afterGraphChange).toBe(2);
+  });
+
+  test("a different graph rebuilds it", async () => {
+    const counts: Array<number> = [];
+    const renderer = createRenderer<Data, unknown>({
+      paneId: "memo-pane-2",
+      renderNode: (node, _tools, h) => h.div([], [node.data.label]),
+      accessibleName: (node) => {
+        counts.push(1);
+        return node.data.label;
+      },
+    });
+
+    const view = (
+      current: { model: Model; nodes: ReadonlyArray<FlowNode<Data>> },
+      h: Parameters<typeof renderer.view>[1],
+    ) => ({
+      title: "memo",
+      body: renderer.view(
+        {
+          model: current.model,
+          nodes: current.nodes,
+          edges,
+          toParentMessage: (message: Message) => message,
+        },
+        h,
+      ),
+    });
+
+    const renderOnce = (current: {
+      model: Model;
+      nodes: ReadonlyArray<FlowNode<Data>>;
+    }) =>
+      Effect.runPromise(
+        Server.renderToString(
+          { init: () => ({ model: current }), view },
+          { isHydratable: false },
+        ),
+      );
+
+    await renderOnce({ model: baseModel, nodes });
+    const first = counts.length;
+    // A new nodes array is a new graph: the description is rebuilt, so the hook
+    // is called once more per node than a reuse would.
+    await renderOnce({ model: baseModel, nodes: [...nodes] });
+
+    expect(first).toBe(4);
+    expect(counts.length - first).toBe(4);
+  });
+});

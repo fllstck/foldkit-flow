@@ -4,9 +4,10 @@ import { Dom, Subscription } from "foldkit";
 import { Message } from "../message.js";
 import { Gesture } from "../model.js";
 import type { Model } from "../model.js";
+import { focusedNodeId, isDeleteKeyAllowed } from "./domTarget.js";
 import { getPaneRoot } from "./host.js";
 import { nudgeDelta } from "./nudge.js";
-import { isDeleteKeyAllowed, nudgedNodeId } from "./domTarget.js";
+
 /** Handlers that fire on the pane's root. Declaring the map keeps the mapper's
  *  event parameter typed for both a `Document` and a `ShadowRoot`, which the
  *  native lib.dom maps do not do between them. */
@@ -244,22 +245,34 @@ export const subscriptions = Subscription.make<Model, Message>()((entry) => ({
                       return Option.some(Message.PressedEscape());
                     }
 
-                    // Arrow keys nudge the focused node (§7 M3). Focus is a DOM
-                    // fact, so the target decides whether there is one; the
-                    // guard above keeps a keystroke typed into a node's own
-                    // input, or into a `.fflow__nokey` region, from moving the
-                    // graph. `PreventDefault` is what stops the arrow keys from
-                    // scrolling the page instead.
+                    // Everything below is about the focused node, and focus is a
+                    // DOM fact: the target decides whether there is one, so a key
+                    // pressed while a parent control has focus does nothing here.
+                    // The guard above keeps a keystroke typed into a node's own
+                    // input, or into a `.fflow__nokey` region, from moving or
+                    // activating anything.
+                    const nodeId = focusedNodeId(event.target);
+                    if (nodeId === null) return Option.none();
+
+                    // Arrow keys nudge; `PreventDefault` is what stops them from
+                    // scrolling the page instead (§7 M3).
                     const delta = nudgeDelta(event.key, event);
-                    const nodeId = nudgedNodeId(event.target);
-                    return Option.all([
-                      delta,
-                      Option.fromNullishOr(nodeId),
-                    ]).pipe(
-                      Option.map(([nudge, id]) =>
-                        Message.NudgedNode({ nodeId: id, delta: nudge }),
-                      ),
-                    );
+                    if (Option.isSome(delta)) {
+                      return Option.some(
+                        Message.NudgedNode({ nodeId, delta: delta.value }),
+                      );
+                    }
+
+                    // Enter and Space activate the node, which is what its
+                    // `role="button"` and `aria-pressed` promise a keyboard user.
+                    return event.key === "Enter" || event.key === " "
+                      ? Option.some(
+                          Message.ActivatedNode({
+                            nodeId,
+                            isAdditive: isAdditiveOf(event),
+                          }),
+                        )
+                      : Option.none();
                   },
                 }),
             }),

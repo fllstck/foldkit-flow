@@ -249,6 +249,11 @@ What the flow provides:
   OutMessage per press. The keys are ignored while the event target is an input,
   a textarea, a select, `contenteditable`, or inside `.fflow__nokey`, and the
   page does not scroll (`preventDefault`).
+- **Keyboard activation.** `Enter` or `Space` on a focused node selects it, with
+  the same toggle rules as a press (`Shift` adds), which is what `role="button"`
+  with `aria-pressed` promises. Space is prevented on a node (it would scroll) and
+  left alone everywhere else, so `Enter` on a focused control button still clicks
+  it.
 - **A description region.** A visually hidden `role="region"` listing the summary,
   each node, and its incoming and outgoing connections — 50 nodes and 6
   connections per node, with a count of what is omitted. It is **not** a live
