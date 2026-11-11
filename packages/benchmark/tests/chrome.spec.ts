@@ -825,8 +825,11 @@ test("proof 33: a rejected duplicate is visible, and a novel connection still la
   expect(await attr(page, "data-edges")).toBe(String(edges + 1));
   expect(await attr(page, "data-last-edge")).toBe("n0:out>n2:in");
   expect(await attr(page, "data-last-attempt")).toBe("");
+  // A created edge is named here too: in a grid this dense most of a long edge
+  // is behind the nodes it passes (M3-FINDINGS §14), so the fact has to be
+  // legible even when the line is not.
   expect((await page.locator("#panel-attempt").textContent()) ?? "").toContain(
-    "Drag a handle onto another node to connect.",
+    "Connected: n0:out>n2:in",
   );
 });
 
@@ -924,4 +927,54 @@ test("proof 35: a release near a handle connects, not only an exact hit", async 
 
   expect(await attr(page, "data-edges")).toBe(String(edges + 1));
   expect(await attr(page, "data-last-edge")).toBe("n0:out>n3:in");
+});
+
+test("proof 36: edges are actually painted", async ({ page }) => {
+  await page.goto(DEMO);
+  await waitForMount(page);
+
+  // The structural invariant first: the edges SVG needs a real viewport, or
+  // `vector-effect: non-scaling-stroke` degenerates and every path paints
+  // nothing. It reports 0×0 when `.fflow__viewport` has no size of its own.
+  const svg = await page.evaluate(() => {
+    const element = document.querySelector(
+      ".fflow__edges",
+    ) as SVGSVGElement | null;
+    return element === null
+      ? null
+      : {
+          clientWidth: element.clientWidth,
+          clientHeight: element.clientHeight,
+        };
+  });
+  expect(svg?.clientWidth ?? 0).toBeGreaterThan(0);
+  expect(svg?.clientHeight ?? 0).toBeGreaterThan(0);
+
+  // And the pixels, because every DOM-level assertion above is satisfied by a
+  // path that draws nothing: the same crop with the layer hidden must differ.
+  const gap = await page.evaluate(() => {
+    const box = document
+      .querySelector('.fflow__edge[data-edgeid="e1"] path')
+      ?.getBoundingClientRect();
+    return box === undefined
+      ? null
+      : {
+          x: Math.round(box.x),
+          y: Math.round(box.y) - 4,
+          width: Math.round(box.width),
+          height: 8,
+        };
+  });
+  if (gap === null) throw new Error("edge e1 not rendered");
+
+  const painted = await page.screenshot({ clip: gap });
+  const hidden = await page.addStyleTag({
+    content: ".fflow__edges { display: none }",
+  });
+  await page.waitForTimeout(120);
+  const unpainted = await page.screenshot({ clip: gap });
+  await hidden.evaluate((element) => (element as ChildNode).remove());
+  await page.waitForTimeout(120);
+
+  expect(painted.equals(unpainted)).toBe(false);
 });

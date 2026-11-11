@@ -567,9 +567,11 @@ const demoPanel = (model: Model, h: HtmlBuilder<Message>) =>
       h.span(
         [h.Id("panel-attempt"), h.Class("panel-attempt")],
         [
-          model.lastAttempt === ""
-            ? "Drag a handle onto another node to connect."
-            : `Not connected: ${model.lastAttempt}`,
+          model.lastAttempt !== ""
+            ? `Not connected: ${model.lastAttempt}`
+            : model.lastEdge !== ""
+              ? `Connected: ${model.lastEdge}`
+              : "Drag a handle onto another node to connect.",
         ],
       ),
       h.button(

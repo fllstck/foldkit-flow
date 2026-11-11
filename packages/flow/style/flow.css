@@ -33,6 +33,14 @@
 
 .fflow__viewport {
   will-change: transform;
+  /* The viewport needs a real box. Its children are absolutely positioned, so
+     without this it shrinks to 0×0 — and `.fflow__edges`, sized `100%`, inherits
+     that. A zero-sized SVG viewport makes `vector-effect: non-scaling-stroke`
+     degenerate, and **every edge paints nothing**: the paths are in the DOM with
+     the right `d` and a computed 1.5px stroke, and no pixel is drawn. Playwright
+     proof 36 compares the painted pixels with the layer hidden. */
+  width: 100%;
+  height: 100%;
 }
 
 .fflow__edge-path {

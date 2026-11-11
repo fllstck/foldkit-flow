@@ -14,12 +14,12 @@ numbers; every earlier figure in this document is historical and marked as such.
 | `pnpm build`                                   | flow → example → benchmark                                            |
 | `pnpm check`                                   | typecheck, Enfect lint, Prettier, **191** Vitest tests green          |
 | `packages/flow` unit tests                     | 191 in 20 files (M2 had 123 in 14)                                    |
-| `packages/benchmark/tests/chrome.spec.ts`      | 15 passed (M3 proofs 22–35)                                           |
+| `packages/benchmark/tests/chrome.spec.ts`      | 16 passed (M3 proofs 22–36)                                           |
 | `packages/benchmark/tests/connection.spec.ts`  | 5 passed (M2 proofs 17–21)                                            |
 | `packages/benchmark/tests/interaction.spec.ts` | 9 passed (M1 proofs 8–16)                                             |
 | `packages/benchmark/tests/proofs.spec.ts`      | 4 passed (M0 proofs 2, 3, 3b, 4)                                      |
 | `packages/benchmark/tests/bench.spec.ts`       | 3 passed (625 comparison, 1k culled gate, 1k culled gate with chrome) |
-| whole Playwright suite                         | 36 tests = 33 proof tests + 3 gate tests, 36 passed in 2.5 min        |
+| whole Playwright suite                         | 37 tests = 34 proof tests + 3 gate tests, 37 passed in 2.8 min        |
 
 `pnpm check` still needs a build first when the public surface changed: the
 example and the benchmark typecheck against the library's `dist/*.d.ts`. That is
@@ -653,3 +653,70 @@ The library is unchanged by this section: the predicate is the consumer's, and a
 rejected release still emits nothing. What changed is that the playground no longer
 makes every connection attempt fail, and that a failure is stated where the user is
 looking.
+
+## 14. Reported after M3: "the connection works but the edge is invisible"
+
+The root cause of the whole thread, and it is older than M3: **no edge was ever
+painted**. The paths were in the DOM with the right `d`, the right stroke colour,
+and a computed `stroke-width: 1.5px`, and not one pixel was drawn.
+
+### 14.1 Why nothing painted
+
+`.fflow__viewport`'s children are absolutely positioned, so the viewport element
+itself shrinks to **0×0** — and `.fflow__edges`, sized `width="100%"
+height="100%"`, inherits that. A zero-sized SVG viewport makes
+`vector-effect: non-scaling-stroke` degenerate: the property resolves the stroke
+against the viewport it is scaled into, so the stroke width collapses and the path
+paints nothing. `getComputedStyle().strokeWidth` still reports `1.5px`, because
+that is the CSS value; the _rendered_ width is what degenerates. `overflow:
+visible` kept the geometry inside the drawing area, which is why nothing looked
+wrong from the DOM side.
+
+Measured on the demo, before the fix: `.fflow__edges` `clientWidth: 0`,
+`clientHeight: 0`, viewport 0×0, while the pane is 900×600.
+
+The fix is one rule: `.fflow__viewport` gets `width: 100%; height: 100%`, so the
+edges SVG has a real viewport (810×540 after the 0.9 transform, 900×600 in user
+units) and the stroke resolves to a constant 1.5 screen pixels again. Nothing else
+changed — no geometry, no markup, no API.
+
+### 14.2 Why the proofs did not catch it
+
+Every M1/M2 assertion about edges was a **DOM or geometry** assertion: `d` strings
+against `edgePath`, endpoints against handle centres, `data-edgeid` presence. All
+of them are satisfied by a path that draws nothing. The connection _preview_ was
+the only edge-like thing that painted, because `.fflow__connection` is a direct
+child of the pane and therefore has a real 900×600 viewport — which is why
+clicking an edge's end (starting a reconnect) made a line appear: that line was the
+preview, drawn above the nodes.
+
+Playwright proof 36 closes the class of bug rather than the instance:
+
+- it asserts `.fflow__edges` has a non-zero `clientWidth`/`clientHeight`, naming the
+  invariant that broke;
+- it screenshots the gap an edge crosses, hides the edges layer, screenshots the
+  same crop again, and requires the two to differ. A path that paints nothing
+  produces identical pixels, whatever the DOM says.
+
+### 14.3 The reports this explains
+
+With edges invisible, every symptom in §11–§13 was being read through the wrong
+model:
+
+| Report                                | What was actually happening                                                                   |
+| ------------------------------------- | --------------------------------------------------------------------------------------------- |
+| "edges don't connect to nodes"        | connections worked; nothing was _drawn_, and the only visible line was the reconnect preview  |
+| "the preview is above the cursor"     | real bug (§11.1) — the preview layer is outside the transform                                 |
+| "invisible until I click a connector" | the grab ring and its hover stroke exist without a visible edge; clicking draws the _preview_ |
+| "the text flickers when I drag"       | real, separate bug (§12.1)                                                                    |
+
+The other fixes in §11–§13 stand on their own — the preview transform, the
+connection radius, the sparse fixture and the panel feedback are all real
+improvements — but the report that started them was this one.
+
+### 14.4 The gate with edges painting
+
+Edge strokes are paint work the previous milestones never measured, so the 1k gate
+was re-run with them visible: drag 16.7/16.8/33.3 and pan 16.7/16.8/33.4 with
+**0 long frames**, and the chrome leg 16.7/16.8/33.4 with 0 — the same
+distribution as before, inside the noise §5 already documents.
