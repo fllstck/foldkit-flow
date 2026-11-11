@@ -524,11 +524,13 @@ export const update = (model: Model, message: Message): UpdateReturn =>
         toParentMessage,
       ),
     }),
-    ClickedToggleGroup: () => ({
-      model: {
+    ClickedToggleGroup: () => {
+      const next: Model = {
         ...model,
         graph: {
           ...model.graph,
+          // `hidden: undefined` is "shown" for the schema, so a collapsed node
+          // expands by dropping the field rather than setting it to false.
           nodes: model.graph.nodes.map((node) =>
             node.id !== GROUP_ID
               ? node
@@ -537,8 +539,17 @@ export const update = (model: Model, message: Message): UpdateReturn =>
                 : { ...node, hidden: true },
           ),
         },
-      },
-    }),
+      };
+
+      // The flow never sees this mutation, so the parent prunes the collapsed
+      // nodes' measurement itself (§2.5.9) — a collapsed node keeps no size and
+      // no handle bounds.
+      return {
+        model: modifyFields(next, {
+          flow: () => Flow.informGraphChanged(next.flow, contextFrom(next)).model,
+        }),
+      };
+    },
     ClickedDeleteSelection: () => {
       const selectedNodeIds = model.flow.selectedNodeIds;
       const selectedEdgeIds = model.flow.selectedEdgeIds;

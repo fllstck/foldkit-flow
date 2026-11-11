@@ -16,7 +16,7 @@ const waitForMount = async (page: Page) => {
     () => {
       const main = document.querySelector("main.app");
       return (
-        main?.getAttribute("data-measured-nodes") === "625" &&
+        main?.getAttribute("data-measured-nodes") === "630" &&
         main?.getAttribute("data-pane-mounts") === "1"
       );
     },
@@ -373,7 +373,7 @@ test("proof 20: a stylesheet-only handle move needs Flow.Remeasure", async ({
     true,
   );
   expect(await attr(page, "data-pane-mounts")).toBe("1");
-  expect(await attr(page, "data-measured-nodes")).toBe("625");
+  expect(await attr(page, "data-measured-nodes")).toBe("630");
 });
 
 test("proof 21: a connection started at a target handle keeps its orientation", async ({

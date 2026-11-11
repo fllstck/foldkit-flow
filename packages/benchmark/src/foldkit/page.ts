@@ -20,6 +20,12 @@ export type BenchPageConfig = Readonly<{
    *  M1/M2 gate measures, so their distribution stays comparable with the
    *  previous milestones; the chrome cost has its own leg (§7 M3). */
   chrome?: boolean;
+  /** M4: eight resize corners, a snap grid, and fit options on the page's own
+   *  controls. Off unless a page is proving something about them. */
+  resize?: boolean;
+  snapGrid?: { x: number; y: number };
+  fitView?: { maxZoom?: number; padding?: number; duration?: number };
+  minimap?: boolean;
 }>;
 
 /**
@@ -36,11 +42,16 @@ export const mountBenchPage = (config: BenchPageConfig): void => {
     config.graph.nodes.map((node) => ({
       id: node.id,
       position: node.position,
-      size: { width: 150, height: 36 },
+      size: node.size ?? { width: 150, height: 36 },
       data: node.data,
+      parentId: node.parentId,
+      hidden: node.hidden,
     }));
 
   const flowEdges: ReadonlyArray<FlowEdge> = config.graph.edges;
+  /** How many nodes `hidden` collapses, computed once at mount: the 10k
+   *  exploration compares it against the model's node count. */
+  const hiddenCount = Flow.hiddenIds(flowNodes).size;
   const context = { nodes: flowNodes, edges: flowEdges };
 
   const Model = Schema.Struct({
@@ -128,17 +139,34 @@ export const mountBenchPage = (config: BenchPageConfig): void => {
     toParentMessage,
   });
 
-  const chrome: Partial<Flow.RendererConfig<{ label: string }, unknown>> =
-    config.chrome === true
-      ? { background: { variant: "dots" }, controls: true, minimap: true }
-      : {};
-
-  const renderer = Flow.createRenderer<{ label: string }, unknown>({
+  // Assigned field by field rather than spread conditionally: the config is a
+  // presentation choice per page, and an absent key has to mean "off" rather
+  // than "an empty object spread".
+  type MutableConfig = {
+    -readonly [
+      K in keyof Flow.RendererConfig<{ label: string }, unknown>
+    ]: Flow.RendererConfig<{ label: string }, unknown>[K];
+  };
+  const rendererConfig: MutableConfig = {
     paneId: config.paneId,
     renderNode,
     cull: config.cull,
-    ...chrome,
-  });
+  };
+  if (config.chrome === true) {
+    rendererConfig.background = { variant: "dots" };
+    rendererConfig.minimap = true;
+  }
+  if (config.chrome === true || config.minimap === true) {
+    rendererConfig.controls = true;
+    rendererConfig.minimap = true;
+  }
+  if (config.resize === true) rendererConfig.resize = true;
+  if (config.snapGrid !== undefined) rendererConfig.snapGrid = config.snapGrid;
+  if (config.fitView !== undefined) rendererConfig.fitView = config.fitView;
+
+  const renderer = Flow.createRenderer<{ label: string }, unknown>(
+    rendererConfig,
+  );
 
   const view = (model: Model, h: HtmlBuilder<Message>): Html =>
     h.div(
@@ -147,6 +175,10 @@ export const mountBenchPage = (config: BenchPageConfig): void => {
         h.DataAttribute("bench-ready", "true"),
         h.DataAttribute("measured", String(model.measured)),
         h.DataAttribute("rendered", String(model.flow.nodeSizes.length)),
+        // M4: the graph the model holds, and how many of those nodes `hidden`
+        // collapses — the two numbers the 10k exploration compares.
+        h.DataAttribute("nodes", String(config.graph.nodes.length)),
+        h.DataAttribute("hidden", String(hiddenCount)),
       ],
       [
         renderer.view(

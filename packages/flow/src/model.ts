@@ -57,6 +57,21 @@ export const resizeControls = [
 export type ResizeControl = (typeof resizeControls)[number];
 export const ResizeControl = Schema.Literals(resizeControls);
 
+/** The controls the renderer draws: the four corners only.
+ *
+ *  The four edge midpoints are exactly where a port handle sits — this library's
+ *  own stylesheet puts `.fflow__handle.source` at `right: 50%` and the target at
+ *  `left: 50%` — so an edge resize control there swallows the press that starts a
+ *  connection (Playwright proof 17 caught it: the gesture never left `Idle`).
+ *  `geometry/resize.ts` still computes all eight, so a parent that draws its own
+ *  edge handles gets the same arithmetic. */
+export const rendererResizeControls = [
+  "top-left",
+  "top-right",
+  "bottom-right",
+  "bottom-left",
+] as const satisfies ReadonlyArray<ResizeControl>;
+
 export const HandlePosition = Schema.Literals([
   "Top",
   "Right",
@@ -147,15 +162,19 @@ export type Gesture = typeof Gesture.Type;
 
 export type FlowNode<Data = unknown> = Readonly<{
   id: string;
-  type?: string;
+  type?: string | undefined;
   position: Point;
   data: Data;
-  /** Size hint, used for edge paths before the node Mount has measured it. */
-  size?: Size;
-  draggable?: boolean;
-  selectable?: boolean;
-  parentId?: string;
-  hidden?: boolean;
+  /** Size hint, used for edge paths before the node Mount has measured it. When
+   *  `RendererConfig.resize` is on it is also the box the flow draws. */
+  size?: Size | undefined;
+  draggable?: boolean | undefined;
+  selectable?: boolean | undefined;
+  /** The node this one is positioned inside: `position` is relative to it (§7 M4). */
+  parentId?: string | undefined;
+  /** Collapsed: this node, its descendants, their edges and their measurement
+   *  are all removed (§7 M4). `undefined` is "shown". */
+  hidden?: boolean | undefined;
 }>;
 
 /** The arrowhead glyphs we draw. Ours by design, like the rest of the chrome
@@ -166,12 +185,14 @@ export type FlowEdge<Data = unknown> = Readonly<{
   id: string;
   source: string;
   target: string;
-  sourceHandle?: string;
-  targetHandle?: string;
-  type?: "Bezier" | "Straight" | "Step" | "SmoothStep";
-  label?: string;
-  markerStart?: MarkerEnd;
-  markerEnd?: MarkerEnd;
+  sourceHandle?: string | undefined;
+  targetHandle?: string | undefined;
+  type?: "Bezier" | "Straight" | "Step" | "SmoothStep" | undefined;
+  /** Text at the path's label point. Rendered by the library; a configured
+   *  `renderEdgeLabel` replaces the content, not the position (§7 M4). */
+  label?: string | undefined;
+  markerStart?: MarkerEnd | undefined;
+  markerEnd?: MarkerEnd | undefined;
   data?: Data;
 }>;
 

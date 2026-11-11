@@ -82,19 +82,17 @@ describe("resize handles (§7 M4)", () => {
     expect(rendered.html).not.toContain("fflow__resize");
   });
 
-  test("eight handles, each named by its control", async () => {
+  test("four corner handles, each named by its control", async () => {
     const rendered = await render(model, true);
-    [
-      "top-left",
-      "top",
-      "top-right",
-      "right",
-      "bottom-right",
-      "bottom",
-      "bottom-left",
-      "left",
-    ].forEach((control) => {
-      expect(rendered.html).toContain(`data-resize="${control}"`);
+    ["top-left", "top-right", "bottom-right", "bottom-left"].forEach(
+      (control) => {
+        expect(rendered.html).toContain(`data-resize="${control}"`);
+      },
+    );
+    // The edge midpoints belong to the port handles: a resize control there
+    // would swallow the press that starts a connection (§7 M4).
+    ["top", "right", "bottom", "left"].forEach((control) => {
+      expect(rendered.html).not.toContain(`data-resize="${control}"`);
     });
     // A handle press is chrome: it must not pan the pane and must not arm a node
     // drag, or one press would resize *and* start a drag.

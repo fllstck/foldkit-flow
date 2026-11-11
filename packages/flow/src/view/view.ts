@@ -30,7 +30,7 @@ import {
   visibleNodes,
 } from "../geometry/visible.js";
 import { Message } from "../message.js";
-import { Gesture, resizeControls, zeroDelta } from "../model.js";
+import { Gesture, rendererResizeControls, zeroDelta } from "../model.js";
 import type {
   FlowEdge,
   FlowNode,
@@ -303,7 +303,7 @@ export const createRenderer = <NodeData = unknown, EdgeData = unknown>(
   ): ReadonlyArray<Html> =>
     config.resize !== true
       ? []
-      : resizeControls.map((control) =>
+      : rendererResizeControls.map((control) =>
           h.div(
             [
               // Chrome by §4.6's definition: `NoPan` keeps d3 from starting a

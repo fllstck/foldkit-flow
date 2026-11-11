@@ -13,7 +13,7 @@ const waitForMount = async (page: Page) => {
     () => {
       const main = document.querySelector("main.app");
       return (
-        main?.getAttribute("data-measured-nodes") === "625" &&
+        main?.getAttribute("data-measured-nodes") === "630" &&
         main?.getAttribute("data-pane-mounts") === "1"
       );
     },
@@ -345,7 +345,7 @@ test("proof 26: the minimap draws the graph and its viewport rectangle", async (
   const rectCount = await page
     .locator(".fflow__minimap .fflow__minimap-node")
     .count();
-  expect(rectCount).toBe(625);
+  expect(rectCount).toBe(630);
 
   const pane = await paneBox(page);
   const viewport = await viewportOf(page);
@@ -518,10 +518,10 @@ test("proof 29: the description lists the graph and does not churn on a pan", as
 
   const text = (await description.textContent()) ?? "";
   // The demo's grid links every step except every third one (416 of 624).
-  expect(text).toContain("Flow graph: 625 nodes and 416 connections.");
-  expect(text).toContain("Node 1 of 625: Node 0, connects to Node 1.");
+  expect(text).toContain("Flow graph: 630 nodes and 416 connections.");
+  expect(text).toContain("Node 1 of 630: Node 0, connects to Node 1.");
   // Capped, and honest about it.
-  expect(text).toContain("575 more nodes are not listed.");
+  expect(text).toContain("580 more nodes are not listed.");
 
   // Visually hidden but in the accessibility tree: a 1×1 box, not `display:none`.
   const box = await description.boundingBox();
@@ -583,15 +583,15 @@ test("proof 29b: the description follows a graph change at commit rate", async (
   await page.locator("#delete-selection").click();
   await page.waitForFunction(
     () =>
-      document.querySelector("main.app")?.getAttribute("data-nodes") === "624",
+      document.querySelector("main.app")?.getAttribute("data-nodes") === "629",
     undefined,
     WAIT,
   );
 
   const text =
     (await page.locator("[data-fflow-description]").textContent()) ?? "";
-  expect(text).toContain("Flow graph: 624 nodes and");
-  expect(text).not.toContain("Node 1 of 625");
+  expect(text).toContain("Flow graph: 629 nodes and");
+  expect(text).not.toContain("Node 1 of 630");
 });
 
 test("proof 30: a consumer panel is chrome, not an empty pane press", async ({
@@ -628,7 +628,7 @@ test("proof 30: a consumer panel is chrome, not an empty pane press", async ({
       document
         .querySelector("main.app")
         ?.getAttribute("data-selected-nodes")
-        ?.split(",").length === 625,
+        ?.split(",").length === 630,
     undefined,
     WAIT,
   );

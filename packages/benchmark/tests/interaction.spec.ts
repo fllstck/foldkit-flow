@@ -16,7 +16,7 @@ const waitForMount = async (page: Page) => {
     () => {
       const main = document.querySelector("main.app");
       return (
-        main?.getAttribute("data-measured-nodes") === "625" &&
+        main?.getAttribute("data-measured-nodes") === "630" &&
         main?.getAttribute("data-pane-mounts") === "1"
       );
     },
@@ -201,7 +201,7 @@ test("proof 11: a handle change re-measures without a remount", async ({
 
   // A re-measure is not a remount: the pane still has its single Mount.
   expect(await attr(page, "data-pane-mounts")).toBe("1");
-  expect(await attr(page, "data-measured-nodes")).toBe("625");
+  expect(await attr(page, "data-measured-nodes")).toBe("630");
 });
 
 test("proof 12: a flow inside a ShadowRoot still drags", async ({ page }) => {

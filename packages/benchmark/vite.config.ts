@@ -13,6 +13,8 @@ export default defineConfig({
         large: "large.html",
         "large-chrome": "large-chrome.html",
         shadow: "shadow.html",
+        subflow: "subflow.html",
+        "large-hidden": "large-hidden.html",
       },
     },
   },

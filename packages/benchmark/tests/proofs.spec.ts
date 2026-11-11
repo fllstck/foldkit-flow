@@ -15,7 +15,7 @@ const waitForMount = async (page: Page) => {
     () => {
       const main = document.querySelector("main.app");
       return (
-        main?.getAttribute("data-measured-nodes") === "625" &&
+        main?.getAttribute("data-measured-nodes") === "630" &&
         main?.getAttribute("data-pane-mounts") === "1"
       );
     },
@@ -127,7 +127,7 @@ test("proof 2: a re-render does not restart the node or pane Mounts", async ({
   await page.goto(DEMO);
   await waitForMount(page);
 
-  expect(await attr(page, "data-measured-nodes")).toBe("625");
+  expect(await attr(page, "data-measured-nodes")).toBe("630");
   expect(await attr(page, "data-pane-mounts")).toBe("1");
 
   await page.evaluate(() => {
@@ -151,7 +151,7 @@ test("proof 2: a re-render does not restart the node or pane Mounts", async ({
 
   // A restarted node Mount re-emits its initial MeasuredNode, so a second
   // mount would push this to 1250; a restarted pane Mount would push to 2.
-  expect(await attr(page, "data-measured-nodes")).toBe("625");
+  expect(await attr(page, "data-measured-nodes")).toBe("630");
   expect(await attr(page, "data-pane-mounts")).toBe("1");
 
   const reused = await page.evaluate(() => {
