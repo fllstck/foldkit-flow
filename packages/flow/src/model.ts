@@ -90,6 +90,17 @@ export const Gesture = defineTaggedUnion({
     current: Point,
     maybeTarget: Schema.Option(HandleRef),
   },
+  // Dragging one end of an existing edge onto another handle. `end` is the end
+  // that moves; the other one stays anchored where the edge already drew it, so
+  // the preview starts there. `edgeId` names a parent-owned edge — the flow
+  // never stores the edge itself (§2.5.1).
+  Reconnecting: {
+    pointer: Pointer,
+    edgeId: Schema.String,
+    end: HandleType,
+    current: Point,
+    maybeTarget: Schema.Option(HandleRef),
+  },
 });
 export type Gesture = typeof Gesture.Type;
 
@@ -116,12 +127,24 @@ export type FlowEdge<Data = unknown> = Readonly<{
   data?: Data;
 }>;
 
+/** What the parent's `isValidConnection` predicate is asked about: the node and
+ *  handle ids a connection would join, in the shape its own graph stores. */
+export type Connection = Readonly<{
+  source: string;
+  target: string;
+  sourceHandle: string | null;
+  targetHandle: string | null;
+}>;
+
 /** The graph arrives per dispatch; the flow Model never stores it (§2.5.1). */
 export type Context<NodeData = unknown, EdgeData = unknown> = Readonly<{
   nodes: ReadonlyArray<FlowNode<NodeData>>;
   edges: ReadonlyArray<FlowEdge<EdgeData>>;
+  /** Rejects a connection or a reconnect before it becomes an OutMessage (§7
+   *  M2). Evaluated in `update` at release, against the graph the parent owns;
+   *  absent means "accept everything". */
+  isValidConnection?: (connection: Connection) => boolean;
 }>;
-
 export const Model = Schema.Struct({
   pane: Rect,
   // Identity of the mounted pane, set on `MountedPane`: subscriptions resolve the

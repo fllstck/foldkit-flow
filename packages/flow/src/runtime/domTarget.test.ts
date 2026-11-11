@@ -3,6 +3,7 @@ import { describe, expect, test } from "vitest";
 import {
   blocksDrag,
   isDeleteKeyAllowed,
+  isEdgeEndpointTarget,
   isEditableTarget,
 } from "./domTarget.js";
 
@@ -56,5 +57,18 @@ describe("drag guard", () => {
 
   test("a plain target arms a drag", () => {
     expect(blocksDrag(fakeTarget([]))).toBe(false);
+  });
+});
+
+describe("edge endpoint guard", () => {
+  test("an edge end is neither pane nor node", () => {
+    // Matched by class or by the attribute the renderer emits, like the handle
+    // and node guards, so Scene's attribute-only targets hit it too.
+    expect(isEdgeEndpointTarget(fakeTarget([".fflow__edge-endpoint"]))).toBe(
+      true,
+    );
+    expect(isEdgeEndpointTarget(fakeTarget(["[data-edgeend]"]))).toBe(true);
+    expect(isEdgeEndpointTarget(fakeTarget([]))).toBe(false);
+    expect(isEdgeEndpointTarget(null)).toBe(false);
   });
 });

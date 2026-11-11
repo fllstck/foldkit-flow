@@ -4,6 +4,7 @@ import { defineMessageUnion } from "foldkit/message";
 import {
   HandleBounds,
   HandleRef,
+  HandleType,
   Point,
   Pointer,
   Rect,
@@ -67,7 +68,13 @@ export const Message = defineMessageUnion({
 
   // connections
   StartedConnection: { from: HandleRef, pointer: Pointer },
-  HoveredHandle: { handle: Schema.Option(HandleRef) },
+  // Grabbing one end of an existing edge: `end` is the end that moves, and the
+  // edge stays a parent-owned id the flow only names.
+  StartedReconnect: {
+    edgeId: Schema.String,
+    end: HandleType,
+    pointer: Pointer,
+  },
 
   // viewport: one Message shape for the throttled frames and the commit, so a
   // gesture reads as one transition and `ChangedViewport` fires once (§4.5)
@@ -101,7 +108,7 @@ export type ChangedModifierState = ReturnType<
   typeof Message.ChangedModifierState
 >;
 export type StartedConnection = ReturnType<typeof Message.StartedConnection>;
-export type HoveredHandle = ReturnType<typeof Message.HoveredHandle>;
+export type StartedReconnect = ReturnType<typeof Message.StartedReconnect>;
 export type MovedViewport = ReturnType<typeof Message.MovedViewport>;
 export type CompletedSyncViewport = ReturnType<
   typeof Message.CompletedSyncViewport

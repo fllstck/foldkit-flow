@@ -640,6 +640,151 @@ describe("connections", () => {
     );
   });
 
+  test("an invalid connection is rejected at release, not at hover", () => {
+    // The predicate is the parent's, and here it rejects a duplicate of an edge
+    // the graph already has. Hover still shows the target — the release is where
+    // the fact would have become an OutMessage (§7 M2).
+    const rejecting: Context = {
+      ...context,
+      isValidConnection: ({ source, target }) =>
+        !context.edges.some(
+          (existing) =>
+            existing.source === source && existing.target === target,
+        ),
+    };
+
+    story(
+      flow(rejecting).update,
+      given(withBounds),
+      message(
+        Message.StartedConnection({ from: sourceHandle, pointer: mouse }),
+      ),
+      Story.Command.resolve<"MeasureHandles", Message>(
+        MeasureHandles,
+        failedMeasure,
+      ),
+      message(
+        Message.MovedPointer({ screenX: 244, screenY: 100, pointerId: 1 }),
+      ),
+      model((m) => {
+        if (!Gesture.guards.Connecting(m.gesture))
+          throw new Error("no connect");
+        expect(Option.isSome(m.gesture.maybeTarget)).toBe(true);
+      }),
+      message(Message.ReleasedPointer({ pointerId: 1 })),
+      expectNoOutMessage(),
+      model((m) => {
+        expect(isIdle(m.gesture)).toBe(true);
+      }),
+    );
+  });
+
+  test("a self-loop is rejected only because the predicate says so", () => {
+    const selfTarget = {
+      nodeId: "n1",
+      handleId: Option.none(),
+      type: "Target" as const,
+      position: "Left" as const,
+      x: 0,
+      y: 16,
+      width: 8,
+      height: 8,
+    };
+    const selfBounds = { ...withBounds, handleBounds: [selfTarget] };
+    const rejecting: Context = {
+      ...context,
+      isValidConnection: (connection) =>
+        connection.source !== connection.target,
+    };
+
+    story(
+      flow(rejecting).update,
+      given(selfBounds),
+      message(
+        Message.StartedConnection({ from: sourceHandle, pointer: mouse }),
+      ),
+      Story.Command.resolve<"MeasureHandles", Message>(
+        MeasureHandles,
+        failedMeasure,
+      ),
+      message(Message.MovedPointer({ screenX: 4, screenY: 20, pointerId: 1 })),
+      model((m) => {
+        if (!Gesture.guards.Connecting(m.gesture))
+          throw new Error("no connect");
+        expect(m.gesture.maybeTarget).toEqual(
+          Option.some({
+            nodeId: "n1",
+            handleId: Option.none(),
+            type: "Target",
+          }),
+        );
+      }),
+      message(Message.ReleasedPointer({ pointerId: 1 })),
+      expectNoOutMessage(),
+    );
+  });
+
+  test("a valid connection passes the predicate's Connection", () => {
+    const seen: Array<unknown> = [];
+    const accepting: Context = {
+      ...context,
+      isValidConnection: (connection) => {
+        seen.push(connection);
+        return true;
+      },
+    };
+
+    story(
+      flow(accepting).update,
+      given(withBounds),
+      message(
+        Message.StartedConnection({ from: sourceHandle, pointer: mouse }),
+      ),
+      Story.Command.resolve<"MeasureHandles", Message>(
+        MeasureHandles,
+        failedMeasure,
+      ),
+      message(
+        Message.MovedPointer({ screenX: 244, screenY: 100, pointerId: 1 }),
+      ),
+      message(Message.ReleasedPointer({ pointerId: 1 })),
+      expectOutMessage(
+        OutMessage.ConnectedHandles({
+          source: sourceHandle,
+          target: { nodeId: "n2", handleId: Option.none(), type: "Target" },
+        }),
+      ),
+    );
+
+    expect(seen).toEqual([
+      { source: "n1", target: "n2", sourceHandle: null, targetHandle: null },
+    ]);
+  });
+
+  test("with no predicate every target is accepted", () => {
+    story(
+      flow().update,
+      given(withBounds),
+      message(
+        Message.StartedConnection({ from: sourceHandle, pointer: mouse }),
+      ),
+      Story.Command.resolve<"MeasureHandles", Message>(
+        MeasureHandles,
+        failedMeasure,
+      ),
+      message(
+        Message.MovedPointer({ screenX: 244, screenY: 100, pointerId: 1 }),
+      ),
+      message(Message.ReleasedPointer({ pointerId: 1 })),
+      expectOutMessage(
+        OutMessage.ConnectedHandles({
+          source: sourceHandle,
+          target: { nodeId: "n2", handleId: Option.none(), type: "Target" },
+        }),
+      ),
+    );
+  });
+
   test("cancelling a connection emits nothing", () => {
     story(
       flow().update,
@@ -657,6 +802,186 @@ describe("connections", () => {
         expect(isIdle(m.gesture)).toBe(true);
       }),
     );
+  });
+});
+
+describe("reconnect", () => {
+  const n3 = graphNode("n3", 400, 0);
+
+  // n3's target handle, node-local: centre (404,4).
+  const n3Target = {
+    nodeId: "n3",
+    handleId: Option.some("in"),
+    type: "Target" as const,
+    position: "Left" as const,
+    x: 0,
+    y: 0,
+    width: 8,
+    height: 8,
+  };
+
+  const reconnecting: Context = {
+    nodes: [n1, n2, n3],
+    edges: [edge],
+  };
+
+  const started = {
+    ...initial,
+    paneId: Option.some("p"),
+    handleBounds: [n3Target],
+  };
+
+  const start = message(
+    Message.StartedReconnect({ edgeId: "e1", end: "Target", pointer: mouse }),
+  );
+
+  test("grabbing an edge end starts a reconnect and arms the checkpoint", () => {
+    story(
+      flow(reconnecting).update,
+      given(started),
+      start,
+      Story.Command.expectExact(MeasureHandles),
+      Story.Command.resolve<"MeasureHandles", Message>(
+        MeasureHandles,
+        failedMeasure,
+      ),
+      model((m) => {
+        if (!Gesture.guards.Reconnecting(m.gesture))
+          throw new Error("no reconnect");
+        // The end that is not moving anchors the preview: n1's border, because
+        // e1 names no handles and none are measured.
+        expect(m.gesture.current).toEqual({ x: 50, y: 40 });
+        expect(m.gesture.maybeTarget).toEqual(Option.none());
+      }),
+    );
+  });
+
+  test("dropping the end on another handle reports ReconnectedEdge", () => {
+    story(
+      flow(reconnecting).update,
+      given(started),
+      start,
+      Story.Command.resolve<"MeasureHandles", Message>(
+        MeasureHandles,
+        failedMeasure,
+      ),
+      message(Message.MovedPointer({ screenX: 404, screenY: 4, pointerId: 1 })),
+      model((m) => {
+        if (!Gesture.guards.Reconnecting(m.gesture))
+          throw new Error("no reconnect");
+        expect(m.gesture.maybeTarget).toEqual(
+          Option.some({
+            nodeId: "n3",
+            handleId: Option.some("in"),
+            type: "Target",
+          }),
+        );
+      }),
+      message(Message.ReleasedPointer({ pointerId: 1 })),
+      expectOutMessage(
+        OutMessage.ReconnectedEdge({
+          edgeId: "e1",
+          end: "Target",
+          handle: { nodeId: "n3", handleId: Option.some("in"), type: "Target" },
+        }),
+      ),
+      model((m) => {
+        expect(isIdle(m.gesture)).toBe(true);
+      }),
+    );
+  });
+
+  test("a reconnect only accepts the handle type of the end being dragged", () => {
+    // n3's only handle is a target, and the target end is the one moving, so a
+    // move over a source handle is not a candidate: hit-testing filters by type.
+    story(
+      flow(reconnecting).update,
+      given({
+        ...started,
+        handleBounds: [{ ...n3Target, type: "Source" as const }],
+      }),
+      start,
+      Story.Command.resolve<"MeasureHandles", Message>(
+        MeasureHandles,
+        failedMeasure,
+      ),
+      message(Message.MovedPointer({ screenX: 404, screenY: 4, pointerId: 1 })),
+      model((m) => {
+        if (!Gesture.guards.Reconnecting(m.gesture))
+          throw new Error("no reconnect");
+        expect(m.gesture.maybeTarget).toEqual(Option.none());
+      }),
+      message(Message.ReleasedPointer({ pointerId: 1 })),
+      expectNoOutMessage(),
+    );
+  });
+
+  test("cancelling a reconnect leaves the edge exactly as the parent had it", () => {
+    story(
+      flow(reconnecting).update,
+      given(started),
+      start,
+      Story.Command.resolve<"MeasureHandles", Message>(
+        MeasureHandles,
+        failedMeasure,
+      ),
+      message(Message.MovedPointer({ screenX: 404, screenY: 4, pointerId: 1 })),
+      message(Message.CancelledGesture({ reason: "Escape" })),
+      expectNoOutMessage(),
+      model((m) => {
+        expect(isIdle(m.gesture)).toBe(true);
+      }),
+    );
+  });
+
+  test("the predicate rejects a reconnect too", () => {
+    const rejecting: Context = {
+      ...reconnecting,
+      isValidConnection: (connection) => connection.target !== "n3",
+    };
+
+    story(
+      flow(rejecting).update,
+      given(started),
+      start,
+      Story.Command.resolve<"MeasureHandles", Message>(
+        MeasureHandles,
+        failedMeasure,
+      ),
+      message(Message.MovedPointer({ screenX: 404, screenY: 4, pointerId: 1 })),
+      message(Message.ReleasedPointer({ pointerId: 1 })),
+      expectNoOutMessage(),
+    );
+  });
+
+  test("an edge the parent no longer has cannot be reconnected", () => {
+    story(
+      flow({ nodes: [n1, n2, n3], edges: [] }).update,
+      given(started),
+      start,
+      expectNoOutMessage(),
+      model((m) => {
+        expect(isIdle(m.gesture)).toBe(true);
+      }),
+    );
+  });
+
+  test("a graph change that removes the edge drops the gesture", () => {
+    const dropped = informGraphChanged(
+      {
+        ...started,
+        gesture: Gesture.Reconnecting({
+          pointer: mouse,
+          edgeId: "e1",
+          end: "Target",
+          current: { x: 0, y: 0 },
+          maybeTarget: Option.none(),
+        }),
+      },
+      { nodes: [n1, n2, n3], edges: [] },
+    ).model;
+
+    expect(isIdle(dropped.gesture)).toBe(true);
   });
 });
 

@@ -11,6 +11,10 @@ const dragBlockedSelector = `${editableSelector}, button, a, .${classes.NoDrag}`
  *  which simulates a pointer target from attributes only. */
 const handleSelector = `.${classes.Handle}, [data-handleid]`;
 const nodeSelector = `.${classes.Node}, [data-nodeid]`;
+/** Reconnect grab handles sit in the edges layer, outside every node, so the
+ *  pane handler has to decline them explicitly. Matched by attribute as well so
+ *  the guard is testable in Scene (§M1-FINDINGS §2.2). */
+const edgeEndpointSelector = `.${classes.EdgeEndpoint}, [data-edgeend]`;
 
 const closestOrNull = (
   target: EventTarget | null,
@@ -42,6 +46,10 @@ export const blocksDrag = (target: EventTarget | null): boolean =>
 
 export const isHandleTarget = (target: EventTarget | null): boolean =>
   closestOrNull(target, handleSelector) !== null;
+
+/** A press on an edge end starts a reconnect and must not clear the selection. */
+export const isEdgeEndpointTarget = (target: EventTarget | null): boolean =>
+  closestOrNull(target, edgeEndpointSelector) !== null;
 
 /** A press inside a node belongs to the node, not to the pane: the pane handler
  *  bubbles after it, so it has to decline to clear the selection. */

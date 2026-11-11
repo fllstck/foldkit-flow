@@ -1,7 +1,7 @@
 import { Array as Arr, Option } from "effect";
 import type { Update } from "foldkit";
 
-import { handleCenter } from "./geometry/handles.js";
+import { connectionOf, edgeAnchor } from "./geometry/handles.js";
 import { hitTestHandle, oppositeHandleType } from "./geometry/hitTest.js";
 import { screenToFlow } from "./geometry/screen.js";
 import { visibleNodes } from "./geometry/visible.js";
@@ -9,8 +9,10 @@ import { Message } from "./message.js";
 import { Gesture, zeroDelta } from "./model.js";
 import type {
   Context,
+  FlowEdge,
   HandleBounds,
   HandleRef,
+  HandleType,
   Model,
   NodeSize,
   Point,
@@ -87,16 +89,57 @@ const isDraggable = (context: Context, nodeId: string): boolean =>
 const hasNode = (context: Context, nodeId: string): boolean =>
   nodeById(context, nodeId) !== undefined;
 
-const centerOf = (
+/** Flow-space point a gesture's preview starts from: the handle's measured
+ *  centre, or the node-border anchor when it has not been measured yet — the
+ *  same rule the edge renderer uses, so a preview cannot start somewhere the
+ *  committed edge will not. */
+const anchorOf = (
   model: Model,
   context: Context,
-  from: HandleRef,
+  ref: HandleRef,
 ): Option.Option<Point> =>
-  handleCenter(
-    model.handleBounds,
-    nodeById(context, from.nodeId)?.position ?? { x: 0, y: 0 },
-    from,
-  );
+  Option.map(Option.fromNullishOr(nodeById(context, ref.nodeId)), (node) => {
+    const anchor = edgeAnchor(model, node, ref.type, ref.handleId);
+    return { x: anchor.x, y: anchor.y };
+  });
+
+const edgeById = (context: Context, edgeId: string): Option.Option<FlowEdge> =>
+  Option.fromNullishOr(context.edges.find((edge) => edge.id === edgeId));
+
+/** One end of a parent-owned edge as a `HandleRef`, which is the shape the
+ *  gesture carries and the predicate is asked about. */
+const handleRefOf = (
+  nodeId: string,
+  type: HandleType,
+  handleId: Option.Option<string>,
+): HandleRef => ({ nodeId, type, handleId });
+
+/** The end that stays put while the other one is dragged. */
+const stationaryEndOf = (edge: FlowEdge, end: HandleType): HandleRef =>
+  end === "Target"
+    ? handleRefOf(
+        edge.source,
+        "Source",
+        Option.fromNullishOr(edge.sourceHandle),
+      )
+    : handleRefOf(
+        edge.target,
+        "Target",
+        Option.fromNullishOr(edge.targetHandle),
+      );
+
+/**
+ * `context.isValidConnection` is evaluated in `update` (§7 M2), so an invalid
+ * target never becomes an OutMessage and the parent is never asked to undo a
+ * connection it would have rejected. No predicate means "accept everything".
+ */
+const isAcceptedConnection = (
+  context: Context,
+  source: HandleRef,
+  target: HandleRef,
+): boolean =>
+  context.isValidConnection === undefined ||
+  context.isValidConnection(connectionOf(source, target));
 
 const measureVisible = (model: Model, context: Context) =>
   Arr.fromOption(
@@ -256,6 +299,23 @@ export const update = (
         };
       }
 
+      if (Gesture.guards.Reconnecting(gesture)) {
+        return {
+          model: {
+            ...model,
+            gesture: Gesture.Reconnecting({
+              ...gesture,
+              current: point,
+              // The end being dragged is the handle type the new target must be:
+              // reconnecting a target end looks for target handles.
+              maybeTarget: hitTestHandle(model, point, context, {
+                accept: (bounds) => bounds.type === gesture.end,
+              }),
+            }),
+          },
+        };
+      }
+
       return {
         model: {
           ...model,
@@ -287,10 +347,42 @@ export const update = (
       }
 
       const cleared: Model = { ...model, gesture: Gesture.Idle() };
+
+      if (Gesture.guards.Reconnecting(gesture)) {
+        const edge = Option.getOrUndefined(edgeById(context, gesture.edgeId));
+        if (edge === undefined) return { model: cleared };
+
+        return Option.match(gesture.maybeTarget, {
+          onNone: () => ({ model: cleared }),
+          onSome: (handle) => {
+            if (!hasNode(context, handle.nodeId)) return { model: cleared };
+
+            // The end that did not move supplies the other half of the
+            // connection the predicate judges; a rejected release leaves the
+            // edge exactly as the parent had it.
+            const stationary = stationaryEndOf(edge, gesture.end);
+            const source = gesture.end === "Source" ? handle : stationary;
+            const target = gesture.end === "Target" ? handle : stationary;
+
+            return isAcceptedConnection(context, source, target)
+              ? {
+                  model: cleared,
+                  outMessage: OutMessage.ReconnectedEdge({
+                    edgeId: gesture.edgeId,
+                    end: gesture.end,
+                    handle,
+                  }),
+                }
+              : { model: cleared };
+          },
+        });
+      }
+
       return Option.match(gesture.maybeTarget, {
         onNone: () => ({ model: cleared }),
         onSome: (target) =>
-          hasNode(context, target.nodeId)
+          hasNode(context, target.nodeId) &&
+          isAcceptedConnection(context, gesture.from, target)
             ? {
                 model: cleared,
                 outMessage: OutMessage.ConnectedHandles({
@@ -341,7 +433,7 @@ export const update = (
     StartedConnection: ({ from, pointer }) => {
       if (!hasNode(context, from.nodeId)) return { model };
 
-      const current = Option.getOrElse(centerOf(model, context, from), () => ({
+      const current = Option.getOrElse(anchorOf(model, context, from), () => ({
         x: 0,
         y: 0,
       }));
@@ -360,16 +452,31 @@ export const update = (
       };
     },
 
-    HoveredHandle: ({ handle }) => {
-      const gesture = model.gesture;
-      if (!Gesture.guards.Connecting(gesture)) return { model };
-      return {
-        model: {
-          ...model,
-          gesture: Gesture.Connecting({ ...gesture, maybeTarget: handle }),
+    StartedReconnect: ({ edgeId, end, pointer }) =>
+      Option.match(edgeById(context, edgeId), {
+        onNone: () => ({ model }),
+        onSome: (edge) => {
+          const stationary = stationaryEndOf(edge, end);
+          if (!hasNode(context, stationary.nodeId)) return { model };
+
+          return {
+            model: {
+              ...model,
+              gesture: Gesture.Reconnecting({
+                pointer,
+                edgeId,
+                end,
+                current: Option.getOrElse(
+                  anchorOf(model, context, stationary),
+                  () => ({ x: 0, y: 0 }),
+                ),
+                maybeTarget: Option.none(),
+              }),
+            },
+            commands: measureVisible(model, context),
+          };
         },
-      };
-    },
+      }),
 
     MovedViewport: ({ viewport, isGestureEnd }) => {
       const next: Model = { ...model, viewport };
@@ -414,6 +521,8 @@ export const informGraphChanged = (
     },
     Connecting: (gesture) =>
       nodeIds.includes(gesture.from.nodeId) ? gesture : Gesture.Idle(),
+    Reconnecting: (gesture) =>
+      edgeIds.includes(gesture.edgeId) ? gesture : Gesture.Idle(),
   });
 
   return {

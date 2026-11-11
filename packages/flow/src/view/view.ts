@@ -3,7 +3,14 @@ import { Mount } from "foldkit";
 import type { Html, HtmlBuilder } from "foldkit/html";
 
 import { edgePath } from "../geometry/paths.js";
-import { handleCenter } from "../geometry/handles.js";
+import type { EdgePathInput, EdgePathKind } from "../geometry/paths.js";
+import {
+  edgeAnchor,
+  edgeEndpoints,
+  pointerHandlePosition,
+} from "../geometry/handles.js";
+import type { EdgeAnchor } from "../geometry/handles.js";
+import { oppositeHandleType } from "../geometry/hitTest.js";
 import { screenToFlow } from "../geometry/screen.js";
 import { visibleEdges, visibleNodes } from "../geometry/visible.js";
 import { Message } from "../message.js";
@@ -15,13 +22,12 @@ import type {
   HandleRef,
   HandleType,
   Model,
-  NodeSize,
   Point,
   Pointer,
-  Size,
 } from "../model.js";
 import {
   blocksDrag,
+  isEdgeEndpointTarget,
   isHandleTarget,
   isNodeTarget,
 } from "../runtime/domTarget.js";
@@ -87,18 +93,6 @@ export type Renderer<NodeData, EdgeData> = Readonly<{
   /** Diagnostic: the number of live node slots. */
   cacheSize: () => number;
 }>;
-
-const sizeOf = (
-  node: FlowNode<unknown>,
-  nodeSizes: ReadonlyArray<NodeSize>,
-): Size => {
-  const measured = nodeSizes.find((size) => size.nodeId === node.id);
-  if (measured !== undefined) {
-    return { width: measured.width, height: measured.height };
-  }
-  if (node.size !== undefined) return node.size;
-  return { width: 151, height: 40 };
-};
 
 const pointerOf = (
   pointerId: number,
@@ -235,29 +229,111 @@ export const createRenderer = <NodeData = unknown, EdgeData = unknown>(
       input.nodes.map((node) => [node.id, node] as const),
     );
 
-    const positionOf = (nodeId: string): Point =>
-      nodesById.get(nodeId)?.position ?? { x: 0, y: 0 };
+    const pathInput = (
+      source: EdgeAnchor,
+      target: EdgeAnchor,
+    ): EdgePathInput => ({
+      sourceX: source.x,
+      sourceY: source.y,
+      sourcePosition: source.position,
+      targetX: target.x,
+      targetY: target.y,
+      targetPosition: target.position,
+    });
 
-    const centerOf = (ref: HandleRef): Point =>
-      Option.getOrElse(
-        handleCenter(model.handleBounds, positionOf(ref.nodeId), ref),
-        () => positionOf(ref.nodeId),
+    const anchorOf = (ref: HandleRef): Option.Option<EdgeAnchor> =>
+      Option.map(Option.fromNullishOr(nodesById.get(ref.nodeId)), (node) =>
+        edgeAnchor(model, node, ref.type, ref.handleId),
       );
 
-    const edgeEndpoints = (edge: FlowEdge<EdgeData>) => {
-      const source = nodesById.get(edge.source);
-      const target = nodesById.get(edge.target);
-      if (source === undefined || target === undefined) return undefined;
+    /** Where a preview's free end is: the hovered handle's own anchor, or the
+     *  pointer (entered from the side it approaches). */
+    const freeEnd = (
+      start: EdgeAnchor,
+      maybeTarget: Option.Option<HandleRef>,
+      current: Point,
+    ): EdgeAnchor =>
+      Option.getOrElse(Option.flatMap(maybeTarget, anchorOf), () => ({
+        ...current,
+        position: pointerHandlePosition(start, current),
+      }));
 
-      const sourceSize = sizeOf(source, model.nodeSizes);
-      const targetSize = sizeOf(target, model.nodeSizes);
-      return {
-        sourceX: source.position.x + sourceSize.width / 2,
-        sourceY: source.position.y + sourceSize.height,
-        targetX: target.position.x + targetSize.width / 2,
-        targetY: target.position.y,
-      };
-    };
+    const connectionLine = (
+      kind: EdgePathKind,
+      source: EdgeAnchor,
+      target: EdgeAnchor,
+      h: HtmlBuilder<any>,
+    ): Html =>
+      h.svg(
+        [
+          h.Class(classes.Connection),
+          h.Attribute("width", "100%"),
+          h.Attribute("height", "100%"),
+          h.Style({
+            position: "absolute",
+            top: "0",
+            left: "0",
+            overflow: "visible",
+            pointerEvents: "none",
+          }),
+          h.Attribute("aria-hidden", "true"),
+        ],
+        [
+          h.path(
+            [
+              h.Attribute("d", edgePath(kind, pathInput(source, target)).d),
+              h.Class(classes.EdgePath),
+            ],
+            [],
+          ),
+        ],
+      );
+
+    /** Reconnect grab handle for one edge end. It reconnects that end and
+     *  nothing else: the pane handler declines `[data-edgeend]`, and `NoPan`
+     *  keeps d3 from starting a viewport pan from the same press (§4.6). */
+    const edgeEndpoint = (
+      edgeId: string,
+      end: HandleType,
+      anchor: EdgeAnchor,
+      h: HtmlBuilder<any>,
+    ): Html =>
+      h.circle(
+        [
+          h.Class(`${classes.EdgeEndpoint} ${classes.NoPan}`),
+          h.Attribute("cx", String(anchor.x)),
+          h.Attribute("cy", String(anchor.y)),
+          // An annulus, not a dot: the handle at its centre keeps starting a
+          // new connection, and the ring around it grabs the existing edge.
+          h.Attribute("r", "10"),
+          h.DataAttribute("edgeid", edgeId),
+          h.DataAttribute("edgeend", end),
+          h.OnPointerDown(
+            (
+              pointerType,
+              button,
+              _screenX,
+              _screenY,
+              _timeStamp,
+              _clientX,
+              _clientY,
+              pointerId,
+            ) =>
+              isPrimaryButton(button)
+                ? Option.some(
+                    input.toParentMessage(
+                      Message.StartedReconnect({
+                        edgeId,
+                        end,
+                        pointer: pointerOf(pointerId, pointerType, button),
+                      }),
+                    ),
+                  )
+                : Option.none(),
+          ),
+        ],
+        [],
+      );
 
     const edgesView = h.svg(
       [
@@ -273,14 +349,14 @@ export const createRenderer = <NodeData = unknown, EdgeData = unknown>(
         h.Attribute("aria-hidden", "true"),
       ],
       edges.flatMap((edge) => {
-        const endpoints = edgeEndpoints(edge);
-        if (endpoints === undefined) return [];
+        const maybeEndpoints = edgeEndpoints(model, edge, input.nodes);
+        if (Option.isNone(maybeEndpoints)) return [];
+        const endpoints = maybeEndpoints.value;
 
-        const geometry = edgePath(edge.type ?? "Bezier", {
-          ...endpoints,
-          sourcePosition: "Bottom",
-          targetPosition: "Top",
-        });
+        const geometry = edgePath(
+          edge.type ?? "Bezier",
+          pathInput(endpoints.source, endpoints.target),
+        );
 
         const label =
           edge.label !== undefined && config.renderEdgeLabel !== undefined
@@ -304,6 +380,8 @@ export const createRenderer = <NodeData = unknown, EdgeData = unknown>(
             [
               h.path([h.Attribute("d", geometry.d), h.Class(classes.EdgePath)]),
               ...label,
+              edgeEndpoint(edge.id, "Source", endpoints.source, h),
+              edgeEndpoint(edge.id, "Target", endpoints.target, h),
             ],
           ),
         ];
@@ -400,39 +478,49 @@ export const createRenderer = <NodeData = unknown, EdgeData = unknown>(
 
     cache.sweep(nodes.map((node) => node.id));
 
-    const connectionView = Gesture.guards.Connecting(gesture)
-      ? (() => {
-          const from = centerOf(gesture.from);
-          const end = Option.getOrElse(
-            Option.map(gesture.maybeTarget, centerOf),
-            () => gesture.current,
-          );
-          return h.svg(
-            [
-              h.Class(classes.Connection),
-              h.Attribute("width", "100%"),
-              h.Attribute("height", "100%"),
-              h.Style({
-                position: "absolute",
-                top: "0",
-                left: "0",
-                overflow: "visible",
-                pointerEvents: "none",
-              }),
-              h.Attribute("aria-hidden", "true"),
-            ],
-            [
-              h.path(
-                [
-                  h.Attribute("d", `M${from.x},${from.y} L${end.x},${end.y}`),
-                  h.Class(classes.EdgePath),
-                ],
-                [],
-              ),
-            ],
-          );
-        })()
-      : h.empty;
+    const connectionView = ((): Html => {
+      if (Gesture.guards.Connecting(gesture)) {
+        return Option.match(anchorOf(gesture.from), {
+          onNone: () => h.empty,
+          onSome: (start) =>
+            connectionLine(
+              "Bezier",
+              start,
+              freeEnd(start, gesture.maybeTarget, gesture.current),
+              h,
+            ),
+        });
+      }
+
+      if (Gesture.guards.Reconnecting(gesture)) {
+        // The end that is not moving anchors the preview: the parent owns the
+        // edge, so it is read from `input.edges`, not from the Model (§2.5.1).
+        const edge = input.edges.find((entry) => entry.id === gesture.edgeId);
+        if (edge === undefined) return h.empty;
+
+        const stationaryType = oppositeHandleType(gesture.end);
+        const stationary: HandleRef = {
+          nodeId: stationaryType === "Source" ? edge.source : edge.target,
+          handleId: Option.fromNullishOr(
+            stationaryType === "Source" ? edge.sourceHandle : edge.targetHandle,
+          ),
+          type: stationaryType,
+        };
+
+        return Option.match(anchorOf(stationary), {
+          onNone: () => h.empty,
+          onSome: (start) =>
+            connectionLine(
+              "Bezier",
+              start,
+              freeEnd(start, gesture.maybeTarget, gesture.current),
+              h,
+            ),
+        });
+      }
+
+      return h.empty;
+    })();
 
     return h.div(
       [
@@ -464,7 +552,8 @@ export const createRenderer = <NodeData = unknown, EdgeData = unknown>(
             if (
               blocksDrag(target) ||
               isHandleTarget(target) ||
-              isNodeTarget(target)
+              isNodeTarget(target) ||
+              isEdgeEndpointTarget(target)
             ) {
               return Option.none();
             }

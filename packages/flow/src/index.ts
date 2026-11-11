@@ -1,9 +1,12 @@
 export { init, Model, defaultViewport, zeroDelta } from "./model.js";
+// `Gesture` is both the union's value (constructors and `guards`) and its type,
+// so a parent reading the gesture needs only this export.
+export { Gesture } from "./model.js";
 export type {
+  Connection,
   Context,
   FlowEdge,
   FlowNode,
-  Gesture,
   HandleBounds,
   HandlePosition,
   HandleRef,
@@ -22,6 +25,14 @@ export type { Message as MessageType } from "./message.js";
 
 export { OutMessage } from "./outMessage.js";
 export type { OutMessage as OutMessageType } from "./outMessage.js";
+export type {
+  ChangedViewport,
+  ConnectedHandles,
+  DeletedElements,
+  MovedNodes,
+  ReconnectedEdge,
+  SelectedElements,
+} from "./outMessage.js";
 
 export {
   clearSelection,
@@ -49,6 +60,14 @@ export type {
 } from "./geometry/paths.js";
 
 export { nodeBounds, nodeRect, nodeSizeOf } from "./geometry/bounds.js";
+export {
+  connectionOf,
+  edgeAnchor,
+  edgeEndpoints,
+  pointerHandlePosition,
+  resolveHandle,
+} from "./geometry/handles.js";
+export type { EdgeAnchor, EdgeEndpoints } from "./geometry/handles.js";
 export { hitTestHandle } from "./geometry/hitTest.js";
 export { dragDelta, flowToScreen, screenToFlow } from "./geometry/screen.js";
 export type { ScreenPoint } from "./geometry/screen.js";

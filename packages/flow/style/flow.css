@@ -103,6 +103,26 @@
   cursor: grabbing;
 }
 
+/* Reconnect grab handles: an invisible annulus around each edge end (r 10,
+   stroke 6 → the ring is 7–13 flow units from the endpoint). Only the stroke is
+   hit-testable, so the handle at the centre of the ring still starts a new
+   connection while the ring around it grabs the existing edge. Dimensions are in
+   flow units on purpose: the ring has to keep the same relation to the handle at
+   any zoom. The element also carries `.fflow__nopan`, so a press here starts a
+   reconnect instead of a viewport pan. */
+.fflow__edge-endpoint {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 6;
+  cursor: grab;
+  pointer-events: stroke;
+}
+
+.fflow__edge:hover .fflow__edge-endpoint,
+.fflow__edge-endpoint:hover {
+  stroke: var(--fflow-edge-stroke);
+}
+
 .fflow__connection .fflow__edge-path {
   stroke: #4c8dff;
   stroke-dasharray: 4 3;
