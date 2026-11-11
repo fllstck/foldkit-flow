@@ -2,7 +2,8 @@
 
 This is the starting point for the next session. M0, M1, M2 and M3 are complete and
 committed, v0.1 shipped at M2, and v1.0 ships at M4. The plan was not re-litigated.
-The repo is on `main`; the tree is clean at `3638b10`. Do not amend `c40ae47` (M0),
+The repo is on `main`; the tree is clean at `898e118`, the commit that carries
+this file. Do not amend `c40ae47` (M0),
 `a0a3fdc` (the M1 handoff), `898bb46` (M1 complete), the M2 commits, or `69a630e`
 (M3 library) with its follow-ups, and do not rewrite history. Commit M4 work at
 logical checkpoints.
