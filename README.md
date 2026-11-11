@@ -74,10 +74,10 @@ protocol, the machine, the reproduction command), and the milestone records
 - **[docs/M4-HANDOFF.md](docs/M4-HANDOFF.md)** — what M4 inherited, the graph-feature
   scope (sub-flows, resizing, snap, fitView options, edge types, `hidden`
   collapsing), and the traps M3's follow-ups cost.
-- **[docs/M5-HANDOFF.md](docs/M5-HANDOFF.md)** — what M5 inherits, the hardening and
+- **[docs/M5-HANDOFF.md](docs/M5-HANDOFF.md)** — what M5 inherited: the hardening and
   publishing scope (index the culling scan, publish the 1k/10k numbers, settle the
   pan stall, the fixture gallery, package docs, the example page), and the M6 list
-  it must not pre-empt.
+  it must not pre-empt. Its outcome is `docs/M5-FINDINGS.md`.
 
 Decisions locked: package `@fllstck/foldkit-flow`; MIT; our own CSS and visual
 identity (no upstream stylesheet, no attribution component); Foldkit-native API
