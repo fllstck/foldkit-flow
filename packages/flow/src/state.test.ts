@@ -416,6 +416,101 @@ describe("graph reconciliation", () => {
   });
 });
 
+describe("sub-flows", () => {
+  const parent = graphNode("parent", 100, 50);
+  const child = graphNode("child", 10, 10, { parentId: "parent" });
+  const subFlowContext: Context = { nodes: [parent, child], edges: [] };
+
+  const press = (nodeId: string) =>
+    message(
+      Message.PressedNode({
+        nodeId,
+        point: { x: 0, y: 0 },
+        isAdditive: false,
+        pointer: mouse,
+      }),
+    );
+
+  test("dragging a parent emits one fact for the parent, none for the child", () => {
+    // The child carries a parent-relative position, so it follows the parent
+    // without a fact of its own — and must not also carry the delta, or it would
+    // move twice (§7 M4).
+    story(
+      flow(subFlowContext).update,
+      given(initial),
+      press("parent"),
+      model((m) => {
+        if (!Gesture.guards.DraggingNodes(m.gesture))
+          throw new Error("no drag");
+        expect(m.gesture.nodeIds).toEqual(["parent"]);
+      }),
+      message(Message.MovedPointer({ screenX: 30, screenY: 20, pointerId: 1 })),
+      message(Message.ReleasedPointer({ pointerId: 1 })),
+      expectOutMessage(
+        OutMessage.MovedNodes({
+          nodes: [{ nodeId: "parent", x: 130, y: 70 }],
+        }),
+      ),
+    );
+  });
+
+  test("dragging a child emits the child's relative position, unchanged by the parent", () => {
+    story(
+      flow(subFlowContext).update,
+      given(initial),
+      press("child"),
+      message(Message.MovedPointer({ screenX: 30, screenY: 20, pointerId: 1 })),
+      message(Message.ReleasedPointer({ pointerId: 1 })),
+      expectOutMessage(
+        OutMessage.MovedNodes({
+          nodes: [{ nodeId: "child", x: 40, y: 30 }],
+        }),
+      ),
+    );
+  });
+
+  test("a selected parent and child do not both carry the delta", () => {
+    story(
+      flow(subFlowContext).update,
+      given({ ...initial, selectedNodeIds: ["child"] }),
+      message(
+        Message.PressedNode({
+          nodeId: "parent",
+          point: { x: 0, y: 0 },
+          isAdditive: true,
+          pointer: mouse,
+        }),
+      ),
+      model((m) => {
+        if (!Gesture.guards.DraggingNodes(m.gesture))
+          throw new Error("no drag");
+        expect(m.gesture.nodeIds).toEqual(["parent"]);
+      }),
+    );
+  });
+
+  test("a collapsed subtree's selection and measurement are pruned", () => {
+    const collapsed = informGraphChanged(
+      {
+        ...initial,
+        selectedNodeIds: ["child", "parent"],
+        nodeSizes: [
+          { nodeId: "parent", width: 300, height: 200 },
+          { nodeId: "child", width: 100, height: 40 },
+        ],
+      },
+      {
+        nodes: [{ ...parent, hidden: true }, child],
+        edges: [],
+      },
+    ).model;
+
+    // A collapsed node is not drawn, so it is not selected and not measured.
+    expect(collapsed.selectedNodeIds).toEqual([]);
+    expect(collapsed.nodeSizes).toEqual([]);
+  });
+});
+
 describe("handle bounds", () => {
   const sourceBounds = (
     nodeId: string,

@@ -1,6 +1,8 @@
 import { Array as Arr, Option } from "effect";
 
 import { nodeSizeOf } from "./bounds.js";
+import { positionIndex, positionOf } from "./positions.js";
+import type { PositionIndex } from "./positions.js";
 import type {
   Connection,
   FlowEdge,
@@ -112,17 +114,18 @@ const borderAnchor = (
   node: FlowNode<unknown>,
   nodeSizes: ReadonlyArray<NodeSize>,
   type: HandleType,
+  origin: Point,
 ): EdgeAnchor => {
   const size = nodeSizeOf(node, nodeSizes);
   return type === "Source"
     ? {
-        x: node.position.x + size.width / 2,
-        y: node.position.y + size.height,
+        x: origin.x + size.width / 2,
+        y: origin.y + size.height,
         position: "Bottom",
       }
     : {
-        x: node.position.x + size.width / 2,
-        y: node.position.y,
+        x: origin.x + size.width / 2,
+        y: origin.y,
         position: "Top",
       };
 };
@@ -130,19 +133,22 @@ const borderAnchor = (
 /**
  * One edge end: the measured handle's centre with the handle's own `position`,
  * or the node-border anchor when that handle is unmeasured or missing (§7 M2).
- * Bounds are node-local, so the node position comes from the graph (§2.5.2).
+ * Bounds are node-local, so the node's **absolute** position comes from the
+ * position index — a child's edge is anchored where the child is drawn, not at
+ * its parent-relative offset (§7 M4).
  */
 const anchorOf = (
   node: FlowNode<unknown>,
   nodeSizes: ReadonlyArray<NodeSize>,
   maybeHandle: Option.Option<HandleBounds>,
   type: HandleType,
+  origin: Point,
 ): EdgeAnchor =>
   Option.match(maybeHandle, {
-    onNone: () => borderAnchor(node, nodeSizes, type),
+    onNone: () => borderAnchor(node, nodeSizes, type, origin),
     onSome: (entry) => ({
-      x: node.position.x + entry.x + entry.width / 2,
-      y: node.position.y + entry.y + entry.height / 2,
+      x: origin.x + entry.x + entry.width / 2,
+      y: origin.y + entry.y + entry.height / 2,
       position: entry.position,
     }),
   });
@@ -152,13 +158,18 @@ export const edgeAnchor = (
   node: FlowNode<unknown>,
   type: HandleType,
   handleId: Option.Option<string>,
-): EdgeAnchor =>
-  anchorOf(
+  positions?: PositionIndex,
+): EdgeAnchor => {
+  const origin =
+    positions === undefined ? node.position : positionOf(node, positions);
+  return anchorOf(
     node,
     model.nodeSizes,
     resolveHandle(model.handleBounds, node.id, type, handleId),
     type,
+    origin,
   );
+};
 
 /**
  * Both ends of an edge against pre-built lookups, or `None` when either node is
@@ -170,10 +181,14 @@ export const indexedEdgeEndpoints = <EdgeData>(
   handles: HandleBoundsByNode,
   nodes: ReadonlyMap<string, FlowNode<unknown>>,
   edge: FlowEdge<EdgeData>,
+  positions?: PositionIndex,
 ): Option.Option<EdgeEndpoints> => {
   const source = nodes.get(edge.source);
   const target = nodes.get(edge.target);
   if (source === undefined || target === undefined) return Option.none();
+
+  const originOf = (node: FlowNode<unknown>): Point =>
+    positions === undefined ? node.position : positionOf(node, positions);
 
   return Option.some({
     source: anchorOf(
@@ -186,6 +201,7 @@ export const indexedEdgeEndpoints = <EdgeData>(
         Option.fromNullishOr(edge.sourceHandle),
       ),
       "Source",
+      originOf(source),
     ),
     target: anchorOf(
       target,
@@ -197,6 +213,7 @@ export const indexedEdgeEndpoints = <EdgeData>(
         Option.fromNullishOr(edge.targetHandle),
       ),
       "Target",
+      originOf(target),
     ),
   });
 };
@@ -213,6 +230,7 @@ export const edgeEndpoints = <NodeData, EdgeData>(
     indexHandles(model.handleBounds),
     new Map(nodes.map((node) => [node.id, node] as const)),
     edge,
+    positionIndex(nodes),
   );
 
 /**

@@ -78,7 +78,16 @@ export type {
 } from "./geometry/paths.js";
 
 export { fitPadding, fitViewport } from "./geometry/fit.js";
+export type { FitOptions } from "./geometry/fit.js";
 export { nodeBounds, nodeRect, nodeSizeOf } from "./geometry/bounds.js";
+export { hiddenIds } from "./geometry/hidden.js";
+export {
+  ancestorIds,
+  positionIndex,
+  positionOf,
+  withDescendants,
+} from "./geometry/positions.js";
+export type { PositionIndex } from "./geometry/positions.js";
 export {
   connectionOf,
   edgeAnchor,
@@ -98,6 +107,7 @@ export { connectionRadius, hitTestHandle } from "./geometry/hitTest.js";
 export { dragDelta, flowToScreen, screenToFlow } from "./geometry/screen.js";
 export type { ScreenPoint } from "./geometry/screen.js";
 export {
+  shownNodes,
   viewportRect,
   visibleEdges,
   visibleNodes,

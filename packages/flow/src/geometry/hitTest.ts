@@ -8,7 +8,7 @@ import type {
   Model,
   Point,
 } from "../model.js";
-
+import { positionIndex, positionOf } from "./positions.js";
 export type HitTestOptions = Readonly<{
   /** Restricts candidates, e.g. a connection that only accepts the opposite
    *  handle type. */
@@ -53,9 +53,12 @@ export const hitTestHandle = (
   options?: HitTestOptions,
 ): Option.Option<HandleRef> => {
   const slack = options?.tolerance ?? 0;
-  const positions = new Map(
-    context.nodes.map((node) => [node.id, node.position]),
+  const nodesById = new Map(
+    context.nodes.map((node) => [node.id, node] as const),
   );
+  // Absolute positions: a child's handle box is node-local, so it has to be
+  // placed by the resolved position, not by its parent-relative offset (§7 M4).
+  const positions = positionIndex(context.nodes);
 
   const candidates = Arr.filterMap(
     model.handleBounds,
@@ -63,8 +66,9 @@ export const hitTestHandle = (
       if (options?.accept !== undefined && !options.accept(bounds)) {
         return Result.failVoid;
       }
-      const origin = positions.get(bounds.nodeId);
-      if (origin === undefined) return Result.failVoid;
+      const node = nodesById.get(bounds.nodeId);
+      if (node === undefined) return Result.failVoid;
+      const origin = positionOf(node, positions);
 
       const placed: HandleBounds = {
         ...bounds,

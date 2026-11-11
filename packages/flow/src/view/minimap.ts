@@ -2,6 +2,7 @@ import { Array as Arr } from "effect";
 import type { Html, HtmlBuilder } from "foldkit/html";
 
 import { nodeBounds, nodeRect } from "../geometry/bounds.js";
+import { positionIndex } from "../geometry/positions.js";
 import type { FlowNode, Model, NodeSize, Rect } from "../model.js";
 import * as classes from "./classes.js";
 import type { ViewMemo } from "./viewMemo.js";
@@ -30,16 +31,21 @@ export const miniMapViewBox = (
  * culled or not — which is exactly why it is opt-in and memoized: at 1k nodes
  * this is 1k `<rect>`s, and rebuilding them per viewport frame would be a
  * measurable cost for a layer whose content does not change while panning.
+ *
+ * Collapsed nodes are the exception: a hidden subtree is not drawn here either,
+ * because a minimap that shows what the canvas refuses to draw is a lie about
+ * where the graph is (§7 M4).
  */
 const minimapNodes = (
   model: Model,
   nodes: ReadonlyArray<FlowNode<unknown>>,
   h: HtmlBuilder<any>,
-): Html =>
-  h.g(
+): Html => {
+  const positions = positionIndex(nodes);
+  return h.g(
     [h.Class(classes.MiniMapNodes)],
     nodes.map((node) => {
-      const rect = nodeRect(node, model.nodeSizes);
+      const rect = nodeRect(node, model.nodeSizes, positions);
       return h.keyed("rect")(
         node.id,
         [
@@ -55,6 +61,7 @@ const minimapNodes = (
       );
     }),
   );
+};
 
 export type MiniMapInput = Readonly<{
   model: Model;
@@ -66,9 +73,8 @@ export type MiniMapInput = Readonly<{
 }>;
 
 /**
- * Display-only in M3 (§7 M3): click-to-centre and drag-to-pan are a new gesture
- * surface with their own pointer identity, so they are named as M4 rather than
- * half-built here.
+ * Display-only in M3 (§7 M3), display plus click-to-centre from M4: drag-to-pan
+ * is still out (see `docs/M4-FINDINGS.md` §3).
  *
  * `aria-hidden` because this is a picture of what the description region already
  * says in words; announcing 1k rectangles to a screen reader is worse than

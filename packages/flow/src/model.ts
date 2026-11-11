@@ -114,7 +114,12 @@ export type FlowNode<Data = unknown> = Readonly<{
   draggable?: boolean;
   selectable?: boolean;
   parentId?: string;
+  hidden?: boolean;
 }>;
+
+/** The arrowhead glyphs we draw. Ours by design, like the rest of the chrome
+ *  (§2.4): a `<marker>` is a visual identity choice, not a ported component. */
+export type MarkerEnd = "Arrow" | "ArrowClosed";
 
 export type FlowEdge<Data = unknown> = Readonly<{
   id: string;
@@ -124,6 +129,8 @@ export type FlowEdge<Data = unknown> = Readonly<{
   targetHandle?: string;
   type?: "Bezier" | "Straight" | "Step" | "SmoothStep";
   label?: string;
+  markerStart?: MarkerEnd;
+  markerEnd?: MarkerEnd;
   data?: Data;
 }>;
 

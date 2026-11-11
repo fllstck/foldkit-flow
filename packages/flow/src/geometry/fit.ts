@@ -8,9 +8,26 @@ import { nodeBounds } from "./bounds.js";
 export const fitPadding = 0.1;
 
 /**
+ * `fitView` options (§7 M4). Every one is optional and every default is the
+ * behaviour M3 shipped, so `fitViewport(model, nodes)` is unchanged.
+ */
+export type FitOptions<NodeData = unknown> = Readonly<{
+  padding?: number;
+  /** A clamp for **this fit only**, e.g. "never zoom in past 1:1". It can only
+   *  tighten: the result is `Math.min(maxZoom, Model.maxZoom)`, so the Model's
+   *  bounds stay the single source of truth (§3.1, §7 M4). */
+  maxZoom?: number;
+  minZoom?: number;
+  /** Fit only the nodes this keeps — "fit the selection" is the use case.
+   *  Positions still resolve against the **whole** graph, so a child fitted
+   *  without its parent lands where it is drawn, not at its relative offset. */
+  nodes?: (node: FlowNode<NodeData>) => boolean;
+}>;
+
+/**
  * The viewport that fits every node into the pane (§3.4). Pure, Model-first, and
  * the only path a fit control takes: `Controls` dispatches `ClickedFitView`,
- * `update` calls this and hands the result to `setViewport`.
+ * `update` calls this and hands the result to `setViewport` (duration and all).
  *
  * Three degenerate cases return the current viewport unchanged rather than a
  * fabricated one:
@@ -24,20 +41,36 @@ export const fitPadding = 0.1;
  *   same geometry the edge paths use before measurement.
  *
  * The result is clamped to the Model's zoom bounds inside
- * `getViewportForBounds`, which are the same bounds the pan/zoom engine
- * enforces, so there is no second clamp here.
+ * `getViewportForBounds` — the same bounds the pan/zoom engine enforces — so
+ * there is no second clamp here. An option can only tighten them.
  */
 export const fitViewport = <NodeData>(
   model: Model,
   nodes: ReadonlyArray<FlowNode<NodeData>>,
-  padding: number = fitPadding,
+  options?: FitOptions<NodeData> | number,
 ): Viewport => {
   const { pane } = model;
+  const opts: FitOptions<NodeData> =
+    typeof options === "number" ? { padding: options } : (options ?? {});
+
   if (Arr.isReadonlyArrayEmpty(nodes) || pane.width <= 0 || pane.height <= 0) {
     return model.viewport;
   }
 
-  const bounds = nodeBounds(model, nodes);
+  // A collapsed subtree is not drawn, so it is not fitted: zooming out to include
+  // a node the canvas refuses to show leaves the visible graph in a corner (§7 M4).
+  // A filter applies on top of that, not instead of it.
+  const fitted = nodes.filter(
+    (node) =>
+      node.hidden !== true && (opts.nodes === undefined || opts.nodes(node)),
+  );
+  if (Arr.isReadonlyArrayEmpty(fitted)) return model.viewport;
+
+  const bounds = nodeBounds(
+    model,
+    fitted.length === nodes.length ? nodes : withAncestors(nodes, fitted),
+  );
+
   return getViewportForBounds(
     {
       x: bounds.left,
@@ -47,8 +80,32 @@ export const fitViewport = <NodeData>(
     },
     pane.width,
     pane.height,
-    model.minZoom,
-    model.maxZoom,
-    padding,
+    Math.max(model.minZoom, opts.minZoom ?? model.minZoom),
+    Math.min(model.maxZoom, opts.maxZoom ?? model.maxZoom),
+    opts.padding ?? fitPadding,
   );
+};
+
+/**
+ * `nodeBounds` needs a node's ancestors to place it, so a filtered fit measures a
+ * list that keeps them. The extra nodes are measured, never shown.
+ */
+const withAncestors = <NodeData>(
+  nodes: ReadonlyArray<FlowNode<NodeData>>,
+  fitted: ReadonlyArray<FlowNode<NodeData>>,
+): ReadonlyArray<FlowNode<NodeData>> => {
+  const byId = new Map(nodes.map((node) => [node.id, node] as const));
+  const keep = new Set(fitted.map((node) => node.id));
+
+  fitted.forEach((node) => {
+    let current = node.parentId;
+    while (current !== undefined && !keep.has(current)) {
+      const parent = byId.get(current);
+      if (parent === undefined) break;
+      keep.add(parent.id);
+      current = parent.parentId;
+    }
+  });
+
+  return nodes.filter((node) => keep.has(node.id));
 };

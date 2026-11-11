@@ -16,8 +16,15 @@ import type {
   HandleBoundsByNode,
 } from "../geometry/handles.js";
 import { oppositeHandleType } from "../geometry/hitTest.js";
+import { hiddenIds } from "../geometry/hidden.js";
 import { screenToFlow } from "../geometry/screen.js";
 import {
+  positionIndex,
+  positionOf,
+  withDescendants,
+} from "../geometry/positions.js";
+import {
+  shownNodes,
   viewportRect,
   visibleEdges,
   visibleNodes,
@@ -267,6 +274,14 @@ export const createRenderer = <NodeData = unknown, EdgeData = unknown>(
       handleIndex = indexHandles(model.handleBounds);
     }
 
+    // Absolute positions, resolved once per graph change (memoized on the nodes
+    // array) and read by every position-derived thing below (§7 M4).
+    const positions = positionIndex(input.nodes);
+    const hidden = hiddenIds(input.nodes);
+    // A drag moves the pressed nodes *and their subtrees*: a child is drawn at
+    // its parent's absolute position, so it follows without being dragged.
+    const movingIds = withDescendants(draggedIds, input.nodes);
+
     const isCulling =
       config.cull === true && model.pane.width > 0 && model.pane.height > 0;
 
@@ -283,21 +298,22 @@ export const createRenderer = <NodeData = unknown, EdgeData = unknown>(
         )
       : undefined;
 
-    const nodes =
-      visibleNodeIds === undefined
-        ? input.nodes
-        : input.nodes.filter(
-            (node) => visibleNodeIds.has(node.id) || draggedIds.has(node.id),
-          );
-    const edges =
-      visibleEdgeIds === undefined
-        ? input.edges
-        : input.edges.filter(
-            (edge) =>
-              visibleEdgeIds.has(edge.id) ||
-              draggedIds.has(edge.source) ||
-              draggedIds.has(edge.target),
-          );
+    const nodes = input.nodes.filter(
+      (node) =>
+        !hidden.has(node.id) &&
+        (visibleNodeIds === undefined ||
+          visibleNodeIds.has(node.id) ||
+          movingIds.has(node.id)),
+    );
+    const edges = input.edges.filter(
+      (edge) =>
+        !hidden.has(edge.source) &&
+        !hidden.has(edge.target) &&
+        (visibleEdgeIds === undefined ||
+          visibleEdgeIds.has(edge.id) ||
+          movingIds.has(edge.source) ||
+          movingIds.has(edge.target)),
+    );
 
     const nodesById = new Map(
       input.nodes.map((node) => [node.id, node] as const),
@@ -326,6 +342,7 @@ export const createRenderer = <NodeData = unknown, EdgeData = unknown>(
                 handleIndex,
                 nodesById,
                 edge,
+                positions,
               ),
             ] as const,
         ),
@@ -346,7 +363,7 @@ export const createRenderer = <NodeData = unknown, EdgeData = unknown>(
 
     const anchorOf = (ref: HandleRef): Option.Option<EdgeAnchor> =>
       Option.map(Option.fromNullishOr(nodesById.get(ref.nodeId)), (node) =>
-        edgeAnchor(model, node, ref.type, ref.handleId),
+        edgeAnchor(model, node, ref.type, ref.handleId, positions),
       );
 
     /** Where a preview's free end is: the hovered handle's own anchor, or the
@@ -457,7 +474,7 @@ export const createRenderer = <NodeData = unknown, EdgeData = unknown>(
 
     /** The live drag offset for one edge end, or the anchor unchanged. */
     const shiftForDrag = (anchor: EdgeAnchor, nodeId: string): EdgeAnchor =>
-      draggedIds.has(nodeId)
+      movingIds.has(nodeId)
         ? { ...anchor, x: anchor.x + delta.x, y: anchor.y + delta.y }
         : anchor;
 
@@ -536,10 +553,11 @@ export const createRenderer = <NodeData = unknown, EdgeData = unknown>(
       [h.Class(classes.Nodes)],
       nodes.map((node) => {
         const isSelected = model.selectedNodeIds.includes(node.id);
-        const isDragging = draggedIds.has(node.id);
-        const position = isDragging
-          ? { x: node.position.x + delta.x, y: node.position.y + delta.y }
-          : node.position;
+        const isDragging = movingIds.has(node.id);
+        const origin = positionOf(node, positions);
+        const position = movingIds.has(node.id)
+          ? { x: origin.x + delta.x, y: origin.y + delta.y }
+          : origin;
 
         return h.keyed("div")(
           node.id,
@@ -760,7 +778,7 @@ export const createRenderer = <NodeData = unknown, EdgeData = unknown>(
           ? miniMapView(
               {
                 model,
-                nodes: input.nodes,
+                nodes: shownNodes(input.nodes),
                 nodeSizes: model.nodeSizes,
                 view: viewportRect(model),
               },
@@ -775,7 +793,7 @@ export const createRenderer = <NodeData = unknown, EdgeData = unknown>(
             descriptionView(
               config.paneId,
               {
-                nodes: input.nodes,
+                nodes: shownNodes(input.nodes),
                 edges: input.edges,
                 accessibleName: accessibleNameOf,
               },

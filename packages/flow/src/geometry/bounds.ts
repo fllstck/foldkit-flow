@@ -1,4 +1,7 @@
-import type { FlowNode, Model, NodeSize, Rect, Size } from "../model.js";
+import type { FlowNode, Rect } from "../model.js";
+import type { Model, NodeSize, Size } from "../model.js";
+import { positionIndex, positionOf } from "./positions.js";
+import type { PositionIndex } from "./positions.js";
 
 /** Used for edge paths and culling before the node Mount has measured a box. */
 export const fallbackSize: Size = { width: 151, height: 40 };
@@ -16,15 +19,22 @@ export const nodeSizeOf = (
   return fallbackSize;
 };
 
-/** The node's box in flow space. `Rect.left`/`top` carry the node position. */
+/**
+ * The node's box in **absolute flow space**: `left`/`top` come from the position
+ * index, which has already added the parent chain's offsets (§7 M4). A child
+ * therefore lands where its parent puts it, and every consumer of a rect — the
+ * culling test, the minimap, the fit, the edge anchors — shares that one rule.
+ */
 export const nodeRect = (
   node: FlowNode<unknown>,
   nodeSizes: ReadonlyArray<NodeSize>,
+  positions: PositionIndex,
 ): Rect => {
   const size = nodeSizeOf(node, nodeSizes);
+  const position = positionOf(node, positions);
   return {
-    left: node.position.x,
-    top: node.position.y,
+    left: position.x,
+    top: position.y,
     width: size.width,
     height: size.height,
   };
@@ -36,12 +46,14 @@ export const intersects = (a: Rect, b: Rect): boolean =>
   a.top < b.top + b.height &&
   a.top + a.height > b.top;
 
-/** Bounding box of every node, in flow space. Empty graphs give a zero rect. */
+/** Bounding box of every node, in absolute flow space. Empty graphs give a zero
+ *  rect. */
 export const nodeBounds = <NodeData>(
   model: Model,
   nodes: ReadonlyArray<FlowNode<NodeData>>,
 ): Rect => {
-  const rects = nodes.map((node) => nodeRect(node, model.nodeSizes));
+  const positions = positionIndex(nodes);
+  const rects = nodes.map((node) => nodeRect(node, model.nodeSizes, positions));
   const [first, ...rest] = rects;
   if (first === undefined) return { left: 0, top: 0, width: 0, height: 0 };
 

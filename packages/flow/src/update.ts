@@ -12,6 +12,8 @@ import {
   oppositeHandleType,
 } from "./geometry/hitTest.js";
 import { screenToFlow } from "./geometry/screen.js";
+import { hiddenIds } from "./geometry/hidden.js";
+import { ancestorIds, positionIndex } from "./geometry/positions.js";
 import { visibleNodes } from "./geometry/visible.js";
 import { fitViewport } from "./geometry/fit.js";
 import { Message } from "./message.js";
@@ -129,7 +131,13 @@ const anchorOf = (
   ref: HandleRef,
 ): Option.Option<Point> =>
   Option.map(Option.fromNullishOr(nodeById(context, ref.nodeId)), (node) => {
-    const anchor = edgeAnchor(model, node, ref.type, ref.handleId);
+    const anchor = edgeAnchor(
+      model,
+      node,
+      ref.type,
+      ref.handleId,
+      positionIndex(context.nodes),
+    );
     return { x: anchor.x, y: anchor.y };
   });
 
@@ -197,6 +205,21 @@ const measureVisible = (model: Model, context: Context) =>
     ),
   );
 
+/** A node whose ancestor is also in the dragged set: its absolute position
+ *  already follows the ancestor, so it must not carry the delta itself. */
+const hasDraggedAncestor = (
+  context: Context,
+  nodeId: string,
+  draggedIds: ReadonlyArray<string>,
+): boolean => {
+  const byId = new Map(context.nodes.map((node) => [node.id, node] as const));
+  const node = byId.get(nodeId);
+  if (node === undefined) return false;
+  return ancestorIds(node, byId)
+    .slice(1)
+    .some((ancestorId) => draggedIds.includes(ancestorId));
+};
+
 /** Drag overlay for the pressed node's selection, clamped to the draggable ids
  *  that still exist in the graph. */
 const draggingNodeIds = (
@@ -205,7 +228,10 @@ const draggingNodeIds = (
   selectedNodeIds: ReadonlyArray<string>,
 ): ReadonlyArray<string> =>
   selectedNodeIds.filter(
-    (id) => hasNode(context, id) && isDraggable(context, id),
+    (id) =>
+      hasNode(context, id) &&
+      isDraggable(context, id) &&
+      !hasDraggedAncestor(context, id, selectedNodeIds),
   );
 
 const releaseDrag = (
@@ -596,7 +622,13 @@ export const informGraphChanged = (
   model: Model,
   context: Context,
 ): GraphChanged => {
-  const nodeIds = context.nodes.map((node) => node.id);
+  const hidden = hiddenIds(context.nodes);
+  // A collapsed node is not drawn, so it is not selected, measured or dragged:
+  // keeping its geometry would be keeping state for something the user cannot
+  // see, which is the whole point of `hidden` as the large-graph escape hatch.
+  const nodeIds = context.nodes
+    .filter((node) => !hidden.has(node.id))
+    .map((node) => node.id);
   const edgeIds = context.edges.map((edge) => edge.id);
 
   const selectedNodeIds = model.selectedNodeIds.filter((id) =>
