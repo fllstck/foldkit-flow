@@ -546,7 +546,8 @@ export const update = (model: Model, message: Message): UpdateReturn =>
       // no handle bounds.
       return {
         model: modifyFields(next, {
-          flow: () => Flow.informGraphChanged(next.flow, contextFrom(next)).model,
+          flow: () =>
+            Flow.informGraphChanged(next.flow, contextFrom(next)).model,
         }),
       };
     },

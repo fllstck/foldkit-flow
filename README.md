@@ -4,20 +4,19 @@ A flow / node-graph canvas for [Foldkit](https://foldkit.dev), in the spirit of
 React Flow and Svelte Flow — but Foldkit-native: one Model, pure `update`, every
 effect at a named seam.
 
-**Status: M3 complete, M4 next.** The plan is at revision 7; v0.1 shipped at M2,
-and v1.0 ships at M4. M4's starting state is
-**[docs/M4-HANDOFF.md](docs/M4-HANDOFF.md)**. M3 added our own chrome (`Background`, `Controls`,
-`MiniMap`, `Panel`) and the accessibility layer (focusable nodes, arrow-key
-nudging, the description region) on top of the interaction core (drag, select,
-delete, connect, reconnect), measured handle geometry, `isValidConnection`,
-viewport culling, and the renderer node cache. The gate is unchanged and still
-green: 625 nodes at parity with React Flow on pan, and 1k culled under the 33 ms
-p95 gate — including with all of M3's chrome on. Evidence, deviations, and the
-retracted measurements are in
+**Status: M4 complete — v1.0.** The plan is at revision 7. M4 added the graph
+features on top of M3's chrome and accessibility layer: parent/child sub-flows, the
+`hidden` collapse, node resizing, the snap grid, `fitView` options, edge markers and
+labels, and minimap click-to-centre. The gate is still green: 625 nodes at parity
+with React Flow on pan, and 1k culled under the 33 ms p95 gate with zero long
+frames — including with the chrome on — and a 10k graph with 98% of its nodes
+collapsed pans at the frame rate (200 nodes in the DOM). Evidence, deviations, and
+the retracted measurements are in
 **[docs/M0-FINDINGS.md](docs/M0-FINDINGS.md)**,
 **[docs/M1-FINDINGS.md](docs/M1-FINDINGS.md)**,
 **[docs/M2-FINDINGS.md](docs/M2-FINDINGS.md)** and
-**[docs/M3-FINDINGS.md](docs/M3-FINDINGS.md)**. Start with:
+**[docs/M3-FINDINGS.md](docs/M3-FINDINGS.md)** and
+**[docs/M4-FINDINGS.md](docs/M4-FINDINGS.md)**. Start with:
 
 - **[docs/PLAN.md](docs/PLAN.md)** — the design: ownership split, public API, runtime
   wiring, performance budget, milestones, decisions.
@@ -102,6 +101,8 @@ cd packages/benchmark
 pnpm exec playwright test tests/chrome.spec.ts       # chrome + a11y proofs, ~9 s
 pnpm exec playwright test tests/connection.spec.ts   # 5 connection proofs, ~5 s
 pnpm exec playwright test tests/interaction.spec.ts  # pointer layer, ~9 s
+pnpm exec playwright test tests/m4.spec.ts           # graph features, ~11 s
+pnpm exec playwright test tests/hidden.spec.ts       # the 10k exploration, ~9 s
 pnpm exec playwright test --grep "1000-node"         # both 1k gates, ~53 s
 pnpm exec playwright test tests/bench.spec.ts        # every gate test, ~2.1 min
 ```
@@ -219,12 +220,12 @@ const renderer = Flow.createRenderer({
 });
 ```
 
-| Piece        | What it is                                                                                                                          | Cost it opts into                                                       |
-| ------------ | ----------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| `background` | dots or lines, one CSS `background-image` whose position and size follow the viewport transform                                     | two style properties per viewport frame, no elements                    |
-| `controls`   | zoom in / zoom out / fit buttons, dispatching `ClickedZoomIn`, `ClickedZoomOut`, `ClickedFitView`                                   | three buttons; all three messages route to `zoomBy`/`setViewport`       |
-| `minimap`    | every node as a `<rect>` in a `viewBox` of the graph's bounds, plus the pane's rectangle in flow space                              | one memoized `<g>` of `nodes.length` rects, rebuilt only when nodes move |
-| `panel(...)` | a positioned container for your own chrome, threaded through `ViewInput.panel` so its markup stays in your boundary and its buttons dispatch your messages | nothing beyond your markup                                              |
+| Piece        | What it is                                                                                                                                                 | Cost it opts into                                                        |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `background` | dots or lines, one CSS `background-image` whose position and size follow the viewport transform                                                            | two style properties per viewport frame, no elements                     |
+| `controls`   | zoom in / zoom out / fit buttons, dispatching `ClickedZoomIn`, `ClickedZoomOut`, `ClickedFitView`                                                          | three buttons; all three messages route to `zoomBy`/`setViewport`        |
+| `minimap`    | every node as a `<rect>` in a `viewBox` of the graph's bounds, plus the pane's rectangle in flow space                                                     | one memoized `<g>` of `nodes.length` rects, rebuilt only when nodes move |
+| `panel(...)` | a positioned container for your own chrome, threaded through `ViewInput.panel` so its markup stays in your boundary and its buttons dispatch your messages | nothing beyond your markup                                               |
 
 The pattern is transform-aware without being inside the transform: the background
 element is a sibling of `.fflow__viewport`, so the content's `scale()` cannot
@@ -254,6 +255,130 @@ never read; they are gone.)
 `Flow.viewportRect(model)` is the pane's box in flow space with no overscan.
 `Flow.visibleRegion` is that box plus one screen on each side — culling's buffer,
 which is exactly what a minimap must **not** draw as the viewport rectangle.
+
+## Graph features
+
+The M4 surface. Everything here is opt-in per renderer, and the `M4-FINDINGS.md`
+sections named beside each item hold the reasoning and the proofs.
+
+### Sub-flows: a child's position is relative to its parent
+
+```ts
+const nodes: FlowNode<Data>[] = [
+  {
+    id: "group",
+    position: { x: 100, y: 100 },
+    data,
+    size: { width: 420, height: 300 },
+  },
+  { id: "child", position: { x: 20, y: 60 }, parentId: "group", data },
+];
+```
+
+One rule, one place: `Flow.positionIndex(nodes)` resolves the parent chain to
+absolute flow positions, and every position-derived helper reads it —
+`nodeRect`, `nodeBounds`, `visibleNodes`, `visibleEdges`, the edge anchors,
+hit-testing, the drag overlay, the minimap, the description and `fitViewport`.
+Three properties worth knowing:
+
+- Dragging a parent moves its subtree: the child's absolute position is built from
+  the parent's, so it follows the overlay and the committed move with no
+  per-descendant OutMessage. `MovedNodes` reports the parent only, in the space the
+  flow received it (absolute, or parent-relative for a child).
+- A `parentId` that names no node resolves as absolute, and a cycle stops at the
+  node the walk re-enters — a mid-edit graph draws children, it does not lose them.
+- Selecting a parent and a child and dragging moves them once: a node whose
+  ancestor is also dragged is dropped from the gesture's node list.
+
+### `hidden` means collapsed
+
+`hidden: true` on a node removes that node, **its whole subtree**, their edges,
+their measurement and their selection — at any zoom, with `cull` on or off. It is
+the escape hatch for very large graphs: 10,000 nodes with 98% of them collapsed
+pan at the frame rate with 200 nodes in the DOM (`docs/M4-FINDINGS.md` §7). A
+collapsed node is not fitted by `fitViewport`, not drawn in the minimap and not
+listed in the description.
+
+Collapsing from your own `update` is a graph change the flow never sees, so fold
+`Flow.informGraphChanged(model, context)` in the same handler — that is what prunes
+the measurement.
+
+### Resizing
+
+```ts
+const renderer = Flow.createRenderer({ paneId, renderNode, resize: true });
+```
+
+Off by default. On, each node gets four corner controls (the edge midpoints belong
+to your port handles), and the flow draws `node.size` as the node's box — so a
+persisted resize survives the next render. A release emits
+`OutMessage.ResizedNodes({ nodes: [{ nodeId, x, y, width, height }] })`; persist it
+wherever you keep the node, and the positions come back in the space you gave
+them. The gesture is a Flow gesture: pure geometry in `Flow.resizeRect`, one
+`ResizedNodes` fact, and the box written as a measurement so geometry agrees with
+the DOM without waiting a frame. `XYResizer` is deliberately not used
+(`docs/M4-FINDINGS.md` §2.6).
+
+### Snap grid
+
+```ts
+const renderer = Flow.createRenderer({
+  paneId,
+  renderNode,
+  snapGrid: { x: 20, y: 20 },
+});
+```
+
+Optional, and it applies to exactly one thing: a drag, snapped once per pointer
+event so the overlay and the released position are the same number. The grabbed
+node lands on a multiple; every other dragged node keeps its offset from it. A
+resize snaps its moving edge with the same rule. Arrow-key nudging is not snapped.
+
+### `fitView` options
+
+```ts
+// your own update
+Flow.setViewport(
+  model,
+  Flow.fitViewport(model, nodes, {
+    padding: 0.2,
+    maxZoom: 1, // can only tighten the Model's bounds
+    nodes: (node) => selected.includes(node.id), // "fit the selection"
+  }),
+);
+
+// the library's fit button
+const renderer = Flow.createRenderer({
+  paneId,
+  renderNode,
+  controls: true,
+  fitView: { padding: 0.2, maxZoom: 1.25, duration: 200 },
+});
+```
+
+The Model's `minZoom`/`maxZoom` remain the only clamp: an option can tighten it,
+never loosen it. A filtered fit resolves positions against the whole graph and
+measures only the nodes the filter keeps.
+
+### Edge markers and labels
+
+```ts
+{ id: "e1", source: "a", target: "b", label: "yes", markerEnd: "ArrowClosed" }
+```
+
+`edge.label` renders without any configuration, as a `<text>` at the path's label
+point with a halo (a background-coloured stroke under the glyphs, so no box needs
+measuring). `renderEdgeLabel(edge, h)` replaces the label's _content_ at the same
+point. Markers are our own glyphs (`Arrow`, `ArrowClosed`) in a `<defs>` block that
+exists only when an edge asks for one, sized in user units so they scale with the
+viewport. Per-edge styling is `[data-edgeid]` in your own stylesheet.
+
+### Minimap click-to-centre
+
+With `minimap: true`, a press inside it centres the view on the flow point under
+the cursor (`ClickedMiniMap`, handled as one `setViewport`). Drag-to-pan is not in
+v1.0 (`docs/M4-FINDINGS.md` §2.9), and neither is edge selection from the pointer
+layer (§2.10).
 
 ## Accessibility
 
