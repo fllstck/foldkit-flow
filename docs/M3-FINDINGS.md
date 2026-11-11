@@ -744,3 +744,34 @@ and differ in the last float digits.
 
 The gate is unaffected: the 1k legs are 16.7/16.8 with **0 long frames** in both
 the bare and the chrome page, which is the same distribution as before the change.
+
+## 16. Response to `docs/M3-REVIEW-3.md`
+
+No findings in the third pass, and nothing in the review to act on. Its validation
+matches the run this document describes: `pnpm check` with **194** Vitest tests in
+20 files, 35 proof tests, 3 gate tests.
+
+Two notes for the record, since the review summarises a thread of fixes whose _causes_
+matter more than the list:
+
+- The review's list is accurate as a description of what changed, with one wording
+  worth tightening: the example advertises the _supported_ connectability — the panel
+  names the edge that was created, or the attempt that was rejected, and the fixture
+  leaves every third link open so a connection can succeed. The limitation it refers
+  to is in the hit test, not the example: a connection resolves only to the **opposite**
+  handle type (`accept` in `update`'s two `handleNear` call sites), so a target handle
+  must be dropped on a source handle and the pair is oriented at release (§M2-FINDINGS
+  §9). Dropping a target handle on a node body therefore snaps to that node's _source_
+  handle, or to nothing.
+- The one infrastructure failure the review hit — `ERR_HTTP_RESPONSE_CODE_FAILURE` on
+  port 4174 — is the preview-server collision in `M1-FINDINGS` §11 and the README's
+  fast-loop note: a preview left running plus `reuseExistingServer` means the next run
+  navigates into a server it did not start. `pkill -f vite` before a suite run is the
+  documented mitigation, and no test body ran in the failing case.
+
+Nothing in `docs/PLAN.md` changes as a result of this pass, and the "Remaining notes"
+section is right that the earlier review files are history: `M2-REVIEW.md`'s HIGH
+finding (target-originated connections emitting reversed endpoints) is fixed and
+covered by `src/geometry/edgeEndpoints.test.ts` (`connection orientation`),
+`src/state.test.ts` and proof 21, and the M3 accessibility gaps are covered by proofs
+27–31.
