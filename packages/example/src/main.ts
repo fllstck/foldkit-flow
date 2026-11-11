@@ -11,6 +11,8 @@ import "@fllstck/foldkit-flow/style.css";
 import type { FlowEdge, FlowNode } from "@fllstck/foldkit-flow";
 
 const FLOW_PANE_ID = "m2-pane";
+/** The one container the demo can collapse (§7 M4). */
+const GROUP_ID = "group";
 const GRID = 25;
 /** Column pitch. Wide enough that a node's handles — and the reconnect ring
  *  around an edge end — sit in the gap between neighbours rather than on top of
@@ -22,6 +24,14 @@ const GraphNode = Schema.Struct({
   id: Schema.String,
   position: Schema.Struct({ x: Schema.Number, y: Schema.Number }),
   data: Schema.Struct({ label: Schema.String }),
+  // M4 (§7): a child carries a parent-relative position, `hidden` collapses a
+  // subtree, and `size` is the box a resize persists. All optional, so the
+  // 625-node grid is exactly the graph M1–M3 measured.
+  parentId: Schema.optionalKey(Schema.String),
+  hidden: Schema.optionalKey(Schema.Boolean),
+  size: Schema.optionalKey(
+    Schema.Struct({ width: Schema.Number, height: Schema.Number }),
+  ),
 });
 type GraphNode = typeof GraphNode.Type;
 
@@ -33,6 +43,10 @@ const GraphEdge = Schema.Struct({
   // handle of the type, which is how M1's 624 edges keep working (§2.5.3).
   sourceHandle: Schema.optionalKey(Schema.String),
   targetHandle: Schema.optionalKey(Schema.String),
+  // M4 edge features: the parent owns the edge, so the marker and the label are
+  // data it writes, not renderer configuration.
+  label: Schema.optionalKey(Schema.String),
+  markerEnd: Schema.optionalKey(Schema.Literals(["Arrow", "ArrowClosed"])),
 });
 type GraphEdge = typeof GraphEdge.Type;
 
@@ -76,6 +90,9 @@ export const Message = defineMessageUnion({
   ClickedZoomIn: {},
   ClickedDeleteSelection: {},
   ClickedRemeasure: {},
+  // M4 (§7): collapse or expand the sub-flow, which is the `hidden` escape hatch
+  // demonstrated on a graph the proofs can measure.
+  ClickedToggleGroup: {},
 });
 export type Message = typeof Message.Type;
 
@@ -108,14 +125,44 @@ const buildGraph = (label: string) => {
     // broken". The gaps leave pairs that can be connected, and a duplicate still
     // demonstrates the policy.
     if (index > 0 && index % 3 !== 0) {
-      edges.push({
+      const edge: GraphEdge = {
         id: `e${index}`,
         source: `n${index - 1}`,
         target: id,
         sourceHandle: "out",
         targetHandle: "in",
-      });
+      };
+      // M4: the first edge carries an arrowhead and a label, so the demo shows
+      // both without changing any existing edge's geometry or count.
+      edges.push(
+        index === 1
+          ? { ...edge, markerEnd: "ArrowClosed", label: "start" }
+          : edge,
+      );
     }
+  });
+
+  // A container with four children, parked in flow space the initial viewport
+  // does not show (above the grid) so the 625-node layout every earlier proof
+  // measures is untouched: the group is nodes 626–630 and adds no edge. The
+  // children carry positions relative to their parent, which is the M4 model.
+  nodes.push({
+    id: "group",
+    position: { x: 0, y: -520 },
+    data: { label: "Group" },
+  });
+  [
+    { id: "g1", x: 20, y: 60 },
+    { id: "g2", x: 200, y: 60 },
+    { id: "g3", x: 20, y: 190 },
+    { id: "g4", x: 200, y: 190 },
+  ].forEach((child) => {
+    nodes.push({
+      id: child.id,
+      position: { x: child.x, y: child.y },
+      parentId: "group",
+      data: { label: `Group ${child.id}` },
+    });
   });
 
   return { nodes, edges };
@@ -205,6 +252,8 @@ const countMessage = (stats: Stats, message: Flow.Message): Stats =>
     ClickedZoomIn: () => stats,
     ClickedZoomOut: () => stats,
     ClickedFitView: () => stats,
+    ClickedMiniMap: () => stats,
+    StartedResize: () => stats,
     NudgedNode: () => stats,
     ActivatedNode: () => stats,
   });
@@ -221,6 +270,34 @@ const applyPositions = (
       return next === undefined
         ? node
         : { ...node, position: { x: next.x, y: next.y } };
+    }),
+  },
+});
+
+/** A resize fact: the parent persists the box and the (possibly moved) origin.
+ *  The flow draws `size` from then on, because the demo turns `resize` on. */
+const applyBoxes = (
+  model: Model,
+  boxes: ReadonlyArray<{
+    nodeId: string;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  }>,
+): Model => ({
+  ...model,
+  graph: {
+    ...model.graph,
+    nodes: model.graph.nodes.map((node) => {
+      const next = boxes.find((entry) => entry.nodeId === node.id);
+      return next === undefined
+        ? node
+        : {
+            ...node,
+            position: { x: next.x, y: next.y },
+            size: { width: next.width, height: next.height },
+          };
     }),
   },
 });
@@ -352,6 +429,9 @@ const foldFlow = (context: Flow.Context) =>
           (model: Model) => ({
             model: deleteElements(model, nodeIds, edgeIds),
           }),
+        ResizedNodes:
+          ({ nodes }) =>
+          (model: Model) => ({ model: applyBoxes(model, nodes) }),
         SelectedElements: () => (model: Model) => ({ model }),
         ChangedViewport: () => (model: Model) => ({ model }),
       }),
@@ -444,6 +524,21 @@ export const update = (model: Model, message: Message): UpdateReturn =>
         toParentMessage,
       ),
     }),
+    ClickedToggleGroup: () => ({
+      model: {
+        ...model,
+        graph: {
+          ...model.graph,
+          nodes: model.graph.nodes.map((node) =>
+            node.id !== GROUP_ID
+              ? node
+              : node.hidden === true
+                ? { id: node.id, position: node.position, data: node.data }
+                : { ...node, hidden: true },
+          ),
+        },
+      },
+    }),
     ClickedDeleteSelection: () => {
       const selectedNodeIds = model.flow.selectedNodeIds;
       const selectedEdgeIds = model.flow.selectedEdgeIds;
@@ -507,6 +602,25 @@ const attemptLabel = (gesture: Flow.ModelType["gesture"]): string => {
   return "";
 };
 
+/** How many nodes the parent's own `hidden` flags collapse, including the
+ *  descendants of a collapsed container — the number the proof compares against
+ *  the rendered node count. */
+const hiddenCount = (model: Model): number => {
+  const collapsed = model.graph.nodes.filter((node) => node.hidden === true);
+  if (Arr.isReadonlyArrayEmpty(collapsed)) return 0;
+  const parentIds = new Set(collapsed.map((node) => node.id));
+  return model.graph.nodes.filter(
+    (node) => parentIds.has(node.id) || parentIds.has(node.parentId ?? ""),
+  ).length;
+};
+
+/** Nodes that carry an explicit box: either a persisted resize or a live one. */
+const boxedCountOf = (model: Model): number =>
+  model.graph.nodes.filter((node) => node.size !== undefined).length;
+
+const renderedCountOf = (model: Model): number =>
+  model.graph.nodes.length - hiddenCount(model);
+
 const nodesOf = (model: Model): ReadonlyArray<FlowNode<{ label: string }>> =>
   model.graph.nodes;
 
@@ -549,6 +663,12 @@ const renderer = Flow.createRenderer<{ label: string }, unknown>({
   background: { variant: "dots" },
   controls: true,
   minimap: true,
+  // M4 (§7). A 20-unit grid the drag *and* the resize snap to; eight resize
+  // handles per node, which also makes the flow draw each node's declared size;
+  // and a fit that never zooms past 1.25 in 200 ms.
+  snapGrid: { x: 20, y: 20 },
+  resize: true,
+  fitView: { maxZoom: 1.25, duration: 200 },
   accessibleName: (node) => node.data.label,
 });
 
@@ -627,6 +747,12 @@ export const view = (model: Model, h: HtmlBuilder<Message>): Document => {
         h.DataAttribute("selected-edges", flow.selectedEdgeIds.join(",")),
         h.DataAttribute("gesture", flow.gesture._tag),
         h.DataAttribute("additive", String(flow.isAdditiveModifier)),
+        // M4 instrumentation: how many nodes `hidden` collapsed, and how many
+        // nodes the renderer actually emitted (the 5-node group is hidden after
+        // `Collapse group`, and a collapsed subtree is not rendered at all).
+        h.DataAttribute("hidden-nodes", String(hiddenCount(model))),
+        h.DataAttribute("rendered-nodes", String(renderedCountOf(model))),
+        h.DataAttribute("boxed-nodes", String(boxedCountOf(model))),
       ],
       [
         h.header(
@@ -699,6 +825,13 @@ export const view = (model: Model, h: HtmlBuilder<Message>): Document => {
                 h.button(
                   [h.Id("remeasure"), h.OnClick(Message.ClickedRemeasure())],
                   ["Remeasure"],
+                ),
+                h.button(
+                  [
+                    h.Id("toggle-group"),
+                    h.OnClick(Message.ClickedToggleGroup()),
+                  ],
+                  ["Collapse group"],
                 ),
               ],
             ),

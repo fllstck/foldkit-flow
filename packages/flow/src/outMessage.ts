@@ -19,6 +19,20 @@ export const OutMessage = defineMessageUnion({
     nodeIds: Schema.Array(Schema.String),
     edgeIds: Schema.Array(Schema.String),
   },
+  // A node grew or shrank. `x`/`y` are the node's new position in the same space
+  // the flow received it — absolute for a top-level node, relative to the parent
+  // for a child — so the parent applies them verbatim (§7 M4).
+  ResizedNodes: {
+    nodes: Schema.Array(
+      Schema.Struct({
+        nodeId: Schema.String,
+        x: Schema.Number,
+        y: Schema.Number,
+        width: Schema.Number,
+        height: Schema.Number,
+      }),
+    ),
+  },
   ConnectedHandles: {
     source: HandleRef,
     target: HandleRef,
@@ -42,6 +56,7 @@ export type OutMessage = typeof OutMessage.Type;
 
 export type MovedNodes = ReturnType<typeof OutMessage.MovedNodes>;
 export type SelectedElements = ReturnType<typeof OutMessage.SelectedElements>;
+export type ResizedNodes = ReturnType<typeof OutMessage.ResizedNodes>;
 export type ConnectedHandles = ReturnType<typeof OutMessage.ConnectedHandles>;
 export type ReconnectedEdge = ReturnType<typeof OutMessage.ReconnectedEdge>;
 export type DeletedElements = ReturnType<typeof OutMessage.DeletedElements>;

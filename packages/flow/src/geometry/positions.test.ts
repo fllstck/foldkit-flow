@@ -3,7 +3,6 @@ import { describe, expect, test } from "vitest";
 import type { FlowNode } from "../model.js";
 import {
   ancestorIds,
-  maxParentDepth,
   positionIndex,
   positionOf,
   withDescendants,

@@ -124,6 +124,81 @@
   cursor: grabbing;
 }
 
+/* Resize handles (§7 M4). Eight 10×10 boxes on the node's edges and corners, in
+   flow units like the handles, so the grab target keeps its relation to the node
+   at every zoom. They are chrome: `.fflow__nopan` keeps a press from panning and
+   `.fflow__nodrag` keeps it from arming a node drag. */
+.fflow__resize {
+  position: absolute;
+  z-index: 1;
+  width: 10px;
+  height: 10px;
+  border: 1px solid var(--fflow-node-border);
+  border-radius: 2px;
+  background-color: var(--fflow-pane-background);
+  opacity: 0;
+  transition: opacity 120ms ease-out;
+}
+
+/* Visible on hover and while selected: eight permanent dots per node would be
+   visual noise at 1k nodes, and this is CSS, so it costs no frame time. */
+.fflow__node:hover > .fflow__resize,
+.fflow__node--selected > .fflow__resize {
+  opacity: 1;
+}
+
+.fflow__resize--top-left {
+  top: -6px;
+  left: -6px;
+  cursor: nwse-resize;
+}
+
+.fflow__resize--top {
+  top: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  cursor: ns-resize;
+}
+
+.fflow__resize--top-right {
+  top: -6px;
+  right: -6px;
+  cursor: nesw-resize;
+}
+
+.fflow__resize--right {
+  top: 50%;
+  right: -6px;
+  transform: translateY(-50%);
+  cursor: ew-resize;
+}
+
+.fflow__resize--bottom-right {
+  bottom: -6px;
+  right: -6px;
+  cursor: nwse-resize;
+}
+
+.fflow__resize--bottom {
+  bottom: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  cursor: ns-resize;
+}
+
+.fflow__resize--bottom-left {
+  bottom: -6px;
+  left: -6px;
+  cursor: nesw-resize;
+}
+
+.fflow__resize--left {
+  top: 50%;
+  left: -6px;
+  transform: translateY(-50%);
+  cursor: ew-resize;
+}
+
 /* Reconnect grab handles: an invisible annulus around each edge end (r 10,
    stroke 6 → the ring is 7–13 flow units from the endpoint). Only the stroke is
    hit-testable, so the handle at the centre of the ring still starts a new

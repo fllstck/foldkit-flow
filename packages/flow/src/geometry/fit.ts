@@ -1,4 +1,4 @@
-import { Array as Arr } from "effect";
+import { Array as Arr, Predicate } from "effect";
 
 import type { FlowNode, Model, Viewport } from "../model.js";
 import { getViewportForBounds } from "../runtime/adapter.js";
@@ -13,14 +13,18 @@ export const fitPadding = 0.1;
  * behaviour M3 shipped, so `fitViewport(model, nodes)` is unchanged.
  */
 export type FitOptions<NodeData = unknown> = Readonly<{
-  padding?: number;
+  // `| undefined` on every field so a caller can pass a value it may not have
+  // without a conditional spread: `exactOptionalPropertyTypes` would reject
+  // `padding: maybeNumber` otherwise, and a spread that hides the omission is
+  // what the lint rejects.
+  padding?: number | undefined;
   /** A clamp for **this fit only**, e.g. "never zoom in past 1:1". It can only
    *  tighten: the result is `Math.min(maxZoom, Model.maxZoom)`, so the Model's
    *  bounds stay the single source of truth (§3.1, §7 M4). */
-  maxZoom?: number;
-  minZoom?: number;
+  maxZoom?: number | undefined;
+  minZoom?: number | undefined;
   /** Fit only the nodes this keeps — "fit the selection" is the use case. */
-  nodes?: (node: FlowNode<NodeData>) => boolean;
+  nodes?: ((node: FlowNode<NodeData>) => boolean) | undefined;
 }>;
 
 /**
@@ -49,8 +53,9 @@ export const fitViewport = <NodeData>(
   options?: FitOptions<NodeData> | number,
 ): Viewport => {
   const { pane } = model;
-  const opts: FitOptions<NodeData> =
-    typeof options === "number" ? { padding: options } : (options ?? {});
+  const opts: FitOptions<NodeData> = Predicate.isNumber(options)
+    ? { padding: options }
+    : (options ?? {});
 
   if (Arr.isReadonlyArrayEmpty(nodes) || pane.width <= 0 || pane.height <= 0) {
     return model.viewport;

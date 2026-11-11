@@ -30,7 +30,7 @@ import {
   visibleNodes,
 } from "../geometry/visible.js";
 import { Message } from "../message.js";
-import { Gesture, zeroDelta } from "../model.js";
+import { Gesture, resizeControls, zeroDelta } from "../model.js";
 import type {
   FlowEdge,
   FlowNode,
@@ -40,6 +40,7 @@ import type {
   Model,
   Point,
   Pointer,
+  Size,
   SnapGrid,
 } from "../model.js";
 import {
@@ -100,6 +101,12 @@ export type RendererConfig<NodeData, EdgeData> = Readonly<{
    *  carries it, and the snap happens once per pointer event. Absent means no
    *  snapping, and no code path runs. */
   snapGrid?: SnapGrid;
+  /** Eight grab handles per node, each reporting `StartedResize`. Off by
+   *  default: it is eight extra press targets per node, and a parent that does
+   *  not fold `OutMessage.ResizedNodes` has nothing to do with them (§7 M4).
+   *  Turning it on also makes the flow draw each node's declared `size` as its
+   *  box, which is how a persisted resize survives the next render. */
+  resize?: boolean;
   /** Render only what the viewport can see, plus one screen of overscan. Off by
    *  default: culling trades a per-frame scan for unmount/remeasure churn at the
    *  edges of the viewport, so it is an explicit choice (§4.5). */
@@ -157,6 +164,29 @@ export type Renderer<NodeData, EdgeData> = Readonly<{
   /** Diagnostic: the number of live node slots. */
   cacheSize: () => number;
 }>;
+
+/** The node wrapper's box: always positioned, sized only when the flow draws a
+ *  box for it (`resize` on, and either a declared size or a live gesture). */
+type NodeStyle = Readonly<{
+  position: "absolute";
+  top: string;
+  left: string;
+  transform: string;
+  width?: string;
+  height?: string;
+}>;
+
+const nodeStyle = (position: Point, box: Size | undefined): NodeStyle => {
+  const style: NodeStyle = {
+    position: "absolute",
+    top: "0",
+    left: "0",
+    transform: `translate(${position.x}px, ${position.y}px)`,
+  };
+  return box === undefined
+    ? style
+    : { ...style, width: `${box.width}px`, height: `${box.height}px` };
+};
 
 const pointerOf = (
   pointerId: number,
@@ -266,6 +296,71 @@ export const createRenderer = <NodeData = unknown, EdgeData = unknown>(
       h,
     );
 
+  const resizeHandles = (
+    nodeId: string,
+    h: HtmlBuilder<any>,
+    toParentMessage: (message: Message) => any,
+  ): ReadonlyArray<Html> =>
+    config.resize !== true
+      ? []
+      : resizeControls.map((control) =>
+          h.div(
+            [
+              // Chrome by §4.6's definition: `NoPan` keeps d3 from starting a
+              // viewport pan, `NoDrag` keeps the node wrapper from arming a node
+              // drag, and the pane's own handler declines the press because it is
+              // inside a node. The handle below the pointer is the only thing
+              // that reacts to it.
+              h.Class(
+                `${classes.ResizeHandle} ${classes.ResizeHandleOf(control)} ${classes.NoPan} ${classes.NoDrag}`,
+              ),
+              h.DataAttribute("resize", control),
+              h.DataAttribute("nodeid", nodeId),
+              h.OnPointerDown(
+                (
+                  pointerType,
+                  button,
+                  _screenX,
+                  _screenY,
+                  _timeStamp,
+                  _clientX,
+                  _clientY,
+                  pointerId,
+                ) =>
+                  isPrimaryButton(button)
+                    ? Option.some(
+                        toParentMessage(
+                          Message.StartedResize(
+                            config.snapGrid === undefined
+                              ? {
+                                  nodeId,
+                                  control,
+                                  pointer: pointerOf(
+                                    pointerId,
+                                    pointerType,
+                                    button,
+                                  ),
+                                }
+                              : {
+                                  nodeId,
+                                  control,
+                                  pointer: pointerOf(
+                                    pointerId,
+                                    pointerType,
+                                    button,
+                                  ),
+                                  snapGrid: config.snapGrid,
+                                },
+                          ),
+                        ),
+                      )
+                    : Option.none(),
+              ),
+            ],
+            [],
+          ),
+        );
+
   /** The one accessible name for a node, shared by the tab order and the
    *  description region so they cannot disagree (§7 M3). */
   const accessibleNameOf = (node: FlowNode<NodeData>): string =>
@@ -296,6 +391,22 @@ export const createRenderer = <NodeData = unknown, EdgeData = unknown>(
     // A drag moves the pressed nodes *and their subtrees*: a child is drawn at
     // its parent's absolute position, so it follows without being dragged.
     const movingIds = withDescendants(draggedIds, input.nodes);
+
+    // A resize carries its own box: the shift during the gesture is
+    // `current − start`, and the box itself is `current`. The transform needs the
+    // shift for the node, and the edges attached to it need the same number
+    // (§4.5's overlay rule, applied to a box instead of a delta).
+    const resize = Gesture.guards.Resizing(gesture) ? gesture : undefined;
+    const shiftById = new Map<string, Point>();
+    movingIds.forEach((nodeId) => shiftById.set(nodeId, delta));
+    if (resize !== undefined) {
+      shiftById.set(resize.nodeId, {
+        x: resize.current.left - resize.start.left,
+        y: resize.current.top - resize.start.top,
+      });
+    }
+    const shiftOf = (nodeId: string): Point =>
+      shiftById.get(nodeId) ?? zeroDelta;
 
     const isCulling =
       config.cull === true && model.pane.width > 0 && model.pane.height > 0;
@@ -488,10 +599,12 @@ export const createRenderer = <NodeData = unknown, EdgeData = unknown>(
       );
 
     /** The live drag offset for one edge end, or the anchor unchanged. */
-    const shiftForDrag = (anchor: EdgeAnchor, nodeId: string): EdgeAnchor =>
-      movingIds.has(nodeId)
-        ? { ...anchor, x: anchor.x + delta.x, y: anchor.y + delta.y }
-        : anchor;
+    const shiftForDrag = (anchor: EdgeAnchor, nodeId: string): EdgeAnchor => {
+      const shift = shiftOf(nodeId);
+      return shift === zeroDelta
+        ? anchor
+        : { ...anchor, x: anchor.x + shift.x, y: anchor.y + shift.y };
+    };
 
     const edgesView = h.svg(
       [
@@ -600,10 +713,21 @@ export const createRenderer = <NodeData = unknown, EdgeData = unknown>(
       nodes.map((node) => {
         const isSelected = model.selectedNodeIds.includes(node.id);
         const isDragging = movingIds.has(node.id);
+        const isResizing = resize !== undefined && resize.nodeId === node.id;
         const origin = positionOf(node, positions);
-        const position = movingIds.has(node.id)
-          ? { x: origin.x + delta.x, y: origin.y + delta.y }
-          : origin;
+        const shift = shiftOf(node.id);
+        const position =
+          shift === zeroDelta
+            ? origin
+            : { x: origin.x + shift.x, y: origin.y + shift.y };
+        // The box the flow draws: the live gesture while one runs, else the size
+        // the parent gave the node. Without the second half a resize would snap
+        // back the moment the parent's graph did not carry the box in markup.
+        const box = isResizing
+          ? { width: resize.current.width, height: resize.current.height }
+          : config.resize === true
+            ? node.size
+            : undefined;
 
         return h.keyed("div")(
           node.id,
@@ -631,12 +755,7 @@ export const createRenderer = <NodeData = unknown, EdgeData = unknown>(
             h.Role("button"),
             h.AriaLabel(accessibleNameOf(node)),
             h.AriaPressed(isSelected ? "true" : "false"),
-            h.Style({
-              position: "absolute",
-              top: "0",
-              left: "0",
-              transform: `translate(${position.x}px, ${position.y}px)`,
-            }),
+            h.Style(nodeStyle(position, box)),
             h.OnPointerDown(
               (
                 pointerType,
@@ -658,15 +777,22 @@ export const createRenderer = <NodeData = unknown, EdgeData = unknown>(
                 }
                 return Option.some(
                   input.toParentMessage(
-                    Message.PressedNode({
-                      nodeId: node.id,
-                      point: toFlowPoint(clientX, clientY),
-                      isAdditive: model.isAdditiveModifier,
-                      pointer: pointerOf(pointerId, pointerType, button),
-                      ...(config.snapGrid === undefined
-                        ? {}
-                        : { snapGrid: config.snapGrid }),
-                    }),
+                    Message.PressedNode(
+                      config.snapGrid === undefined
+                        ? {
+                            nodeId: node.id,
+                            point: toFlowPoint(clientX, clientY),
+                            isAdditive: model.isAdditiveModifier,
+                            pointer: pointerOf(pointerId, pointerType, button),
+                          }
+                        : {
+                            nodeId: node.id,
+                            point: toFlowPoint(clientX, clientY),
+                            isAdditive: model.isAdditiveModifier,
+                            pointer: pointerOf(pointerId, pointerType, button),
+                            snapGrid: config.snapGrid,
+                          },
+                    ),
                   ),
                 );
               },
@@ -687,6 +813,7 @@ export const createRenderer = <NodeData = unknown, EdgeData = unknown>(
               input.toParentMessage,
               config.renderNode,
             ]),
+            ...resizeHandles(node.id, h, input.toParentMessage),
           ],
         );
       }),
@@ -830,6 +957,7 @@ export const createRenderer = <NodeData = unknown, EdgeData = unknown>(
                 nodes: shownNodes(input.nodes),
                 nodeSizes: model.nodeSizes,
                 view: viewportRect(model),
+                toParentMessage: input.toParentMessage,
               },
               minimapMemo,
               h,

@@ -25,6 +25,22 @@ export const flowToScreen = (model: Model, point: Point): Point => {
   };
 };
 
+/**
+ * The viewport that puts `point` at the centre of the pane at the current zoom.
+ * This is what a minimap click means (§7 M4): the flow point under the cursor
+ * becomes the middle of the view, zoom untouched, so the click moves the view and
+ * does not change its scale. `setViewport` still clamps the zoom, so this cannot
+ * smuggle in a zoom the Model would refuse.
+ */
+export const viewportCentredOn = (
+  model: Model,
+  point: Point,
+): Model["viewport"] => ({
+  x: model.pane.width / 2 - point.x * model.viewport.zoom,
+  y: model.pane.height / 2 - point.y * model.viewport.zoom,
+  zoom: model.viewport.zoom,
+});
+
 /** The live drag overlay offset, or the shared zero delta when nothing is
  *  being dragged. The shared reference is what keeps non-dragged nodes out of
  *  the node cache's invalidation set (§4.5). */

@@ -43,6 +43,20 @@ export const SnapGrid = Schema.Struct({
 });
 export type SnapGrid = typeof SnapGrid.Type;
 
+/** The eight controls a node is resized from (§7 M4). */
+export const resizeControls = [
+  "top-left",
+  "top",
+  "top-right",
+  "right",
+  "bottom-right",
+  "bottom",
+  "bottom-left",
+  "left",
+] as const;
+export type ResizeControl = (typeof resizeControls)[number];
+export const ResizeControl = Schema.Literals(resizeControls);
+
 export const HandlePosition = Schema.Literals([
   "Top",
   "Right",
@@ -113,6 +127,20 @@ export const Gesture = defineTaggedUnion({
     end: HandleType,
     current: Point,
     maybeTarget: Schema.Option(HandleRef),
+  },
+  // Growing or shrinking one node from one of its eight controls. Like a drag,
+  // this is a pointer gesture with an owner pointer and a cancel path, so it
+  // lives here rather than in the DOM: the renderer reports the press, `update`
+  // runs `geometry/resize.ts` per pointer event, and the parent is told the box on
+  // release. `start` is the absolute box the gesture began with, so no per-frame
+  // read of the graph is needed.
+  Resizing: {
+    pointer: Pointer,
+    nodeId: Schema.String,
+    control: ResizeControl,
+    start: Rect,
+    current: Rect,
+    snapGrid: Schema.Option(SnapGrid),
   },
 });
 export type Gesture = typeof Gesture.Type;

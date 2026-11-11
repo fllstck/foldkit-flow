@@ -1,9 +1,10 @@
-import { Array as Arr } from "effect";
+import { Array as Arr, Option } from "effect";
 import type { Html, HtmlBuilder } from "foldkit/html";
 
 import { nodeBounds, nodeRect } from "../geometry/bounds.js";
 import { positionIndex } from "../geometry/positions.js";
-import type { FlowNode, Model, NodeSize, Rect } from "../model.js";
+import { Message } from "../message.js";
+import type { FlowNode, Model, NodeSize, Point, Rect } from "../model.js";
 import * as classes from "./classes.js";
 import type { ViewMemo } from "./viewMemo.js";
 
@@ -63,6 +64,37 @@ const minimapNodes = (
   );
 };
 
+/**
+ * The flow point a press inside the minimap is over.
+ *
+ * The minimap's `viewBox` **is** flow space, so the SVG's own screen matrix is the
+ * whole conversion: `getScreenCTM()` includes the viewBox mapping and the element's
+ * own on-page position, and its inverse turns a client point into the flow
+ * coordinates the minimap is drawing. Reading it here — rather than deriving the
+ * mapping in `update` — keeps the arithmetic in the one place that owns the
+ * element, and leaves `update` with a plain flow point (`M3-FINDINGS` §11.1: the
+ * screen-space conversion belongs to whoever holds the element).
+ */
+export const miniMapFlowPoint = (
+  target: EventTarget | null,
+  clientX: number,
+  clientY: number,
+): Option.Option<Point> => {
+  if (!(target instanceof Element)) return Option.none();
+  const svg = target.closest("svg");
+  if (svg === null) return Option.none();
+
+  // `getScreenCTM` is null for an element that is not rendered, which is what an
+  // SSR-rendered or display-none minimap reports; a press there means nothing.
+  const matrix = svg.getScreenCTM();
+  if (matrix === null) return Option.none();
+
+  const point = new DOMPoint(clientX, clientY).matrixTransform(
+    matrix.inverse(),
+  );
+  return Option.some({ x: point.x, y: point.y });
+};
+
 export type MiniMapInput = Readonly<{
   model: Model;
   nodes: ReadonlyArray<FlowNode<unknown>>;
@@ -70,11 +102,12 @@ export type MiniMapInput = Readonly<{
   /** The pane rectangle in flow space — `viewportRect`, not `visibleRegion`:
    *  culling's overscan is not a fact about what the user can see. */
   view: Rect;
+  toParentMessage: (message: Message) => any;
 }>;
 
 /**
- * Display-only in M3 (§7 M3), display plus click-to-centre from M4: drag-to-pan
- * is still out (see `docs/M4-FINDINGS.md` §3).
+ * Display-only in M3 (§7 M4 adds click-to-centre; drag-to-pan is documented as
+ * out of scope in `docs/M4-FINDINGS.md`).
  *
  * `aria-hidden` because this is a picture of what the description region already
  * says in words; announcing 1k rectangles to a screen reader is worse than
@@ -100,6 +133,29 @@ export const miniMapView = (
           h.Class(classes.MiniMapSvg),
           h.Attribute("viewBox", miniMapViewBox(model, nodes)),
           h.Attribute("preserveAspectRatio", "xMidYMid meet"),
+          // A press centres the view on the point under the cursor. It is
+          // `NoPan` on the container, so d3 never starts a viewport pan from the
+          // same press, and the pane's own handler declines chrome (§4.6).
+          h.OnPointerDown(
+            (
+              _pointerType: string,
+              button: number,
+              _screenX: number,
+              _screenY: number,
+              _timeStamp: number,
+              clientX: number,
+              clientY: number,
+              _pointerId: number,
+              target: EventTarget | null,
+            ) =>
+              button !== 0
+                ? Option.none()
+                : Option.map(
+                    miniMapFlowPoint(target, clientX, clientY),
+                    (point) =>
+                      input.toParentMessage(Message.ClickedMiniMap({ point })),
+                  ),
+          ),
         ],
         [
           memo.on([nodes, input.nodeSizes, h], () =>

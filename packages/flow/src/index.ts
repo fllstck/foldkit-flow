@@ -40,6 +40,7 @@ export type {
   DeletedElements,
   MovedNodes,
   ReconnectedEdge,
+  ResizedNodes,
   SelectedElements,
 } from "./outMessage.js";
 
@@ -104,6 +105,13 @@ export type {
   HandleBoundsByNode,
 } from "./geometry/handles.js";
 export { connectionRadius, hitTestHandle } from "./geometry/hitTest.js";
+export {
+  minResizeHeight,
+  minResizeWidth,
+  resizeControls,
+  resizeRect,
+} from "./geometry/resize.js";
+export type { ResizeOptions } from "./geometry/resize.js";
 export { dragDelta, flowToScreen, screenToFlow } from "./geometry/screen.js";
 export type { ScreenPoint } from "./geometry/screen.js";
 export {

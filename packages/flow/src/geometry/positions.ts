@@ -1,3 +1,5 @@
+import { Array as Arr } from "effect";
+
 import type { FlowNode, Point } from "../model.js";
 
 /**
@@ -31,39 +33,58 @@ const offset = (origin: Point, position: Point): Point => ({
   y: origin.y + position.y,
 });
 
+type Resolved = Readonly<{
+  resolved: Map<string, Point>;
+  visiting: Set<string>;
+}>;
+
+/**
+ * One node's absolute position, memoized into `state`. Recursion is over the
+ * parent chain and bounded twice — by `maxParentDepth` and by `visiting`, which
+ * breaks a cycle by taking the re-entered node's own position.
+ */
+const resolveNode = <NodeData>(
+  node: FlowNode<NodeData>,
+  byId: ReadonlyMap<string, FlowNode<NodeData>>,
+  depth: number,
+  state: Resolved,
+): Point => {
+  const known = state.resolved.get(node.id);
+  if (known !== undefined) return known;
+
+  const parent =
+    node.parentId === undefined ? undefined : byId.get(node.parentId);
+  if (
+    parent === undefined ||
+    depth >= maxParentDepth ||
+    state.visiting.has(node.id)
+  ) {
+    state.resolved.set(node.id, node.position);
+    return node.position;
+  }
+
+  const position = offset(
+    resolveNode(parent, byId, depth + 1, {
+      resolved: state.resolved,
+      visiting: new Set([...state.visiting, node.id]),
+    }),
+    node.position,
+  );
+
+  state.resolved.set(node.id, position);
+  return position;
+};
+
 const buildIndex = <NodeData>(
   nodes: ReadonlyArray<FlowNode<NodeData>>,
 ): PositionIndex => {
   const byId = new Map(nodes.map((node) => [node.id, node] as const));
   const resolved: Map<string, Point> = new Map();
-  const visiting = new Set<string>();
 
-  const resolve = (node: FlowNode<NodeData>, depth: number): Point => {
-    const known = resolved.get(node.id);
-    if (known !== undefined) return known;
+  nodes.forEach((node) =>
+    resolveNode(node, byId, 0, { resolved, visiting: new Set() }),
+  );
 
-    const parent =
-      node.parentId === undefined ? undefined : byId.get(node.parentId);
-    // `visiting` breaks a cycle: the node already being resolved contributes its
-    // own position, so the walk terminates with a placed, not a missing, node.
-    if (
-      parent === undefined ||
-      depth >= maxParentDepth ||
-      visiting.has(node.id)
-    ) {
-      resolved.set(node.id, node.position);
-      return node.position;
-    }
-
-    visiting.add(node.id);
-    const position = offset(resolve(parent, depth + 1), node.position);
-    visiting.delete(node.id);
-
-    resolved.set(node.id, position);
-    return position;
-  };
-
-  nodes.forEach((node) => resolve(node, 0));
   return resolved;
 };
 
@@ -83,6 +104,8 @@ const indexMemo: WeakMap<
 export const positionIndex = <NodeData>(
   nodes: ReadonlyArray<FlowNode<NodeData>>,
 ): PositionIndex => {
+  // SAFETY: the memo is keyed by reference only; the element type never reaches
+  // the stored value, which is a plain `Map<string, Point>`.
   const key = nodes as ReadonlyArray<FlowNode<unknown>>;
   const cached = indexMemo.get(key);
   if (cached !== undefined) return cached;
@@ -107,19 +130,17 @@ export const ancestorIds = <NodeData>(
   node: FlowNode<NodeData>,
   byId: ReadonlyMap<string, FlowNode<NodeData>>,
 ): ReadonlyArray<string> => {
-  const ids: Array<string> = [node.id];
-  let current = node.parentId;
-  let depth = 0;
+  const start: ReadonlyArray<string> = [node.id];
+  const chain = Arr.reduce(Arr.range(0, maxParentDepth - 1), start, (ids) => {
+    const last = ids[ids.length - 1];
+    const parent = last === undefined ? undefined : byId.get(last);
+    if (parent === undefined) return ids;
+    const next = byId.get(parent.parentId ?? "");
+    if (next === undefined || ids.includes(next.id)) return ids;
+    return [...ids, next.id];
+  });
 
-  while (current !== undefined && depth < maxParentDepth) {
-    const parent = byId.get(current);
-    if (parent === undefined || ids.includes(parent.id)) break;
-    ids.push(parent.id);
-    current = parent.parentId;
-    depth += 1;
-  }
-
-  return ids;
+  return chain;
 };
 
 /**
@@ -128,6 +149,9 @@ export const ancestorIds = <NodeData>(
  * built from its parent's, so dragging a parent moves the subtree without the
  * child being dragged itself — and a child must not also be in the *dragged* set,
  * or the delta would be applied twice.
+ *
+ * The fixed point is reached in at most `maxParentDepth` rounds, because a
+ * descendant is at most that far from the node that was grabbed.
  */
 export const withDescendants = <NodeData>(
   ids: ReadonlySet<string>,
@@ -136,17 +160,21 @@ export const withDescendants = <NodeData>(
   if (ids.size === 0) return ids;
 
   const moving = new Set(ids);
-  let changed = true;
-  while (changed) {
-    changed = false;
+
+  // One round per level of nesting, mutating the local set: a copy per added
+  // node would be quadratic on the 10k subtree this exists for.
+  Arr.range(0, maxParentDepth - 1).forEach(() =>
     nodes.forEach((node) => {
-      if (moving.has(node.id)) return;
-      if (node.parentId !== undefined && moving.has(node.parentId)) {
+      const parentId = node.parentId;
+      if (
+        parentId !== undefined &&
+        !moving.has(node.id) &&
+        moving.has(parentId)
+      ) {
         moving.add(node.id);
-        changed = true;
       }
-    });
-  }
+    }),
+  );
 
   return moving;
 };

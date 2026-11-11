@@ -8,6 +8,7 @@ import {
   Point,
   Pointer,
   Rect,
+  ResizeControl,
   Size,
   SnapGrid,
   Viewport,
@@ -68,6 +69,15 @@ export const Message = defineMessageUnion({
   PressedEscape: {},
   ChangedModifierState: { isAdditive: Schema.Boolean },
 
+  // Growing or shrinking a node. `control` is which of the eight handles the
+  // pointer grabbed; `snapGrid` is stamped by the renderer like a drag's.
+  StartedResize: {
+    nodeId: Schema.String,
+    control: ResizeControl,
+    pointer: Pointer,
+    snapGrid: Schema.optionalKey(SnapGrid),
+  },
+
   // connections
   StartedConnection: { from: HandleRef, pointer: Pointer },
   // Grabbing one end of an existing edge: `end` is the end that moves, and the
@@ -90,14 +100,17 @@ export const Message = defineMessageUnion({
   // from its own update.
   ClickedZoomIn: {},
   ClickedZoomOut: {},
+  // A press inside the minimap, already converted to flow space by the handler
+  // that owns the element's screen matrix (§7 M4).
+  ClickedMiniMap: { point: Point },
   // The fit button carries the renderer's fit options, because `update` has the
   // graph but not the config, and a fit is the one gesture whose defaults are a
   // presentation choice (padding, a per-fit clamp, a duration).
   ClickedFitView: {
-    padding: Schema.optionalKey(Schema.Number),
-    minZoom: Schema.optionalKey(Schema.Number),
-    maxZoom: Schema.optionalKey(Schema.Number),
-    duration: Schema.optionalKey(Schema.Number),
+    padding: Schema.Option(Schema.Number),
+    minZoom: Schema.Option(Schema.Number),
+    maxZoom: Schema.Option(Schema.Number),
+    duration: Schema.Option(Schema.Number),
   },
 
   // Arrow-key nudging. The delta is the whole fact: which key was pressed and
@@ -145,5 +158,6 @@ export type FailedSyncViewport = ReturnType<typeof Message.FailedSyncViewport>;
 export type ClickedZoomIn = ReturnType<typeof Message.ClickedZoomIn>;
 export type ClickedZoomOut = ReturnType<typeof Message.ClickedZoomOut>;
 export type ClickedFitView = ReturnType<typeof Message.ClickedFitView>;
+export type ClickedMiniMap = ReturnType<typeof Message.ClickedMiniMap>;
 export type NudgedNode = ReturnType<typeof Message.NudgedNode>;
 export type ActivatedNode = ReturnType<typeof Message.ActivatedNode>;

@@ -41,6 +41,8 @@ const computeHiddenIds = <NodeData>(
 export const hiddenIds = <NodeData>(
   nodes: ReadonlyArray<FlowNode<NodeData>>,
 ): ReadonlySet<string> => {
+  // SAFETY: the memo is keyed by reference only; the element type never
+  // reaches the stored value, which is a plain set of ids.
   const key = nodes as ReadonlyArray<FlowNode<unknown>>;
   const cached = hiddenMemo.get(key);
   if (cached !== undefined) return cached;

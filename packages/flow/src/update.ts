@@ -11,7 +11,7 @@ import {
   hitTestHandle,
   oppositeHandleType,
 } from "./geometry/hitTest.js";
-import { screenToFlow } from "./geometry/screen.js";
+import { screenToFlow, viewportCentredOn } from "./geometry/screen.js";
 import { hiddenIds } from "./geometry/hidden.js";
 import {
   ancestorIds,
@@ -19,6 +19,8 @@ import {
   positionOf,
 } from "./geometry/positions.js";
 import { visibleNodes } from "./geometry/visible.js";
+import { resizeRect } from "./geometry/resize.js";
+import { nodeRect } from "./geometry/bounds.js";
 import { fitViewport } from "./geometry/fit.js";
 import { Message } from "./message.js";
 import { Gesture, clampZoom, zeroDelta } from "./model.js";
@@ -267,6 +269,71 @@ const releaseDrag = (
 };
 
 /**
+ * The release of a resize gesture: one fact, and the box the flow itself will
+ * draw from now on.
+ *
+ * `nodeSizes` is written here as well as reported, because the box *is* the
+ * measurement — the node Mount's `ResizeObserver` would report exactly these
+ * numbers a frame later, and waiting for it would let an edge anchor on the old
+ * size for one frame. The gesture is dropped, so nothing but the parent's graph
+ * remembers a position: `ResizedNodes` carries `x`/`y` in the space the flow
+ * received the node in (absolute, or parent-relative for a child).
+ */
+const releaseResize = (
+  model: Model,
+  context: Context,
+  gesture: Extract<Gesture, { _tag: "Resizing" }>,
+): UpdateReturn => {
+  const node = nodeById(context, gesture.nodeId);
+  const cleared: Model = { ...model, gesture: Gesture.Idle() };
+  if (node === undefined) return { model: cleared };
+
+  const { current, start } = gesture;
+  const isUnchanged =
+    current.left === start.left &&
+    current.top === start.top &&
+    current.width === start.width &&
+    current.height === start.height;
+  if (isUnchanged) return { model: cleared };
+
+  // The gesture holds an absolute box; the fact is relative to the parent chain.
+  const origin = Option.getOrElse(
+    Option.map(Option.fromNullishOr(node.parentId), (parentId) =>
+      Option.getOrElse(
+        Option.map(
+          Option.fromNullishOr(nodeById(context, parentId)),
+          (parent) => positionOf(parent, positionIndex(context.nodes)),
+        ),
+        () => ({ x: 0, y: 0 }),
+      ),
+    ),
+    () => ({ x: 0, y: 0 }),
+  );
+
+  return {
+    model: {
+      ...cleared,
+      nodeSizes: setNodeSize(model.nodeSizes, {
+        nodeId: gesture.nodeId,
+        width: current.width,
+        height: current.height,
+      }),
+    },
+    outMessage: OutMessage.ResizedNodes({
+      nodes: [
+        {
+          nodeId: gesture.nodeId,
+          x: current.left - origin.x,
+          y: current.top - origin.y,
+          width: current.width,
+          height: current.height,
+        },
+      ],
+    }),
+  };
+};
+
+/**
  * `Flow.update` reads the graph through `context` and never stores it (§2.5.1).
  * Gesture-initiating Messages verify their ids against that graph and are
  * ignored when the id is gone, so a mid-gesture graph change can never produce
@@ -400,6 +467,26 @@ export const update = (
         };
       }
 
+      if (Gesture.guards.Resizing(gesture)) {
+        return {
+          model: {
+            ...model,
+            gesture: Gesture.Resizing({
+              ...gesture,
+              current: resizeRect(
+                gesture.start,
+                gesture.control,
+                point,
+                Option.match(gesture.snapGrid, {
+                  onNone: () => ({}),
+                  onSome: (grid) => ({ snapGrid: grid }),
+                }),
+              ),
+            }),
+          },
+        };
+      }
+
       if (Gesture.guards.Reconnecting(gesture)) {
         return {
           model: {
@@ -453,6 +540,10 @@ export const update = (
       }
 
       const cleared: Model = { ...model, gesture: Gesture.Idle() };
+
+      if (Gesture.guards.Resizing(gesture)) {
+        return releaseResize(model, context, gesture);
+      }
 
       if (Gesture.guards.Reconnecting(gesture)) {
         const edge = Option.getOrUndefined(edgeById(context, gesture.edgeId));
@@ -540,6 +631,33 @@ export const update = (
         ? withSelection(model, [])
         : { model: { ...model, gesture: Gesture.Idle() } },
 
+    StartedResize: ({ nodeId, control, pointer, snapGrid }) => {
+      const node = nodeById(context, nodeId);
+      // The same existence and draggability guards a drag uses: a resize over a
+      // node the parent no longer has would be a fact about nothing (§2.5.9).
+      if (node === undefined || !isDraggable(context, nodeId)) return { model };
+
+      const rect = nodeRect(
+        node,
+        model.nodeSizes,
+        positionIndex(context.nodes),
+      );
+
+      return {
+        model: {
+          ...model,
+          gesture: Gesture.Resizing({
+            pointer,
+            nodeId,
+            control,
+            start: rect,
+            current: rect,
+            snapGrid: Option.fromNullishOr(snapGrid),
+          }),
+        },
+      };
+    },
+
     StartedConnection: ({ from, pointer }) => {
       if (!hasNode(context, from.nodeId)) return { model };
 
@@ -603,21 +721,21 @@ export const update = (
     // there is one implementation of zoom and one of fit.
     ClickedZoomIn: () => zoomBy(model, zoomStepFactor),
     ClickedZoomOut: () => zoomBy(model, 1 / zoomStepFactor),
+    // A minimap press centres the view on the flow point under the cursor. It is
+    // one `setViewport`, so it goes through the same clamp and the same
+    // `SyncViewport` Command as every other programmatic move (§4.3).
+    ClickedMiniMap: ({ point }) =>
+      setViewport(model, viewportCentredOn(model, point)),
+
     ClickedFitView: (options) =>
       setViewport(
         model,
         fitViewport(model, context.nodes, {
-          ...(options.padding === undefined
-            ? {}
-            : { padding: options.padding }),
-          ...(options.minZoom === undefined
-            ? {}
-            : { minZoom: options.minZoom }),
-          ...(options.maxZoom === undefined
-            ? {}
-            : { maxZoom: options.maxZoom }),
+          padding: Option.getOrUndefined(options.padding),
+          minZoom: Option.getOrUndefined(options.minZoom),
+          maxZoom: Option.getOrUndefined(options.maxZoom),
         }),
-        Option.fromNullishOr(options.duration),
+        options.duration,
       ),
 
     NudgedNode: ({ nodeId, delta }) => {
@@ -699,6 +817,8 @@ export const informGraphChanged = (
       nodeIds.includes(gesture.from.nodeId) ? gesture : Gesture.Idle(),
     Reconnecting: (gesture) =>
       edgeIds.includes(gesture.edgeId) ? gesture : Gesture.Idle(),
+    Resizing: (gesture) =>
+      nodeIds.includes(gesture.nodeId) ? gesture : Gesture.Idle(),
   });
 
   return {

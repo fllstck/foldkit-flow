@@ -180,6 +180,14 @@ describe("MiniMap", () => {
   test("is absent unless configured", async () => {
     expect(await render(baseModel)).not.toContain("fflow__minimap");
   });
+
+  test("a press on the minimap is a press target of its own", async () => {
+    // It carries `NoPan` and the chrome attribute, so neither d3 nor the pane's
+    // handler treats the press as a viewport gesture (§4.6, §7 M4).
+    const html = await render(baseModel, { minimap: true });
+    expect(html).toContain('class="fflow__minimap fflow__nopan"');
+    expect(html).toContain('data-fflow-chrome=""');
+  });
 });
 
 describe("focusable nodes", () => {

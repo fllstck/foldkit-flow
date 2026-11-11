@@ -4,7 +4,13 @@ import { Story } from "foldkit";
 
 import { Message } from "./message.js";
 import { Gesture, init } from "./model.js";
-import type { Context, FlowEdge, FlowNode, Pointer } from "./model.js";
+import type {
+  Context,
+  FlowEdge,
+  FlowNode,
+  Pointer,
+  ResizeControl,
+} from "./model.js";
 import { OutMessage } from "./outMessage.js";
 import { MeasureHandles } from "./runtime/command.js";
 import { informGraphChanged, selectAll, update } from "./update.js";
@@ -414,6 +420,154 @@ describe("graph reconciliation", () => {
         expect(m.selectedNodeIds).toEqual([]);
         expect(isIdle(m.gesture)).toBe(true);
       }),
+    );
+  });
+});
+
+describe("resize", () => {
+  const started = (nodeId = "n1", control: ResizeControl = "bottom-right") =>
+    message(
+      Message.StartedResize({
+        nodeId,
+        control,
+        pointer: mouse,
+      }),
+    );
+
+  test("drag, release: one ResizedNodes with the box and the new position", () => {
+    // n1 is 100×40 at (0, 0). Dragging the bottom-right control to (130, 90)
+    // grows it to 130×90; the origin does not move.
+    story(
+      flow().update,
+      given(initial),
+      started(),
+      message(
+        Message.MovedPointer({ screenX: 130, screenY: 90, pointerId: 1 }),
+      ),
+      model((m) => {
+        if (!Gesture.guards.Resizing(m.gesture)) throw new Error("no resize");
+        expect(m.gesture.current).toEqual({
+          left: 0,
+          top: 0,
+          width: 130,
+          height: 90,
+        });
+      }),
+      message(Message.ReleasedPointer({ pointerId: 1 })),
+      expectOutMessage(
+        OutMessage.ResizedNodes({
+          nodes: [{ nodeId: "n1", x: 0, y: 0, width: 130, height: 90 }],
+        }),
+      ),
+      model((m) => {
+        expect(isIdle(m.gesture)).toBe(true);
+        // The box is the measurement now, so geometry agrees with the DOM
+        // without waiting for the ResizeObserver.
+        expect(m.nodeSizes).toContainEqual({
+          nodeId: "n1",
+          width: 130,
+          height: 90,
+        });
+      }),
+    );
+  });
+
+  test("a top-left resize reports the new position too", () => {
+    story(
+      flow().update,
+      given(initial),
+      started("n1", "top-left"),
+      message(Message.MovedPointer({ screenX: 20, screenY: 10, pointerId: 1 })),
+      message(Message.ReleasedPointer({ pointerId: 1 })),
+      expectOutMessage(
+        OutMessage.ResizedNodes({
+          nodes: [{ nodeId: "n1", x: 20, y: 10, width: 80, height: 30 }],
+        }),
+      ),
+    );
+  });
+
+  test("a release without movement emits nothing", () => {
+    story(
+      flow().update,
+      given(initial),
+      started(),
+      message(Message.ReleasedPointer({ pointerId: 1 })),
+      expectNoOutMessage(),
+      model((m) => {
+        expect(isIdle(m.gesture)).toBe(true);
+      }),
+    );
+  });
+
+  test("a resize does not select the node it resizes", () => {
+    story(
+      flow().update,
+      given({ ...initial, selectedNodeIds: ["n2"] }),
+      started(),
+      model((m) => {
+        expect(m.selectedNodeIds).toEqual(["n2"]);
+      }),
+    );
+  });
+
+  test("cancel drops the resize without a fact", () => {
+    story(
+      flow().update,
+      given(initial),
+      started(),
+      message(
+        Message.MovedPointer({ screenX: 130, screenY: 90, pointerId: 1 }),
+      ),
+      message(Message.CancelledGesture({ reason: "Escape" })),
+      model((m) => {
+        expect(isIdle(m.gesture)).toBe(true);
+      }),
+    );
+  });
+
+  test("a foreign pointer cannot move or finish the resize", () => {
+    story(
+      flow().update,
+      given(initial),
+      started(),
+      message(
+        Message.MovedPointer({ screenX: 300, screenY: 300, pointerId: 7 }),
+      ),
+      message(Message.ReleasedPointer({ pointerId: 7 })),
+      model((m) => {
+        if (!Gesture.guards.Resizing(m.gesture)) throw new Error("no resize");
+        expect(m.gesture.current).toEqual({
+          left: 0,
+          top: 0,
+          width: 100,
+          height: 40,
+        });
+      }),
+    );
+  });
+
+  test("a resize snaps to the grid it was started with", () => {
+    story(
+      flow().update,
+      given(initial),
+      message(
+        Message.StartedResize({
+          nodeId: "n1",
+          control: "bottom-right",
+          pointer: mouse,
+          snapGrid: { x: 20, y: 20 },
+        }),
+      ),
+      message(
+        Message.MovedPointer({ screenX: 133, screenY: 47, pointerId: 1 }),
+      ),
+      message(Message.ReleasedPointer({ pointerId: 1 })),
+      expectOutMessage(
+        OutMessage.ResizedNodes({
+          nodes: [{ nodeId: "n1", x: 0, y: 0, width: 140, height: 40 }],
+        }),
+      ),
     );
   });
 });
@@ -1350,7 +1504,16 @@ describe("chrome", () => {
   });
 
   test("fit view moves the viewport to the fitted one", () => {
-    const result = update(mounted, Message.ClickedFitView({}), context);
+    const result = update(
+      mounted,
+      Message.ClickedFitView({
+        padding: Option.none(),
+        minZoom: Option.none(),
+        maxZoom: Option.none(),
+        duration: Option.none(),
+      }),
+      context,
+    );
 
     // The nodes span 0..300 × 0..140 (100×40 boxes), in a 1000×800 pane: the
     // fitted zoom fills the height first and is clamped by maxZoom.
@@ -1359,13 +1522,50 @@ describe("chrome", () => {
   });
 
   test("fit view on an empty graph changes nothing", () => {
-    const result = update(mounted, Message.ClickedFitView({}), {
-      nodes: [],
-      edges: [],
-    });
+    const result = update(
+      mounted,
+      Message.ClickedFitView({
+        padding: Option.none(),
+        minZoom: Option.none(),
+        maxZoom: Option.none(),
+        duration: Option.none(),
+      }),
+      {
+        nodes: [],
+        edges: [],
+      },
+    );
 
     expect(result.model.viewport).toEqual(mounted.viewport);
     expect(result.commands ?? []).toHaveLength(0);
+  });
+
+  test("a minimap press centres the view on the flow point under it", () => {
+    // The pane is 1000×800 at zoom 1, so centring (400, 300) puts the viewport
+    // origin at (100, 100): the point lands at the pane's centre and nothing
+    // else about the view changes.
+    const result = update(
+      mounted,
+      Message.ClickedMiniMap({ point: { x: 400, y: 300 } }),
+      context,
+    );
+
+    expect(result.model.viewport).toEqual({ x: 100, y: 100, zoom: 1 });
+    expect(syncOf(result)).toBeDefined();
+  });
+
+  test("a minimap press at zoom scales the centring, not the zoom", () => {
+    const zoomed = { ...mounted, viewport: { x: 0, y: 0, zoom: 0.5 } };
+    const result = update(
+      zoomed,
+      Message.ClickedMiniMap({ point: { x: 400, y: 300 } }),
+      context,
+    );
+
+    // The point is still centred; the zoom is untouched.
+    expect(result.model.viewport.zoom).toBe(0.5);
+    expect(result.model.viewport.x).toBe(500 - 400 * 0.5);
+    expect(result.model.viewport.y).toBe(400 - 300 * 0.5);
   });
 
   test("an arrow-key nudge reports one MovedNodes for the focused node", () => {

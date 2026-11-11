@@ -103,6 +103,8 @@ export const mountBenchPage = (config: BenchPageConfig): void => {
           ClickedFitView: () => model.measured,
           NudgedNode: () => model.measured,
           ActivatedNode: () => model.measured,
+          StartedResize: () => model.measured,
+          ClickedMiniMap: () => model.measured,
         });
 
         return {

@@ -23,6 +23,10 @@ export const NoWheel = "fflow__nowheel";
 export const NoKey = "fflow__nokey";
 export const IsSelected = "fflow__node--selected";
 export const IsDragging = "fflow__node--dragging";
+export const ResizeHandle = "fflow__resize";
+/** `fflow__resize--bottom-right`, one per control. */
+export const ResizeHandleOf = (control: string): string =>
+  `fflow__resize--${control}`;
 
 // Chrome (§7 M3). Every piece of chrome is a press target inside the pane, so it
 // carries `NoPan` — `target.closest` exempts its children too, which is the M1 §8

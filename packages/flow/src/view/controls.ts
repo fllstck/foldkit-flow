@@ -1,3 +1,4 @@
+import { Option } from "effect";
 import type { Html, HtmlBuilder } from "foldkit/html";
 
 import { Message } from "../message.js";
@@ -38,18 +39,24 @@ const controls: ReadonlyArray<ControlSpec> = [
     kind: "FitView",
     label: "Fit view",
     glyph: "\u2317",
-    message: Message.ClickedFitView({}),
+    message: Message.ClickedFitView({
+      padding: Option.none(),
+      minZoom: Option.none(),
+      maxZoom: Option.none(),
+      duration: Option.none(),
+    }),
   },
 ];
 
-/** The fit button's Message, carrying the configured options. Fields are omitted
- *  rather than set to `undefined` so the Message stays decodable. */
+/** The fit button's Message, carrying the configured options. Every field is an
+ *  `Option` so "not configured" is a value rather than an absent property — which
+ *  is what lets the Message be built without a conditional spread. */
 const fitViewMessage = (config: FitViewConfig | undefined): Message =>
   Message.ClickedFitView({
-    ...(config?.padding === undefined ? {} : { padding: config.padding }),
-    ...(config?.minZoom === undefined ? {} : { minZoom: config.minZoom }),
-    ...(config?.maxZoom === undefined ? {} : { maxZoom: config.maxZoom }),
-    ...(config?.duration === undefined ? {} : { duration: config.duration }),
+    padding: Option.fromNullishOr(config?.padding),
+    minZoom: Option.fromNullishOr(config?.minZoom),
+    maxZoom: Option.fromNullishOr(config?.maxZoom),
+    duration: Option.fromNullishOr(config?.duration),
   });
 
 /**
@@ -61,6 +68,9 @@ const fitViewMessage = (config: FitViewConfig | undefined): Message =>
  * otherwise read as the start of a pan: the container carries `NoPan`, and
  * `data-fflow-chrome` is what the pane's own pointer handler declines so the
  * press cannot clear the selection either (§4.6).
+ *
+ * The `FitView` entry in `controls` is only a placeholder carrying the tag: the
+ * real Message is built by `fitViewMessage` with the renderer's options.
  */
 export const controlsView = (
   toParentMessage: (message: Message) => any,
