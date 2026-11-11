@@ -1,0 +1,37 @@
+{
+  "fixture": {
+    "nodes": 1000,
+    "culling": true,
+    "zoom": 1
+  },
+  "chrome": {
+    "background": "dots",
+    "controls": true,
+    "minimap": true,
+    "minimapRects": 1000
+  },
+  "runs": 10,
+  "browser": "Brave 156.1.98.63 (Chromium 156), headless",
+  "machine": "MacBook Air (Apple M5), macOS 26.6.2",
+  "drag": {
+    "count": 515,
+    "median": 16.7,
+    "p95": 16.8,
+    "longest": 33.3,
+    "longFrames": 0
+  },
+  "pan": {
+    "count": 654,
+    "median": 16.7,
+    "p95": 16.8,
+    "longest": 33.3,
+    "longFrames": 0
+  },
+  "flow": {
+    "updates": 3078,
+    "updateTotalMs": 5.6,
+    "updatePerDispatchMs": 0.0018,
+    "cullScanMs": 6.226,
+    "cullScanSamples": 21
+  }
+}

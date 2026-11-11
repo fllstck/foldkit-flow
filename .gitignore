@@ -6,5 +6,11 @@ coverage/
 .DS_Store
 packages/benchmark/results/*
 !packages/benchmark/results/benchmark.json
+# The numbers the findings quote are evidence, not scratch: the 1k gate legs and
+# the 10k `hidden` exploration are tracked alongside the 625 comparison so a reader
+# can check a figure against the run that produced it.
+!packages/benchmark/results/benchmark-1k.json
+!packages/benchmark/results/benchmark-1k-chrome.json
+!packages/benchmark/results/hidden-10k.json
 test-results/
 playwright-report/

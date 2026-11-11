@@ -1,0 +1,25 @@
+{
+  "note": "M4 exploration, not a gate: PLAN §4.5 promises no figure for 10k until it is measured. Recorded from packages/benchmark/tests/hidden.spec.ts.",
+  "fixture": {
+    "nodes": 10000,
+    "containers": 100,
+    "childrenPerContainer": 99,
+    "collapsedContainers": 98,
+    "hiddenNodes": 9800,
+    "renderedNodes": 200
+  },
+  "pan": {
+    "count": 251,
+    "median": 16.7,
+    "p95": 16.8,
+    "longest": 16.8,
+    "longFrames": 0
+  },
+  "flow": {
+    "updates": 625,
+    "cullScanMs": 3.094,
+    "cullScanSamples": 21
+  },
+  "browser": "Brave 156.1.98.63 (Chromium 156), headless",
+  "machine": "MacBook Air (Apple M5), macOS 26.6.2"
+}

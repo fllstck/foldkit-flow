@@ -461,14 +461,17 @@ the description all call it, so they cannot drift apart again. Test:
 `view/subflow.test.ts` → "the description describes what is shown, not the collapsed
 edges (M4-REVIEW 3)".
 
-**What that fix exposed.** `shownNodes` used to allocate a new array per call, which
-silently defeated two caches: the minimap memoizes on the node array's identity and
-the description on the graph's, so both were rebuilding every frame on a page with
-`minimap: true` and any hidden node. `shownNodes` and `shownEdges` are now memoized
-on the graph array (and, for edges, on the identity of the hidden set), so the
-identity is stable while the graph is. A test pins it: `geometry/hidden.test.ts` →
-"shownEdges keeps the identity of the array while the graph is unchanged". The 1k
-chrome gate is unchanged by it (16.7/16.8, 0 long frames, §6).
+**What that fix exposed.** `shownNodes` used to allocate a new array per call.
+The minimap memoizes on the identity of the array it is handed, so on a page with
+`minimap: true` and any hidden node it was rebuilding 1 000 rectangles **every
+frame** instead of once per graph change. (The description was not affected: its
+memo key is the graph itself, and the filter ran inside the memoized callback, so it
+paid one allocation per graph change.) `shownNodes` and `shownEdges` are now
+memoized on the graph array — and, for edges, on the identity of the hidden set — so
+the identity is stable while the graph is. A test pins it:
+`geometry/hidden.test.ts` → "shownEdges keeps the identity of the array while the
+graph is unchanged". The 1k chrome gate is unchanged by it (16.7/16.8, 0 long
+frames, §6).
 
 ### 12.4 MEDIUM — parent-chain behaviour was limited to 12 levels: fixed, not documented
 
