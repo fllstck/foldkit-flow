@@ -4,14 +4,14 @@ A flow / node-graph canvas for [Foldkit](https://foldkit.dev), in the spirit of
 React Flow and Svelte Flow — but Foldkit-native: one Model, pure `update`, every
 effect at a named seam.
 
-**Status: M1 complete, M2 next.** The plan is at revision 7. The interaction core
-(drag, select, delete, connect), handle measurement, viewport culling, the
-renderer node cache, and the performance gate are green: 625 nodes at parity with
-React Flow on pan, and 1k culled under the 33 ms p95 gate. Evidence, deviations,
-and the retracted measurements are in
-**[docs/M1-FINDINGS.md](docs/M1-FINDINGS.md)**; the next milestone is M2
-(`docs/PLAN.md` §7), whose starting state is
-**[docs/M2-HANDOFF.md](docs/M2-HANDOFF.md)**. Start with:
+**Status: M2 complete.** The plan is at revision 7, and v0.1 (M0–M2) ships here.
+The interaction core (drag, select, delete, connect, reconnect), measured handle
+geometry for both hit-testing and edge endpoints, the `isValidConnection`
+predicate, viewport culling, the renderer node cache, and the performance gate are
+green: 625 nodes at parity with React Flow on pan, and 1k culled under the 33 ms
+p95 gate. Evidence, deviations, and the retracted measurements are in
+**[docs/M1-FINDINGS.md](docs/M1-FINDINGS.md)** and
+**[docs/M2-FINDINGS.md](docs/M2-FINDINGS.md)**. Start with:
 
 - **[docs/PLAN.md](docs/PLAN.md)** — the design: ownership split, public API, runtime
   wiring, performance budget, milestones, decisions.
@@ -28,8 +28,10 @@ and the retracted measurements are in
   for M1.
 - **[docs/M1-FINDINGS.md](docs/M1-FINDINGS.md)** — what M1 shipped, the gate
   numbers, the diffs from the plan, and the bugs the proofs found.
-- **[docs/M2-HANDOFF.md](docs/M2-HANDOFF.md)** — what M2 inherits, its scope, and
+- **[docs/M2-HANDOFF.md](docs/M2-HANDOFF.md)** — what M2 inherited, its scope, and
   the gotchas the next session should not re-learn.
+- **[docs/M2-FINDINGS.md](docs/M2-FINDINGS.md)** — what M2 shipped, the decisions
+  it took, and the proofs that back them.
 
 Decisions locked: package `@fllstck/foldkit-flow`; MIT; our own CSS and visual
 identity (no upstream stylesheet, no attribution component); Foldkit-native API
@@ -66,3 +68,73 @@ incompatible rules and the reasons for each exception are documented in
 with the smaller `oxlint.tests.json` ruleset. Prettier owns formatting for the
 workspace sources, package manifests, and the M0 docs; `docs/PLAN.md` and the
 critique history are deliberately excluded in `.prettierignore`.
+
+## Measuring the graph
+
+Handles are geometry, and geometry is DOM truth: it is measured in the node Mount
+and stored node-local in the Model (`HandleBounds`), never read from `view`. The
+contract a consumer has to act on is three sentences (`docs/PLAN.md` §2.5.3):
+
+1. While a node's DOM changes through the renderer — its content, its handles,
+   styles it applies itself — geometry stays fresh automatically, because a
+   `ResizeObserver` watches the node and a `MutationObserver` watches its subtree,
+   coalesced to one measurement per animation frame.
+2. If **external CSS** changes layout without producing either event (a class on an
+   ancestor, a theme swap, a CSS-variable change), call
+   `Flow.remeasure(paneId, nodeIds)`.
+3. Until you do, hit-testing is still correct — every connection gesture starts with
+   a `MeasureHandles` checkpoint — but **edge endpoints may point at the old handle
+   position**.
+
+```ts
+// after a theme swap that moved one node's handles
+Flow.Remeasure(paneId, ["a"]);
+
+// every visible node. There is no implicit "measure everything" overload: the cost
+// is one getBoundingClientRect per node plus two querySelectorAll passes.
+Flow.Remeasure(
+  paneId,
+  Flow.visibleNodes(model.flow, nodes).map((node) => node.id),
+);
+```
+
+`Flow.Remeasure` is the same `MeasureHandles` Command under a public name, so it
+inherits merge semantics: measuring a subset replaces only those nodes' bounds, and
+a node it was asked about but could not find is pruned instead of being kept stale.
+Return the Command through the parent's dispatcher, as the demo's **Remeasure**
+button does.
+
+## Connections
+
+Connect by dragging a handle, reconnect by dragging an edge end. Both are
+gestures in `Flow.update` against measured geometry, and both report a fact the
+parent applies:
+
+| Gesture                                                                | OutMessage                                 |
+| ---------------------------------------------------------------------- | ------------------------------------------ |
+| `StartedConnection`, `MovedPointer`, `ReleasedPointer`                 | `ConnectedHandles({ source, target })`     |
+| `StartedReconnect` (from an edge end's grab handle), `ReleasedPointer` | `ReconnectedEdge({ edgeId, end, handle })` |
+| `CancelledGesture` (pointercancel, blur, Escape)                       | nothing — the parent's edge is untouched   |
+
+`Flow.Context` may carry the parent's policy, which `update` evaluates on release:
+
+```ts
+const contextFrom = (model: Model): Flow.Context => ({
+  nodes: model.graph.nodes,
+  edges: model.graph.edges,
+  // Asked with { source, target, sourceHandle, targetHandle }. A rejected
+  // release emits no OutMessage, so there is nothing for the parent to undo.
+  isValidConnection: (connection) => !wouldCreateCycle(model.graph, connection),
+});
+```
+
+The predicate is asked at release only — hover still previews the target — and it
+judges a reconnect as well, with the end that did not move supplying the other
+half of the connection. No predicate means "accept everything".
+
+Edge endpoints come from measured handles: `edge.sourceHandle` /
+`edge.targetHandle` name the handle, the path starts and ends at the handle's
+centre, and it leaves along the handle's own `position`. An edge that names no
+handle uses the node's first handle of that type; a handle that is unmeasured or
+missing falls back to the node-border anchor, so an edge never disappears because
+measurement has not landed yet.
