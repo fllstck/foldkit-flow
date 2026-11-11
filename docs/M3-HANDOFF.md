@@ -6,6 +6,12 @@ committed, v0.1 ships at M2, and the plan was not re-litigated. The repo is on
 `898bb46` (M1 complete) or the M2 commits, and do not rewrite history. Commit M3
 work at logical checkpoints.
 
+Commits, newest last: `c40ae47` (M0), `a0a3fdc` (M1 handoff), `c17964e` +
+`0faf42b` (M1 library + pages), `4afe982` (M1 findings), `58a1436`–`898bb46`
+(M1 review fixes and evidence), `0a1db9a` + `483aa82` (M2 handoff), `7223547`
+(M2 library), `6ed8143` (M2 demo + proofs), `638cf45` (M2 perf), `98041f5` +
+`6280f8d` + `8100466` (M2 findings and docs), `5b791d4` (M2 review fix).
+
 ## Copy-paste prompt for the next session
 
 > Work on M3 of `@fllstck/foldkit-flow` in `~/Development/foldkit-flow`. Read
