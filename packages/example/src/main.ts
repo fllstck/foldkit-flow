@@ -132,6 +132,7 @@ const countMessage = (stats: Stats, message: Flow.Message): Stats =>
     CancelledGesture: () => stats,
     PressedDeleteKey: () => stats,
     PressedEscape: () => stats,
+    ChangedModifierState: () => stats,
     StartedConnection: () => stats,
     HoveredHandle: () => stats,
     MovedViewport: () => ({
@@ -339,9 +340,15 @@ const renderNode = (
     ],
   );
 
+/** `?cull=1` renders only what the viewport can see. It is a harness switch:
+ *  the default stays unculled so the 625-node measurement proof keeps its
+ *  "every node measured once" property. */
+const isCulled = (globalThis.location?.search ?? "").includes("cull=1");
+
 const renderer = Flow.createRenderer<{ label: string }, unknown>({
   paneId: FLOW_PANE_ID,
   renderNode,
+  cull: isCulled,
 });
 
 const stat = (h: HtmlBuilder<Message>, key: string, value: number | string) =>
@@ -384,6 +391,8 @@ export const view = (model: Model, h: HtmlBuilder<Message>): Document => {
         h.DataAttribute("selected-nodes", flow.selectedNodeIds.join(",")),
         h.DataAttribute("selected-edges", flow.selectedEdgeIds.join(",")),
         h.DataAttribute("gesture", flow.gesture._tag),
+        h.DataAttribute("additive", String(flow.isAdditiveModifier)),
+        h.DataAttribute("culled", String(isCulled)),
       ],
       [
         h.header(
