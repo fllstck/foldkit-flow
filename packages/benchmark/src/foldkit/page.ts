@@ -91,7 +91,7 @@ export const mountBenchPage = (config: BenchPageConfig): void => {
           PressedEscape: () => model.measured,
           ChangedModifierState: () => model.measured,
           StartedConnection: () => model.measured,
-          HoveredHandle: () => model.measured,
+          StartedReconnect: () => model.measured,
           CompletedSyncViewport: () => model.measured,
           FailedSyncViewport: () => model.measured,
         });

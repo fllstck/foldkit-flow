@@ -5,10 +5,18 @@ import { defineMessageUnion } from "foldkit/message";
 import { modifyFields } from "foldkit/struct";
 
 import * as Flow from "@fllstck/foldkit-flow";
+// The library's own stylesheet: handle boxes are geometry the engine measures,
+// so a page without it has 0×0 handles and nothing to hit.
+import "@fllstck/foldkit-flow/style.css";
 import type { FlowEdge, FlowNode } from "@fllstck/foldkit-flow";
 
-const FLOW_PANE_ID = "m1-pane";
+const FLOW_PANE_ID = "m2-pane";
 const GRID = 25;
+/** Column pitch. Wide enough that a node's handles — and the reconnect ring
+ *  around an edge end — sit in the gap between neighbours rather than on top of
+ *  the next node's handles. */
+const COLUMN_PITCH = 220;
+const ROW_PITCH = 90;
 
 const GraphNode = Schema.Struct({
   id: Schema.String,
@@ -21,6 +29,10 @@ const GraphEdge = Schema.Struct({
   id: Schema.String,
   source: Schema.String,
   target: Schema.String,
+  // Optional on purpose: an edge without them anchors on the node's first
+  // handle of the type, which is how M1's 624 edges keep working (§2.5.3).
+  sourceHandle: Schema.optionalKey(Schema.String),
+  targetHandle: Schema.optionalKey(Schema.String),
 });
 type GraphEdge = typeof GraphEdge.Type;
 
@@ -41,6 +53,10 @@ export const Model = Schema.Struct({
   }),
   label: Schema.String,
   isFlowMounted: Schema.Boolean,
+  // Instrumentation for the Playwright proofs: what the parent did with the
+  // last connection fact, without the proof having to read the whole graph.
+  lastEdge: Schema.String,
+  lastReconnect: Schema.String,
   stats: Stats,
 });
 export type Model = typeof Model.Type;
@@ -54,6 +70,7 @@ export const Message = defineMessageUnion({
   ClickedClearSelection: {},
   ClickedZoomIn: {},
   ClickedDeleteSelection: {},
+  ClickedRemeasure: {},
 });
 export type Message = typeof Message.Type;
 
@@ -77,11 +94,17 @@ const buildGraph = (label: string) => {
     const id = `n${index}`;
     nodes.push({
       id,
-      position: { x: column * 190, y: row * 90 },
+      position: { x: column * COLUMN_PITCH, y: row * ROW_PITCH },
       data: { label: `${label} ${index}` },
     });
     if (index > 0) {
-      edges.push({ id: `e${index}`, source: `n${index - 1}`, target: id });
+      edges.push({
+        id: `e${index}`,
+        source: `n${index - 1}`,
+        target: id,
+        sourceHandle: "out",
+        targetHandle: "in",
+      });
     }
   });
 
@@ -96,6 +119,8 @@ export const init = (): Init => ({
     graph: buildGraph("Node"),
     label: "Node",
     isFlowMounted: true,
+    lastEdge: "",
+    lastReconnect: "",
     stats: initialStats,
   },
 });
@@ -107,7 +132,30 @@ const toParentMessage = (message: Flow.Message): Message =>
 const contextFrom = (model: Model): Flow.Context => ({
   nodes: model.graph.nodes,
   edges: model.graph.edges,
+  isValidConnection: (connection) => isValidConnection(model, connection),
 });
+
+/**
+ * The parent's policy, asked in `update` before a connection becomes a fact
+ * (§7 M2): no self-loops, no duplicates. It judges a reconnect too, and it
+ * cannot tell "the edge being moved" apart from any other edge — so dropping an
+ * end back onto its own handle is rejected as a duplicate, which leaves the
+ * edge exactly as it was.
+ */
+const isValidConnection = (
+  model: Model,
+  connection: Flow.Connection,
+): boolean => {
+  if (connection.source === connection.target) return false;
+
+  return !model.graph.edges.some(
+    (edge) =>
+      edge.source === connection.source &&
+      edge.target === connection.target &&
+      (edge.sourceHandle ?? null) === connection.sourceHandle &&
+      (edge.targetHandle ?? null) === connection.targetHandle,
+  );
+};
 
 const countMessage = (stats: Stats, message: Flow.Message): Stats =>
   Flow.Message.match<Stats>(message, {
@@ -134,7 +182,7 @@ const countMessage = (stats: Stats, message: Flow.Message): Stats =>
     PressedEscape: () => stats,
     ChangedModifierState: () => stats,
     StartedConnection: () => stats,
-    HoveredHandle: () => stats,
+    StartedReconnect: () => stats,
     MovedViewport: () => ({
       ...stats,
       viewportFrames: stats.viewportFrames + 1,
@@ -162,28 +210,73 @@ const applyPositions = (
 const nextEdgeId = (edges: ReadonlyArray<GraphEdge>): string =>
   `e-${edges.length + 1}-${edges.reduce((total, edge) => total + edge.id.length, 0)}`;
 
+type EdgeHandles = { sourceHandle?: string; targetHandle?: string };
+
+/** Optional handle ids are omitted rather than set to `undefined`, so the edge
+ *  satisfies `exactOptionalPropertyTypes` at the library boundary. */
+const handlesOf = (
+  sourceHandle: string | undefined,
+  targetHandle: string | undefined,
+): EdgeHandles => {
+  const handles: EdgeHandles = {};
+  if (sourceHandle !== undefined) handles.sourceHandle = sourceHandle;
+  if (targetHandle !== undefined) handles.targetHandle = targetHandle;
+  return handles;
+};
+
+const handleIdLabel = (handle: Flow.HandleRef): string =>
+  Option.getOrElse(handle.handleId, () => "");
+
+/** The parent owns edge identity (§M2-HANDOFF): the flow reports the connection,
+ *  the demo mints the id. Duplicates never reach here — `isValidConnection`
+ *  rejected them before `ConnectedHandles` was emitted. */
 const addEdge = (
   model: Model,
   source: Flow.HandleRef,
   target: Flow.HandleRef,
 ): Model => {
-  const isDuplicate = model.graph.edges.some(
-    (edge) => edge.source === source.nodeId && edge.target === target.nodeId,
-  );
-  if (isDuplicate) return model;
+  const edge: GraphEdge = {
+    id: nextEdgeId(model.graph.edges),
+    source: source.nodeId,
+    target: target.nodeId,
+    ...handlesOf(
+      Option.getOrUndefined(source.handleId),
+      Option.getOrUndefined(target.handleId),
+    ),
+  };
 
   return {
     ...model,
+    lastEdge: `${edge.source}:${edge.sourceHandle ?? ""}>${edge.target}:${edge.targetHandle ?? ""}`,
+    graph: { ...model.graph, edges: [...model.graph.edges, edge] },
+  };
+};
+
+/** Reconnect rewrites one end of an existing edge and nothing else. */
+const reconnectEdge = (
+  model: Model,
+  { edgeId, end, handle }: Flow.ReconnectedEdge,
+): Model => {
+  const handleId = Option.getOrUndefined(handle.handleId);
+
+  return {
+    ...model,
+    lastReconnect: `${edgeId}:${end}:${handle.nodeId}:${handleIdLabel(handle)}`,
     graph: {
       ...model.graph,
-      edges: [
-        ...model.graph.edges,
-        {
-          id: nextEdgeId(model.graph.edges),
-          source: source.nodeId,
-          target: target.nodeId,
-        },
-      ],
+      edges: model.graph.edges.map((edge) =>
+        edge.id !== edgeId
+          ? edge
+          : {
+              id: edge.id,
+              source: end === "Source" ? handle.nodeId : edge.source,
+              target: end === "Target" ? handle.nodeId : edge.target,
+              ...handlesOf(
+                end === "Source" ? handleId : edge.sourceHandle,
+                end === "Target" ? handleId : edge.targetHandle,
+              ),
+            },
+      ),
     },
   };
 };
@@ -233,6 +326,9 @@ const foldFlow = (context: Flow.Context) =>
         ConnectedHandles:
           ({ source, target }) =>
           (model: Model) => ({ model: addEdge(model, source, target) }),
+        ReconnectedEdge: (fact) => (model: Model) => ({
+          model: reconnectEdge(model, fact),
+        }),
         DeletedElements:
           ({ nodeIds, edgeIds }) =>
           (model: Model) => ({
@@ -299,6 +395,21 @@ export const update = (model: Model, message: Message): UpdateReturn =>
     ClickedClearSelection: () =>
       withFlowCommand(model, Flow.clearSelection(model.flow)),
     ClickedZoomIn: () => withFlowCommand(model, Flow.zoomBy(model.flow, 1.2)),
+    ClickedRemeasure: () => ({
+      model,
+      commands: Command.mapMessages(
+        [
+          // §2.5.3: the answer to a stylesheet-only layout change. Same
+          // `MeasureHandles` Command under a public name, so it inherits
+          // merge-and-prune semantics.
+          Flow.Remeasure(
+            FLOW_PANE_ID,
+            model.graph.nodes.map((node) => node.id),
+          ),
+        ],
+        toParentMessage,
+      ),
+    }),
     ClickedDeleteSelection: () => {
       const selectedNodeIds = model.flow.selectedNodeIds;
       const selectedEdgeIds = model.flow.selectedEdgeIds;
@@ -319,6 +430,28 @@ export const subscriptions = Subscription.lift(Flow.subscriptions)<
   read: (model) => Option.some(model.flow),
   toParentMessage,
 });
+
+/** The handle the pointer is currently over during a connection or reconnect.
+ *  Instrumentation for the proofs: a rejected connection has to be shown to have
+ *  had a target, not just to have produced no edge. */
+const hoveredHandle = (
+  gesture: Flow.ModelType["gesture"],
+): Option.Option<Flow.HandleRef> =>
+  Flow.Gesture.guards.Connecting(gesture)
+    ? gesture.maybeTarget
+    : Flow.Gesture.guards.Reconnecting(gesture)
+      ? gesture.maybeTarget
+      : Option.none();
+
+const gestureTarget = (gesture: Flow.ModelType["gesture"]): string =>
+  Option.getOrElse(
+    Option.map(
+      hoveredHandle(gesture),
+      (handle) =>
+        `${handle.nodeId}:${Option.getOrElse(handle.handleId, () => "")}`,
+    ),
+    () => "",
+  );
 
 const nodesOf = (model: Model): ReadonlyArray<FlowNode<{ label: string }>> =>
   model.graph.nodes;
@@ -364,7 +497,7 @@ export const view = (model: Model, h: HtmlBuilder<Message>): Document => {
   const flow = model.flow;
 
   return {
-    title: "Foldkit Flow — M1",
+    title: "Foldkit Flow — M2",
     body: h.main(
       [
         h.Class("app"),
@@ -385,6 +518,9 @@ export const view = (model: Model, h: HtmlBuilder<Message>): Document => {
         ),
         h.DataAttribute("nodes", String(model.graph.nodes.length)),
         h.DataAttribute("edges", String(model.graph.edges.length)),
+        h.DataAttribute("last-edge", model.lastEdge),
+        h.DataAttribute("last-reconnect", model.lastReconnect),
+        h.DataAttribute("connection-target", gestureTarget(flow.gesture)),
         h.DataAttribute("selected-nodes", flow.selectedNodeIds.join(",")),
         h.DataAttribute("selected-edges", flow.selectedEdgeIds.join(",")),
         h.DataAttribute("gesture", flow.gesture._tag),
@@ -394,7 +530,7 @@ export const view = (model: Model, h: HtmlBuilder<Message>): Document => {
         h.header(
           [h.Class("toolbar")],
           [
-            h.h1([h.Class("title")], [`Foldkit Flow — M1 — ${model.label}`]),
+            h.h1([h.Class("title")], [`Foldkit Flow — M2 — ${model.label}`]),
             h.div(
               [h.Class("stats")],
               [
@@ -447,6 +583,10 @@ export const view = (model: Model, h: HtmlBuilder<Message>): Document => {
                     h.OnClick(Message.ClickedDeleteSelection()),
                   ],
                   ["Delete selection"],
+                ),
+                h.button(
+                  [h.Id("remeasure"), h.OnClick(Message.ClickedRemeasure())],
+                  ["Remeasure"],
                 ),
               ],
             ),
