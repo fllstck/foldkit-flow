@@ -94,7 +94,7 @@ export type {
   EdgeEndpoints,
   HandleBoundsByNode,
 } from "./geometry/handles.js";
-export { hitTestHandle } from "./geometry/hitTest.js";
+export { connectionRadius, hitTestHandle } from "./geometry/hitTest.js";
 export { dragDelta, flowToScreen, screenToFlow } from "./geometry/screen.js";
 export type { ScreenPoint } from "./geometry/screen.js";
 export {

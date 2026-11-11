@@ -159,9 +159,12 @@ parent applies:
 | `StartedReconnect` (from an edge end's grab handle), `ReleasedPointer` | `ReconnectedEdge({ edgeId, end, handle })` |
 | `CancelledGesture` (pointercancel, blur, Escape)                       | nothing — the parent's edge is untouched   |
 
-A gesture may start at either kind of handle: the preview leaves the one the user
-grabbed, but the fact is oriented by handle type, so `ConnectedHandles.source` is
-always the `Source` handle and `target` always the `Target` one — dragging a
+A gesture may start at either kind of handle, and a release lands if it is within
+`Flow.connectionRadius` (20 screen pixels) of a handle rather than exactly on its
+box — a handle is about 7px on screen, and "drop it on the node" is what people
+do. The preview leaves the handle the user grabbed, but the fact is oriented by
+handle type, so `ConnectedHandles.source` is always the `Source` handle and
+`target` always the `Target` one — dragging a
 target handle onto a source handle produces the same `n1 → n2` edge the other
 direction does, and the predicate sees it that way round too.
 

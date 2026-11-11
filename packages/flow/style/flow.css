@@ -16,6 +16,19 @@
     "Segoe UI",
     sans-serif;
   touch-action: none;
+  /* Dragging from a handle across a node would otherwise select the page's text:
+     the labels end up highlighted and the selection grows under the pointer for
+     the length of the gesture, which reads as the text flickering. Inputs and
+     editable content inside a node keep their own selection (rule below). */
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.fflow__pane input,
+.fflow__pane textarea,
+.fflow__pane [contenteditable] {
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 .fflow__viewport {

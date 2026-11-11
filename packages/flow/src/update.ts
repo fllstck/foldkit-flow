@@ -6,7 +6,11 @@ import {
   edgeAnchor,
   orientConnection,
 } from "./geometry/handles.js";
-import { hitTestHandle, oppositeHandleType } from "./geometry/hitTest.js";
+import {
+  connectionRadius,
+  hitTestHandle,
+  oppositeHandleType,
+} from "./geometry/hitTest.js";
 import { screenToFlow } from "./geometry/screen.js";
 import { visibleNodes } from "./geometry/visible.js";
 import { fitViewport } from "./geometry/fit.js";
@@ -166,6 +170,22 @@ const isAcceptedConnection = (
 ): boolean =>
   context.isValidConnection === undefined ||
   context.isValidConnection(connectionOf(source, target));
+
+/** The handle a pointer is over, with the connection radius applied: the box is
+ *  only 8×8 flow units, so "near enough to drop on it" is what makes a
+ *  connection land when the release happens over the node rather than exactly on
+ *  the handle (§7 M3 review follow-up). The radius is in screen pixels, divided by
+ *  the zoom so it feels the same at every scale. */
+const handleNear = (
+  model: Model,
+  point: Point,
+  context: Context,
+  accept: (bounds: HandleBounds) => boolean,
+) =>
+  hitTestHandle(model, point, context, {
+    accept,
+    tolerance: connectionRadius / model.viewport.zoom,
+  });
 
 const measureVisible = (model: Model, context: Context) =>
   Arr.fromOption(
@@ -329,9 +349,12 @@ export const update = (
               current: point,
               // The end being dragged is the handle type the new target must be:
               // reconnecting a target end looks for target handles.
-              maybeTarget: hitTestHandle(model, point, context, {
-                accept: (bounds) => bounds.type === gesture.end,
-              }),
+              maybeTarget: handleNear(
+                model,
+                point,
+                context,
+                (bounds) => bounds.type === gesture.end,
+              ),
             }),
           },
         };
@@ -343,10 +366,12 @@ export const update = (
           gesture: Gesture.Connecting({
             ...gesture,
             current: point,
-            maybeTarget: hitTestHandle(model, point, context, {
-              accept: (bounds) =>
-                bounds.type === oppositeHandleType(gesture.from.type),
-            }),
+            maybeTarget: handleNear(
+              model,
+              point,
+              context,
+              (bounds) => bounds.type === oppositeHandleType(gesture.from.type),
+            ),
           }),
         },
       };

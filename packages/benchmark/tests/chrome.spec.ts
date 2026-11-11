@@ -820,3 +820,99 @@ test("proof 33: a rejected duplicate is visible, and a novel connection still la
   expect(await attr(page, "data-last-edge")).toBe("n0:out>n2:in");
   expect(await attr(page, "data-last-attempt")).toBe("");
 });
+
+test("proof 34: dragging does not select the page's text", async ({ page }) => {
+  await page.goto(DEMO);
+  await waitForMount(page);
+
+  const out = await page
+    .locator(
+      '.fflow__node[data-nodeid="n0"] .fflow__handle[data-handleid="out"]',
+    )
+    .boundingBox();
+  const label = await page
+    .locator('.fflow__node[data-nodeid="n1"] .node-label')
+    .boundingBox();
+  if (out === null || label === null) throw new Error("boxes missing");
+
+  const from = { x: out.x + out.width / 2, y: out.y + out.height / 2 };
+  const to = { x: label.x + label.width / 2, y: label.y + label.height / 2 };
+
+  // A connection gesture dragged straight across another node's label: without
+  // `user-select: none` on the pane the browser highlights the text and the
+  // selection grows under the pointer for the length of the drag.
+  await page.mouse.move(from.x, from.y);
+  await page.mouse.down();
+  for (let step = 1; step <= 8; step += 1) {
+    await page.mouse.move(
+      from.x + ((to.x - from.x) * step) / 8,
+      from.y + ((to.y - from.y) * step) / 8,
+    );
+    await page.waitForTimeout(20);
+  }
+  expect(
+    await page.evaluate(() => window.getSelection()?.toString() ?? ""),
+  ).toBe("");
+
+  await page.mouse.up();
+  await page.waitForTimeout(100);
+
+  // The opt-out is the pane, not the node: a text input inside a node keeps its
+  // own selection, or the note field would be unusable.
+  expect(
+    await page
+      .locator('.fflow__node[data-nodeid="n0"] input')
+      .first()
+      .evaluate((element) => getComputedStyle(element).userSelect),
+  ).toBe("text");
+});
+
+test("proof 35: a release near a handle connects, not only an exact hit", async ({
+  page,
+}) => {
+  await page.goto(DEMO);
+  await waitForMount(page);
+
+  const edges = Number(await attr(page, "data-edges"));
+  const out = await page
+    .locator(
+      '.fflow__node[data-nodeid="n0"] .fflow__handle[data-handleid="out"]',
+    )
+    .boundingBox();
+  const target = await page
+    .locator(
+      '.fflow__node[data-nodeid="n3"] .fflow__handle[data-handleid="in"]',
+    )
+    .boundingBox();
+  if (out === null || target === null) throw new Error("handles missing");
+
+  const from = { x: out.x + out.width / 2, y: out.y + out.height / 2 };
+  const handleCentre = {
+    x: target.x + target.width / 2,
+    y: target.y + target.height / 2,
+  };
+
+  // Release 14 px inside the node, well clear of the 8×8 handle box: this is
+  // what "drop it on the node" looks like, and it has to connect.
+  const release = { x: handleCentre.x + 14, y: handleCentre.y + 6 };
+
+  await page.mouse.move(from.x, from.y);
+  await page.mouse.down();
+  for (let step = 1; step <= 8; step += 1) {
+    await page.mouse.move(
+      from.x + ((release.x - from.x) * step) / 8,
+      from.y + ((release.y - from.y) * step) / 8,
+    );
+    await page.waitForTimeout(16);
+  }
+  await page.waitForTimeout(120);
+
+  // The target is resolved during the drag, before the release.
+  expect(await attr(page, "data-connection-target")).toBe("n3:in");
+
+  await page.mouse.up();
+  await page.waitForTimeout(250);
+
+  expect(await attr(page, "data-edges")).toBe(String(edges + 1));
+  expect(await attr(page, "data-last-edge")).toBe("n0:out>n3:in");
+});

@@ -12,14 +12,14 @@ numbers; every earlier figure in this document is historical and marked as such.
 | Check                                          | Result                                                                |
 | ---------------------------------------------- | --------------------------------------------------------------------- |
 | `pnpm build`                                   | flow → example → benchmark                                            |
-| `pnpm check`                                   | typecheck, Enfect lint, Prettier, **185** Vitest tests green          |
-| `packages/flow` unit tests                     | 185 in 19 files (M2 had 123 in 14)                                    |
-| `packages/benchmark/tests/chrome.spec.ts`      | 13 passed (M3 proofs 22–33)                                           |
+| `pnpm check`                                   | typecheck, Enfect lint, Prettier, **191** Vitest tests green          |
+| `packages/flow` unit tests                     | 191 in 20 files (M2 had 123 in 14)                                    |
+| `packages/benchmark/tests/chrome.spec.ts`      | 15 passed (M3 proofs 22–35)                                           |
 | `packages/benchmark/tests/connection.spec.ts`  | 5 passed (M2 proofs 17–21)                                            |
 | `packages/benchmark/tests/interaction.spec.ts` | 9 passed (M1 proofs 8–16)                                             |
 | `packages/benchmark/tests/proofs.spec.ts`      | 4 passed (M0 proofs 2, 3, 3b, 4)                                      |
 | `packages/benchmark/tests/bench.spec.ts`       | 3 passed (625 comparison, 1k culled gate, 1k culled gate with chrome) |
-| whole Playwright suite                         | 34 tests = 31 proof tests + 3 gate tests, 34 passed in 2 m 30 s       |
+| whole Playwright suite                         | 36 tests = 33 proof tests + 3 gate tests, 36 passed in 2.5 min        |
 
 `pnpm check` still needs a build first when the public surface changed: the
 example and the benchmark typecheck against the library's `dist/*.d.ts`. That is
@@ -566,3 +566,52 @@ asked at release only, so a hover still previews a target the parent will reject
 An "invalid target" style during hover would need the predicate to be asked per
 pointer move, which M2 rejected on the hot path (§2.1) — the indicator is the cheap
 half of that feedback and it lives where the policy lives, in the consumer.
+
+## 12. Reported after M3: node text "flickering while selected", and edges that "do not connect"
+
+Two reports from the same session, both reproduced and fixed. Neither was a
+regression from M3, but both were real.
+
+### 12.1 Dragging selected the page's text
+
+Dragging from a handle across a node's label left the browser's own text selection
+behind: measured `window.getSelection().toString()` → `"\nNode "`, and the
+selection grows and shrinks under the pointer for the length of the gesture, which
+is what "the text of some nodes flickers because it's selected" describes. Our
+stylesheet set `touch-action: none` on the pane but never `user-select: none`, so
+every label was a text-selection target for a pointer drag. `XYPanZoom`'s
+`userSelectionActive: false` does not help either: that flag suppresses _d3's_
+selection handling, not the browser's.
+
+`.fflow__pane` now sets `user-select: none` (with the `-webkit-` prefix), and
+inputs, textareas and `contenteditable` inside a node set `user-select: text` again,
+so a node's note field stays usable. Proof 34 drags a connection straight across
+another node's label, asserts `getSelection()` is empty, and asserts the input's
+computed `user-select` is `text`.
+
+### 12.2 A handle had to be hit exactly
+
+The other report is what "the edges don't connect to nodes" turned out to mean: a
+release had to land inside the handle's 8×8 _flow-space_ box — about 7 px on screen
+at 0.9 zoom — so dropping anywhere on the node, which is what people do, connected
+nothing. `hitTestHandle` already accepted a `tolerance`, but `update` never passed
+one.
+
+`connectionRadius = 20` (screen pixels) is now applied at both hit-test sites and
+divided by the zoom, so the target feels the same at every scale. Two rules keep it
+predictable:
+
+- an exact box hit still wins and still resolves by DOM order ("the visually
+  topmost handle"), which is what the existing tests pin;
+- with slack the boxes overlap, so the **nearest centre** wins instead of the last
+  match — otherwise a generous radius could snap to the far side of a node.
+
+`src/geometry/hitTest.test.ts` covers the radius, the nearest-wins rule under
+overlap, the zoom conversion, and that `accept` still filters first. Proof 35
+releases 14 px inside the target node, clear of the handle box, and gets
+`data-connection-target="n3:in"` and `n0:out>n3:in`.
+
+One scope note: the radius is a constant, not a `RendererConfig` option. Upstream
+exposes `connectionRadius` as a prop; if a consumer needs to tune it, the honest
+place is this constant behind a config field, and that is a one-line change when
+someone asks (M4's options pass).
