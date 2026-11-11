@@ -7,11 +7,12 @@ import {
   edgeEndpoints,
   indexHandles,
   indexedEdgeEndpoints,
+  orientConnection,
   pointerHandlePosition,
   resolveHandle,
 } from "./handles.js";
 import { init } from "../model.js";
-import type { FlowEdge, FlowNode, HandleBounds } from "../model.js";
+import type { FlowEdge, FlowNode, HandleBounds, HandleRef } from "../model.js";
 
 const node = (
   id: string,
@@ -183,6 +184,26 @@ describe("free connection ends", () => {
     expect(pointerHandlePosition({ x: 0, y: 0 }, { x: 10, y: -100 })).toBe(
       "Bottom",
     );
+  });
+});
+
+describe("connection orientation", () => {
+  const source: HandleRef = {
+    nodeId: "a",
+    handleId: Option.some("out"),
+    type: "Source",
+  };
+  const target: HandleRef = {
+    nodeId: "b",
+    handleId: Option.some("in"),
+    type: "Target",
+  };
+
+  test("the Source handle is the source, whichever end was grabbed", () => {
+    expect(orientConnection(source, target)).toEqual({ source, target });
+    // A gesture that started at a target handle reports the same fact, not a
+    // reversed one: `source` means the Source handle (§3.2).
+    expect(orientConnection(target, source)).toEqual({ source, target });
   });
 });
 

@@ -1,7 +1,11 @@
 import { Array as Arr, Option } from "effect";
 import type { Update } from "foldkit";
 
-import { connectionOf, edgeAnchor } from "./geometry/handles.js";
+import {
+  connectionOf,
+  edgeAnchor,
+  orientConnection,
+} from "./geometry/handles.js";
 import { hitTestHandle, oppositeHandleType } from "./geometry/hitTest.js";
 import { screenToFlow } from "./geometry/screen.js";
 import { visibleNodes } from "./geometry/visible.js";
@@ -358,13 +362,15 @@ export const update = (
             if (!hasNode(context, handle.nodeId)) return { model: cleared };
 
             // The end that did not move supplies the other half of the
-            // connection the predicate judges; a rejected release leaves the
-            // edge exactly as the parent had it.
-            const stationary = stationaryEndOf(edge, gesture.end);
-            const source = gesture.end === "Source" ? handle : stationary;
-            const target = gesture.end === "Target" ? handle : stationary;
+            // connection the predicate judges, and the same orientation rule
+            // puts the `Source` handle first; a rejected release leaves the edge
+            // exactly as the parent had it.
+            const pair = orientConnection(
+              handle,
+              stationaryEndOf(edge, gesture.end),
+            );
 
-            return isAcceptedConnection(context, source, target)
+            return isAcceptedConnection(context, pair.source, pair.target)
               ? {
                   model: cleared,
                   outMessage: OutMessage.ReconnectedEdge({
@@ -380,17 +386,19 @@ export const update = (
 
       return Option.match(gesture.maybeTarget, {
         onNone: () => ({ model: cleared }),
-        onSome: (target) =>
-          hasNode(context, target.nodeId) &&
-          isAcceptedConnection(context, gesture.from, target)
+        onSome: (target) => {
+          // A gesture can start at either handle kind, so the pair is oriented
+          // by handle type before it becomes a fact or a predicate's input:
+          // `source` is the `Source` handle, whichever end the user grabbed.
+          const pair = orientConnection(gesture.from, target);
+          return hasNode(context, target.nodeId) &&
+            isAcceptedConnection(context, pair.source, pair.target)
             ? {
                 model: cleared,
-                outMessage: OutMessage.ConnectedHandles({
-                  source: gesture.from,
-                  target,
-                }),
+                outMessage: OutMessage.ConnectedHandles(pair),
               }
-            : { model: cleared },
+            : { model: cleared };
+        },
       });
     },
 

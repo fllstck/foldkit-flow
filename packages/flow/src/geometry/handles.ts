@@ -230,6 +230,22 @@ export const pointerHandlePosition = (
   return dy >= 0 ? "Top" : "Bottom";
 };
 
+/**
+ * A connection with the `Source` handle first. A gesture may start at either
+ * kind of handle — the preview leaves the one the user grabbed — but the fact is
+ * about handle kinds, not about the direction the pointer travelled: `source` is
+ * always the `Source` handle and `target` always the `Target` one, which is what
+ * `Connection` and the parent's graph mean by those names. Hit-testing only ever
+ * accepts the opposite type, so exactly one of the two is a `Source`.
+ */
+export const orientConnection = (
+  from: HandleRef,
+  to: HandleRef,
+): Readonly<{ source: HandleRef; target: HandleRef }> =>
+  from.type === "Source"
+    ? { source: from, target: to }
+    : { source: to, target: from };
+
 /** The connection an `isValidConnection` predicate sees: node and handle ids,
  *  as the parent's graph stores them (§2.5.1, §3.2). */
 export const connectionOf = (

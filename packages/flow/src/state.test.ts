@@ -785,6 +785,89 @@ describe("connections", () => {
     );
   });
 
+  // n1's source handle, measured: node-local (92,16) with n1 at (0,0), so its
+  // centre is flow (96,20). Starting a gesture at n2's target handle and
+  // releasing here is the reversed direction the review found.
+  const n1SourceBounds = {
+    nodeId: "n1",
+    handleId: Option.none(),
+    type: "Source" as const,
+    position: "Right" as const,
+    x: 92,
+    y: 16,
+    width: 8,
+    height: 8,
+  };
+  const bothEnds = {
+    ...withBounds,
+    handleBounds: [n1SourceBounds, targetBounds],
+  };
+  const fromTarget = {
+    nodeId: "n2",
+    handleId: Option.none(),
+    type: "Target" as const,
+  };
+
+  test("a gesture started at a target handle reports Source as source", () => {
+    // The pointer travelled target → source, but the fact is Source → Target:
+    // `source` names the handle kind, not where the drag began (§3.2).
+    story(
+      flow().update,
+      given(bothEnds),
+      message(Message.StartedConnection({ from: fromTarget, pointer: mouse })),
+      Story.Command.resolve<"MeasureHandles", Message>(
+        MeasureHandles,
+        failedMeasure,
+      ),
+      message(Message.MovedPointer({ screenX: 96, screenY: 20, pointerId: 1 })),
+      model((m) => {
+        if (!Gesture.guards.Connecting(m.gesture))
+          throw new Error("no connect");
+        expect(m.gesture.maybeTarget).toEqual(Option.some(sourceHandle));
+      }),
+      message(Message.ReleasedPointer({ pointerId: 1 })),
+      expectOutMessage(
+        OutMessage.ConnectedHandles({
+          source: sourceHandle,
+          target: fromTarget,
+        }),
+      ),
+    );
+  });
+
+  test("the predicate sees a target-originated gesture the same way round", () => {
+    const seen: Array<unknown> = [];
+    const recording: Context = {
+      ...context,
+      isValidConnection: (connection) => {
+        seen.push(connection);
+        return true;
+      },
+    };
+
+    story(
+      flow(recording).update,
+      given(bothEnds),
+      message(Message.StartedConnection({ from: fromTarget, pointer: mouse })),
+      Story.Command.resolve<"MeasureHandles", Message>(
+        MeasureHandles,
+        failedMeasure,
+      ),
+      message(Message.MovedPointer({ screenX: 96, screenY: 20, pointerId: 1 })),
+      message(Message.ReleasedPointer({ pointerId: 1 })),
+      expectOutMessage(
+        OutMessage.ConnectedHandles({
+          source: sourceHandle,
+          target: fromTarget,
+        }),
+      ),
+    );
+
+    expect(seen).toEqual([
+      { source: "n1", target: "n2", sourceHandle: null, targetHandle: null },
+    ]);
+  });
+
   test("cancelling a connection emits nothing", () => {
     story(
       flow().update,

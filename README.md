@@ -140,6 +140,12 @@ parent applies:
 | `StartedReconnect` (from an edge end's grab handle), `ReleasedPointer` | `ReconnectedEdge({ edgeId, end, handle })` |
 | `CancelledGesture` (pointercancel, blur, Escape)                       | nothing — the parent's edge is untouched   |
 
+A gesture may start at either kind of handle: the preview leaves the one the user
+grabbed, but the fact is oriented by handle type, so `ConnectedHandles.source` is
+always the `Source` handle and `target` always the `Target` one — dragging a
+target handle onto a source handle produces the same `n1 → n2` edge the other
+direction does, and the predicate sees it that way round too.
+
 `Flow.Context` may carry the parent's policy, which `update` evaluates on release:
 
 ```ts

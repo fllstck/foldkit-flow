@@ -66,6 +66,7 @@ export {
   edgeEndpoints,
   indexHandles,
   indexedEdgeEndpoints,
+  orientConnection,
   pointerHandlePosition,
   resolveHandle,
 } from "./geometry/handles.js";

@@ -375,3 +375,41 @@ test("proof 20: a stylesheet-only handle move needs Flow.Remeasure", async ({
   expect(await attr(page, "data-pane-mounts")).toBe("1");
   expect(await attr(page, "data-measured-nodes")).toBe("625");
 });
+
+test("proof 21: a connection started at a target handle keeps its orientation", async ({
+  page,
+}) => {
+  await page.goto(DEMO);
+  await waitForMount(page);
+
+  const before = Number(await attr(page, "data-edges"));
+
+  // Reversed drag direction: press a Target handle and release over a Source
+  // handle. The fact is still `Source → Target`, so the parent gets an edge from
+  // n1 to n3 rather than an edge shaped like n3 -> n1 on a target/source pair.
+  const grabbed = await screenBox(
+    page,
+    '.fflow__node[data-nodeid="n3"] .fflow__handle[data-handleid="in"]',
+  );
+  const released = await screenBox(
+    page,
+    '.fflow__node[data-nodeid="n1"] .fflow__handle[data-handleid="out"]',
+  );
+
+  await pressAndSlide(page, grabbed, released);
+  expect(await attr(page, "data-gesture")).toBe("Connecting");
+  expect(await attr(page, "data-connection-target")).toBe("n1:out");
+  await page.mouse.up();
+
+  await page.waitForFunction(
+    (expected) =>
+      document.querySelector("main.app")?.getAttribute("data-edges") ===
+      String(expected),
+    before + 1,
+    WAIT,
+  );
+
+  // `data-last-edge` is `source:sourceHandle>target:targetHandle`, so this fails
+  // on the reversed pair the review found (`n3:in>n1:out`).
+  expect(await attr(page, "data-last-edge")).toBe("n1:out>n3:in");
+});

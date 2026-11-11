@@ -12,12 +12,12 @@ numbers; every earlier figure in this document is historical and marked as such.
 | Check                                          | Result                                                       |
 | ---------------------------------------------- | ------------------------------------------------------------ |
 | `pnpm build`                                   | flow → example → benchmark                                   |
-| `pnpm check`                                   | typecheck, Enfect lint, Prettier, **120** Vitest tests green |
-| `packages/benchmark/tests/connection.spec.ts`  | 4 passed (M2 proofs 17–20)                                   |
+| `pnpm check`                                   | typecheck, Enfect lint, Prettier, **123** Vitest tests green |
+| `packages/benchmark/tests/connection.spec.ts`  | 5 passed (M2 proofs 17–21)                                   |
 | `packages/benchmark/tests/interaction.spec.ts` | 9 passed (M1 proofs 8–16)                                    |
 | `packages/benchmark/tests/proofs.spec.ts`      | 4 passed (M0 proofs 2, 3, 3b, 4)                             |
 | `packages/benchmark/tests/bench.spec.ts`       | 2 passed (625 comparison + 1k culled gate)                   |
-| whole Playwright suite                         | 19 tests = 17 proof tests + 2 gate tests, 1 m 48 s           |
+| whole Playwright suite                         | 20 tests = 18 proof tests + 2 gate tests, 1 m 50 s           |
 
 `pnpm check` needs a build first when the library's public surface changed: the
 example and the benchmark typecheck against the library's `dist/*.d.ts`, so a
@@ -145,12 +145,13 @@ moved something. The 1k leg passed at this commit:
 
 | Run at this commit | drag median / p95 / longest | pan median / p95 / longest | long frames (> 50 ms) |
 | ------------------ | --------------------------- | -------------------------- | --------------------- |
-| 1k culled, 10 runs | 16.7 / 16.7 / 33.3          | 16.7 / 16.8 / 50.1         | drag 0, pan 1 of 572  |
+| 1k culled, 10 runs | 16.7 / 16.8 / 33.3          | 16.7 / 16.8 / 66.7         | drag 0, pan 2 of 505  |
 
-The 625 comparison is unchanged from M1: pan 16.7/16.8 for all three libraries,
-drag 16.7/16.8 (Foldkit) and 16.7/16.7 (Svelte), React's drag leg still
-unverified. Flow metrics from the same run: `updatePerDispatchMs` 0.0027,
-`cullScanMs` 5.77, `cullScanSamples` 21.
+The 625 comparison from the same runs: React pan 16.7/16.7 (498 frames), Svelte
+drag 16.7/16.7 (503) and pan 16.7/16.7 (490), Foldkit drag 16.7/16.8 (498) and
+pan 16.7/16.8 (484); no long frames in any leg; React's drag leg still
+unverified. Flow metrics: `updatePerDispatchMs` 0.0019 (625) / 0.0021 (1k),
+`cullScanMs` 2.56 (625) / 5.89 (1k), `cullScanSamples` 21 per run.
 
 **The one assertion that changed.** M1 asserted `longFrames === 0` (frames over
 50 ms). M2 makes that assertion intermittent, and the honest record is:
@@ -205,19 +206,20 @@ visible.
 
 ## 7. Test coverage map for M2
 
-| Requirement (§7 M2)                                         | Where                                                                               |
-| ----------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| endpoint on the measured handle, with its position          | `src/geometry/edgeEndpoints.test.ts`, `src/view/edges.test.ts`, Playwright proof 17 |
-| fallback when a handle is unmeasured/missing                | `src/geometry/edgeEndpoints.test.ts` (three cases), `src/view/edges.test.ts`        |
-| an edge that names no handle                                | `src/geometry/edgeEndpoints.test.ts`                                                |
-| connection preview geometry                                 | `src/view/connection.test.ts` (anchors, sides, hovered target)                      |
-| `isValidConnection` accept / reject / duplicate / self-loop | `src/state.test.ts` (`connections`)                                                 |
-| reconnect accept / reject / cancel / dead edge              | `src/state.test.ts` (`reconnect`)                                                   |
-| reconnect affordance, opt-in                                | `src/view/edges.test.ts`, Playwright proof 19                                       |
-| pane press on an edge end                                   | `src/runtime/domTarget.test.ts`, Playwright proof 19 (viewport unchanged)           |
-| stylesheet-only move + `Flow.Remeasure`                     | Playwright proof 20, README §"Measuring the graph"                                  |
-| indexed and array endpoints agree                           | `src/geometry/edgeEndpoints.test.ts`                                                |
-| frame gate                                                  | `tests/bench.spec.ts` (§4 above)                                                    |
+| Requirement (§7 M2)                                         | Where                                                                                                     |
+| ----------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| endpoint on the measured handle, with its position          | `src/geometry/edgeEndpoints.test.ts`, `src/view/edges.test.ts`, Playwright proof 17                       |
+| fallback when a handle is unmeasured/missing                | `src/geometry/edgeEndpoints.test.ts` (three cases), `src/view/edges.test.ts`                              |
+| an edge that names no handle                                | `src/geometry/edgeEndpoints.test.ts`                                                                      |
+| connection preview geometry                                 | `src/view/connection.test.ts` (anchors, sides, hovered target)                                            |
+| `isValidConnection` accept / reject / duplicate / self-loop | `src/state.test.ts` (`connections`)                                                                       |
+| reconnect accept / reject / cancel / dead edge              | `src/state.test.ts` (`reconnect`)                                                                         |
+| reconnect affordance, opt-in                                | `src/view/edges.test.ts`, Playwright proof 19                                                             |
+| pane press on an edge end                                   | `src/runtime/domTarget.test.ts`, Playwright proof 19 (viewport unchanged)                                 |
+| stylesheet-only move + `Flow.Remeasure`                     | Playwright proof 20, README §"Measuring the graph"                                                        |
+| indexed and array endpoints agree                           | `src/geometry/edgeEndpoints.test.ts`                                                                      |
+| orientation, whichever end the gesture starts at            | `src/geometry/edgeEndpoints.test.ts` (`connection orientation`), `src/state.test.ts`, Playwright proof 21 |
+| frame gate                                                  | `tests/bench.spec.ts` (§4 above)                                                                          |
 
 ## 8. What M2 deliberately does not do
 
@@ -230,3 +232,41 @@ visible.
   ring rather than a press anywhere near the line.
 - No edge-id minting in the library: `nextEdgeId` stays the demo's problem
   (`M2-HANDOFF`), and the demo's heuristic is unchanged.
+
+## 9. Response to `docs/M2-REVIEW.md`
+
+One HIGH finding, and it was correct.
+
+**Target-originated connections emitted reversed endpoints.** Handles of both
+kinds dispatch `StartedConnection`, and the release path emitted the grabbed
+handle as `source` and the hovered one as `target` without looking at their
+types. A drag that began at a `Target` handle therefore produced
+`ConnectedHandles({ source: <Target>, target: <Source> })`, and the same reversed
+pair went to `isValidConnection`. Hit-testing was already correct (it accepts
+only the opposite type), so only the fact and the predicate input were wrong —
+and the browser proof only ever dragged source → target, which is why nothing
+caught it.
+
+Resolved with the review's first policy, **normalize at release**: a new
+`orientConnection(from, to)` in `geometry/handles.ts` returns the pair with the
+`Source` handle first, and both the `ConnectedHandles` OutMessage and the
+predicate's `Connection` are built from it. It is documented as public behaviour
+in the README (a gesture may start at either end; the fact is oriented by handle
+type), because it is what `Connection.source`/`target` mean. `ReconnectedEdge`
+was already oriented — it names the `end` that moved — and now shares the same
+helper instead of two ternaries.
+
+Tests, all of which fail on the unfixed code:
+
+- `src/geometry/edgeEndpoints.test.ts` → `connection orientation`: the `Source`
+  handle is `source` whichever end was grabbed.
+- `src/state.test.ts` → `a gesture started at a target handle reports Source as
+source`, and `the predicate sees a target-originated gesture the same way
+round` (a recording predicate). Reverting the fix fails both with
+  `source: n2/Target`.
+- `tests/connection.spec.ts` → proof 21 drags from n3's `in` handle onto n1's
+  `out` handle and asserts `data-last-edge === "n1:out>n3:in"`. Reverting the fix
+  gives `"n3:in>n1:out"` — the reviewer's exact shape, end to end.
+
+The review's other sections found no defects; its validation table matches this
+document's, and the residual 1k pan outlier in §4 is unchanged by this fix.
