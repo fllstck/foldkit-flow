@@ -311,3 +311,65 @@ test("the gallery: React Flow and Foldkit on the same fixture", async ({
 
   expect(FIXTURES.length).toBe(6);
 });
+
+/**
+ * The index page is generated from the same fixture definitions, so it cannot
+ * drift: every fixture is listed, and every link points at a page and a query the
+ * gallery itself understands. A fixture renamed without the index, or a link to a
+ * fixture that no longer exists, fails here rather than as a 404 for a reader.
+ */
+test("the gallery index links every fixture into both libraries", async ({
+  page,
+}) => {
+  await page.goto("/gallery.html");
+  await page.waitForFunction(
+    () => document.querySelectorAll(".gallery-index-table tbody tr").length > 0,
+    undefined,
+    { timeout: 20_000 },
+  );
+
+  const rows = await page.evaluate(() =>
+    Array.from(document.querySelectorAll(".gallery-index-table tbody tr")).map(
+      (row) => ({
+        fixture: row.getAttribute("data-fixture"),
+        links: Array.from(row.querySelectorAll("[data-gallery-link]")).map(
+          (anchor) => anchor.getAttribute("href") ?? "",
+        ),
+      }),
+    ),
+  );
+
+  // Seven, not the six the geometry comparison iterates: `hidden` has pages and a
+  // paint pair, but its comparison is per side because the semantics differ (§5 of
+  // M5-FINDINGS).
+  const expected = [
+    "edge-types",
+    "labels",
+    "markers",
+    "subflow",
+    "hidden",
+    "resize",
+    "fitview",
+  ];
+  expect(rows.map((row) => row.fixture)).toEqual(expected);
+
+  rows.forEach((row) => {
+    const query = `?fixture=${row.fixture}`;
+    expect(row.links.sort(), `${row.fixture}: four links`).toEqual(
+      [
+        `/gallery-foldkit.html${query}`,
+        `/gallery-foldkit.html${query}&variant=off`,
+        `/gallery-react.html${query}`,
+        `/gallery-react.html${query}&variant=off`,
+      ].sort(),
+    );
+  });
+
+  // One of the links has to actually open a gallery page that renders.
+  await page.goto("/gallery-foldkit.html?fixture=markers");
+  await page.waitForFunction(
+    () => document.querySelectorAll(".fflow__node").length > 0,
+    undefined,
+    { timeout: 20_000 },
+  );
+});

@@ -66,7 +66,7 @@ const node = (
 ): GalleryNode => ({ id, x, y, width, height, label, ...extra });
 
 /** The gallery's fixtures, keyed by the `?fixture=` value both pages read. */
-const fixtures = {
+export const galleryFixtures = {
   "edge-types": {
     name: "edge-types",
     feature: "edge types",
@@ -179,12 +179,12 @@ const fixtures = {
   },
 } satisfies Record<string, GalleryFixture>;
 
-export type GalleryFixtureName = keyof typeof fixtures;
+export type GalleryFixtureName = keyof typeof galleryFixtures;
 
 // SAFETY: `Object.keys` of an object literal returns exactly its own keys, so
 // every entry is a `GalleryFixtureName` by construction.
 export const galleryFixtureNames = Object.keys(
-  fixtures,
+  galleryFixtures,
 ) as ReadonlyArray<GalleryFixtureName>;
 
 export type GalleryVariant = "on" | "off";
@@ -195,7 +195,7 @@ export const galleryFixture = (
   name: GalleryFixtureName,
   variant: GalleryVariant,
 ): GalleryFixture => {
-  const fixture = fixtures[name];
+  const fixture = galleryFixtures[name];
   if (variant === "on") return fixture;
 
   return {

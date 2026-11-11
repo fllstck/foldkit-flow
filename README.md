@@ -14,7 +14,7 @@ instrumented playground. **The published numbers are in
 pan (16.7/16.8 both, zero long frames), 1k culled inside the 33 ms p95 gate bare and
 with the chrome on, a 10k graph with 98 % collapsed panning at the frame rate with
 200 nodes in the DOM, and 10k **expanded** panning at the frame rate too — with a
-~1.4 s settle before the first interaction, which is the ceiling `BENCHMARKS.md`
+~1.3 s settle before the first interaction, which is the ceiling `BENCHMARKS.md`
 states. The eleven gaps M4 left — `XYResizer`, minimap drag, edge selection,
 `nodeOrigin` and the rest — are untouched and remain **M6, research first**
 (`docs/PLAN.md` §7, `docs/M6-HANDOFF.md`).
@@ -132,14 +132,18 @@ matters: a static host serves the prerendered page at `/example/`, while
 `pnpm benchmark` serves the measurement pages: `/foldkit.html`, `/react.html`,
 `/svelte.html` (the 625 comparison), `/large.html` and `/large-chrome.html` (1k,
 culled and with chrome), `/subflow.html`, `/large-hidden.html` (10k collapsed),
-`/large-expanded.html` (10k expanded), and the fixture gallery at
+`/large-expanded.html` (10k expanded), and the fixture gallery:
+**`/gallery.html`** is its index — one row per fixture with a link into both
+libraries and into each "feature off" state — and the pages themselves are
 `/gallery-foldkit.html?fixture=edge-types` and
 `/gallery-react.html?fixture=edge-types` (any of `edge-types`, `labels`, `markers`,
-`subflow`, `resize`, `fitview`, with `&variant=off` for the paint comparison).
+`subflow`, `hidden`, `resize`, `fitview`, with `&variant=off` for the paint
+comparison). The index is built from `src/gallery/fixtures.ts`, so it cannot list a
+fixture that does not exist and cannot miss one that does.
 
 ### The fast loop
 
-The full browser suite is the frame gate and takes ~4.5 min (53 tests): 3
+The full browser suite is the frame gate and takes ~4.4 min (54 tests): 3
 libraries × 11 cold loads of the 625-node fixture, then 11 of the 1k fixture, then
 11 of the same fixture with M3's chrome on, plus the 10k explorations, the gallery
 and the pan-stall diagnostic — one worker at a time, because the measured quantity
@@ -360,7 +364,7 @@ Three properties worth knowing:
 their measurement and their selection — at any zoom, with `cull` on or off. It is
 the escape hatch for very large graphs: 10,000 nodes with 98% of them collapsed
 pan at the frame rate with 200 nodes in the DOM, and the same 10k graph *expanded*
-also pans at the frame rate but takes ~1.4 s to settle, because its first render
+also pans at the frame rate but takes ~1.3 s to settle, because its first render
 happens before the pane is measured (`docs/BENCHMARKS.md` §"10k"). A collapsed node
 is not fitted by `fitViewport`, not drawn in the minimap and not listed in the
 description.

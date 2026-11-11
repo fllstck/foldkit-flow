@@ -30,14 +30,14 @@
     },
     "svelte": {
       "drag": {
-        "count": 499,
+        "count": 500,
         "median": 16.7,
-        "p95": 16.7,
-        "longest": 33.3,
+        "p95": 16.8,
+        "longest": 16.8,
         "longFrames": 0
       },
       "pan": {
-        "count": 485,
+        "count": 488,
         "median": 16.7,
         "p95": 16.7,
         "longest": 16.8,
@@ -46,26 +46,26 @@
     },
     "foldkit": {
       "drag": {
-        "count": 498,
-        "median": 16.7,
-        "p95": 16.8,
-        "longest": 33.3,
-        "longFrames": 0
-      },
-      "pan": {
-        "count": 479,
+        "count": 500,
         "median": 16.7,
         "p95": 16.7,
         "longest": 16.8,
+        "longFrames": 0
+      },
+      "pan": {
+        "count": 477,
+        "median": 16.7,
+        "p95": 16.8,
+        "longest": 33.4,
         "longFrames": 0
       }
     }
   },
   "flow": {
     "updates": 1925,
-    "updateTotalMs": 3.3,
+    "updateTotalMs": 3.2,
     "updatePerDispatchMs": 0.0017,
-    "cullScanMs": 0.582,
+    "cullScanMs": 0.67,
     "cullScanSamples": 21
   }
 }
