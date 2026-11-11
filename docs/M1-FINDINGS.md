@@ -10,9 +10,9 @@ Verification at the end of M1 (all read from a real run, not assumed):
 | ---------------------------------------------- | ----------------------------------------------------------- |
 | `pnpm check`                                   | typecheck, Enfect lint, Prettier, **75** Vitest tests green |
 | `pnpm build`                                   | flow → example → benchmark                                  |
-| `packages/benchmark/tests/proofs.spec.ts`      | 4 passed, 4.2 s (M0 proofs, unchanged)                      |
-| `packages/benchmark/tests/interaction.spec.ts` | 6 passed, 4.3 s (M1 pointer layer)                          |
-| `packages/benchmark/tests/bench.spec.ts`       | 2 passed, 1 m 31 s (625 comparison + 1k gate)               |
+| `packages/benchmark/tests/proofs.spec.ts`      | 4 passed (M0 proofs, unchanged)                             |
+| `packages/benchmark/tests/interaction.spec.ts` | 8 passed, 5.3 s (M1 proofs 8–15)                            |
+| `packages/benchmark/tests/bench.spec.ts`       | 2 passed, ~1 m 35 s (625 comparison + 1k gate at 23 s)      |
 
 ## 1. Gate results
 
@@ -208,7 +208,7 @@ Beyond §3.3/§3.4:
 | screen/flow, culling, hit-testing    | `src/geometry/geometry.test.ts`                                        |
 | cache hit/miss/sweep/dispose         | `src/view/cache.test.ts` (two passes inside one runtime frame)         |
 | propagation (§4.6)                   | `src/view/propagation.test.ts` (Scene, jsdom)                          |
-| pointer layer, remeasure, ShadowRoot | `tests/interaction.spec.ts` (Playwright proofs 8–13)                   |
+| pointer layer, remeasure, ShadowRoot | `tests/interaction.spec.ts` (Playwright proofs 8–15)                   |
 | frame gate                           | `tests/bench.spec.ts`                                                  |
 
 `jsdom` is a dev dependency solely for Scene: its `pointerDown` builds a detached
@@ -319,5 +319,19 @@ Every `waitForFunction` in `proofs.spec.ts` and `interaction.spec.ts` now passes
 an explicit `WAIT = { timeout: 15_000 }`, and the heavy-page `waitForSelector`
 calls use 20 s. The suite's cost is now dominated by what it actually does: 33
 cold page loads of the 625-node fixture (11 per library, warm-up discarded) plus
-11 of the 1k fixture, which is the §4.5 protocol, and 14 tests complete in 1 m
-38 s.
+11 of the 1k fixture, which is the §4.5 protocol.
+
+The browser suite is 14 tests in 1 m 41 s: 12 proof tests — 4 M0
+(`proofs.spec.ts`: proofs 2, 3, 3b, 4) plus 8 M1 (`interaction.spec.ts`: proofs
+8–15) — and 2 gate tests (`bench.spec.ts`: the 625 comparison and the 1k culled
+gate). Vitest adds 88 more, including the render-level cases Playwright cannot
+reach (`view/connection.test.ts`, `view/culling.test.ts`, `view/cache.test.ts`).
+
+## 7. Response to `docs/M1-REVIEW-2.md`
+
+No functional finding. The one Low item — stale coverage counts in this document
+— is fixed: the coverage table names proofs 8–15, the verification table reports
+8 interaction tests, and §6.4 now decomposes the 14-test browser suite into its
+12 proof tests (4 M0 + 8 M1) and 2 gate tests instead of quoting a bare total, so
+the counts cannot drift from the suite again. Every number in this document is
+from a run of the code at the commit that carries it.
