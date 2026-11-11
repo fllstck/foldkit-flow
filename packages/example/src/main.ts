@@ -13,6 +13,9 @@ import type { FlowEdge, FlowNode } from "@fllstck/foldkit-flow";
 const FLOW_PANE_ID = "m2-pane";
 /** The one container the demo can collapse (§7 M4). */
 const GROUP_ID = "group";
+/** Where the group sits, in flow space: it is parked above the grid so the
+ *  625-node layout the earlier proofs measure is untouched. */
+const GROUP_CENTRE = { x: 170, y: -380 };
 const GRID = 25;
 /** Column pitch. Wide enough that a node's handles — and the reconnect ring
  *  around an edge end — sit in the gap between neighbours rather than on top of
@@ -91,8 +94,10 @@ export const Message = defineMessageUnion({
   ClickedDeleteSelection: {},
   ClickedRemeasure: {},
   // M4 (§7): collapse or expand the sub-flow, which is the `hidden` escape hatch
-  // demonstrated on a graph the proofs can measure.
+  // demonstrated on a graph the proofs can measure, and bring it into view — the
+  // group is parked above the grid, so it needs a way to be found.
   ClickedToggleGroup: {},
+  ClickedJumpToGroup: {},
 });
 export type Message = typeof Message.Type;
 
@@ -524,6 +529,19 @@ export const update = (model: Model, message: Message): UpdateReturn =>
         toParentMessage,
       ),
     }),
+    // The parent-side equivalent of the library's minimap click: centre the view
+    // on a flow point with the public helper, and route the Command it returns
+    // through the parent's own Message.
+    ClickedJumpToGroup: () => {
+      const centred = Flow.setViewport(
+        model.flow,
+        Flow.viewportCentredOn(model.flow, GROUP_CENTRE),
+      );
+      return {
+        model: { ...model, flow: centred.model },
+        commands: Command.mapMessages(centred.commands ?? [], toParentMessage),
+      };
+    },
     ClickedToggleGroup: () => {
       const next: Model = {
         ...model,
@@ -642,9 +660,16 @@ const renderNode = (
   node: FlowNode<{ label: string }>,
   tools: Flow.NodeTools,
   h: HtmlBuilder<any>,
-): Html =>
-  h.div(
-    [h.Class("node-shell")],
+): Html => {
+  // Two classes, one attribute: a second `h.Class` replaces the first rather than
+  // adding to it, and the element lost its base styling when this was two calls.
+  // A node the flow has drawn a box for (a persisted resize) fills it, so the new
+  // size is visible instead of being an empty wrapper around an unchanged label.
+  const shellClass =
+    node.size === undefined ? "node-shell" : "node-shell node-shell--boxed";
+
+  return h.div(
+    [h.Class(shellClass)],
     [
       h.span([h.Class("node-label")], [node.data.label]),
       // Three things a real node contains, each with a different relationship to
@@ -662,6 +687,7 @@ const renderNode = (
       tools.handle({ id: "out", type: "Source", position: "Right" }),
     ],
   );
+};
 
 /** Unculled on purpose: the demo's readiness proof counts 625 measured nodes, so
  *  every node must render at least once. Culling is exercised by the benchmark's
@@ -837,6 +863,13 @@ export const view = (model: Model, h: HtmlBuilder<Message>): Document => {
                 h.button(
                   [h.Id("remeasure"), h.OnClick(Message.ClickedRemeasure())],
                   ["Remeasure"],
+                ),
+                h.button(
+                  [
+                    h.Id("jump-to-group"),
+                    h.OnClick(Message.ClickedJumpToGroup()),
+                  ],
+                  ["Jump to group"],
                 ),
                 h.button(
                   [

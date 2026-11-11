@@ -183,6 +183,13 @@ prop was added: the parent owns the edge, and CSS is already the styling seam.
 
 ### 2.9 Minimap: click-to-centre, not drag-to-pan
 
+_(The demo also gained a **Jump to group** button: the group fixture is parked
+above the grid, and with `preserveAspectRatio="xMidYMid meet"` a click in the
+minimap's letterbox band extrapolates past the graph's edge rather than landing on
+it, which made the fixture hard to find by hand. The button is the parent-side
+equivalent — `Flow.setViewport(model, Flow.viewportCentredOn(model, point))` and
+its Command — so the public helper has a worked example as well as a proof.)_
+
 A press inside the minimap is converted to a flow point by the SVG's own screen
 matrix (`getScreenCTM()`, which includes the `viewBox` mapping and the element's
 position on the page) and dispatched as `ClickedMiniMap({ point })`; `update` turns

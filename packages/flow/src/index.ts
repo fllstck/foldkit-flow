@@ -112,7 +112,12 @@ export {
   resizeRect,
 } from "./geometry/resize.js";
 export type { ResizeOptions } from "./geometry/resize.js";
-export { dragDelta, flowToScreen, screenToFlow } from "./geometry/screen.js";
+export {
+  dragDelta,
+  flowToScreen,
+  screenToFlow,
+  viewportCentredOn,
+} from "./geometry/screen.js";
 export type { ScreenPoint } from "./geometry/screen.js";
 export {
   viewportRect,
