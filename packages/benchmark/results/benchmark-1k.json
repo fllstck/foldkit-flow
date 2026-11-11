@@ -8,24 +8,24 @@
   "browser": "Brave 156.1.98.63 (Chromium 156), headless",
   "machine": "MacBook Air (Apple M5), macOS 26.6.2",
   "drag": {
-    "count": 503,
+    "count": 498,
     "median": 16.7,
     "p95": 16.7,
-    "longest": 33.3,
+    "longest": 16.8,
     "longFrames": 0
   },
   "pan": {
-    "count": 618,
+    "count": 475,
     "median": 16.7,
-    "p95": 16.8,
-    "longest": 50,
+    "p95": 16.7,
+    "longest": 16.8,
     "longFrames": 0
   },
   "flow": {
     "updates": 3078,
-    "updateTotalMs": 5.3,
-    "updatePerDispatchMs": 0.0017,
-    "cullScanMs": 6.024,
+    "updateTotalMs": 6.3,
+    "updatePerDispatchMs": 0.002,
+    "cullScanMs": 1.2,
     "cullScanSamples": 21
   }
 }

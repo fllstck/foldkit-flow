@@ -4,28 +4,42 @@ A flow / node-graph canvas for [Foldkit](https://foldkit.dev), in the spirit of
 React Flow and Svelte Flow — but Foldkit-native: one Model, pure `update`, every
 effect at a named seam.
 
-**Status: M4 complete — v1.0; M5 next.** M5's starting state is
-**[docs/M5-HANDOFF.md](docs/M5-HANDOFF.md)**: hardening and publishing (the
-culling-scan index, the 1k/10k numbers, the pan-stall question, the fixture gallery,
-package docs, an example page), and the M6 research milestone the plan carries after
-it. The plan is at revision 7. M4 added the graph
-features on top of M3's chrome and accessibility layer: parent/child sub-flows, the
-`hidden` collapse, node resizing, the snap grid, `fitView` options, edge markers and
-labels, and minimap click-to-centre. The gate is still green: 625 nodes at parity
-with React Flow on pan, and 1k culled under the 33 ms p95 gate with zero long
-frames — including with the chrome on — and a 10k graph with 98% of its nodes
-collapsed pans at the frame rate (200 nodes in the DOM). The named gaps M4 left —
-`XYResizer`, minimap drag, edge selection, `nodeOrigin` and the rest — are planned
-as **M6, research first**, at the end of `docs/PLAN.md` §7. Evidence, deviations,
-and the retracted measurements are in
+**Status: M5 complete — v1.0, hardened and publishable; M6 next.** M5 is the
+hardening milestone (`docs/PLAN.md` §7): the culling scan is indexed, the numbers are
+measured and published, the fixture gallery compares our geometry to React Flow's on
+one input, `packages/flow` is publishable at `1.0.0` (**not published** — that is the
+owner's call), and `packages/example` serves a presentable example page beside the
+instrumented playground. **The published numbers are in
+[docs/BENCHMARKS.md](docs/BENCHMARKS.md)**: 625 nodes at parity with React Flow on
+pan (16.7/16.8 both, zero long frames), 1k culled inside the 33 ms p95 gate bare and
+with the chrome on, a 10k graph with 98 % collapsed panning at the frame rate with
+200 nodes in the DOM, and 10k **expanded** panning at the frame rate too — with a
+1.6 s settle before the first interaction, which is the ceiling `BENCHMARKS.md`
+states. The eleven gaps M4 left — `XYResizer`, minimap drag, edge selection,
+`nodeOrigin` and the rest — are untouched and remain **M6, research first**
+(`docs/PLAN.md` §7, `docs/M6-HANDOFF.md`).
+
+Evidence: **[docs/M5-FINDINGS.md](docs/M5-FINDINGS.md)** (what M5 changed, with
+before/after), **[docs/BENCHMARKS.md](docs/BENCHMARKS.md)** (the numbers, the
+protocol, the machine, the reproduction command), and the milestone records
 **[docs/M0-FINDINGS.md](docs/M0-FINDINGS.md)**,
 **[docs/M1-FINDINGS.md](docs/M1-FINDINGS.md)**,
-**[docs/M2-FINDINGS.md](docs/M2-FINDINGS.md)** and
-**[docs/M3-FINDINGS.md](docs/M3-FINDINGS.md)** and
+**[docs/M2-FINDINGS.md](docs/M2-FINDINGS.md)**,
+**[docs/M3-FINDINGS.md](docs/M3-FINDINGS.md)**,
 **[docs/M4-FINDINGS.md](docs/M4-FINDINGS.md)**. Start with:
 
+- **[docs/BENCHMARKS.md](docs/BENCHMARKS.md)** — what this costs: the gate, the
+  culling scan before and after, the 10k escape hatch and ceiling, the scoped
+  start-of-pan stall, and how to reproduce every figure.
 - **[docs/PLAN.md](docs/PLAN.md)** — the design: ownership split, public API, runtime
   wiring, performance budget, milestones, decisions.
+- **[docs/M5-FINDINGS.md](docs/M5-FINDINGS.md)** — what M5 changed: the scan index
+  with its before/after, the 10k expanded ceiling, the gallery and its one
+  documented divergence, the publish-readiness checklist, and the two traps the
+  example page paid for.
+- **[docs/M6-HANDOFF.md](docs/M6-HANDOFF.md)** — what M6 inherits: the eleven gaps
+  as M5 left them, the research method the plan makes binding, and the new
+  candidates M5 found (the 10k first render).
 - **[docs/xyflow-internals.md](docs/xyflow-internals.md)** — how React Flow and
   Svelte Flow are actually built (`@xyflow/system`, the store, controlled state,
   the handle DOM contract), with sources.
@@ -105,12 +119,31 @@ different builds, which is what a cached page plus a fresh `dist` looks like. St
 every server (`pkill -f vite`), `pnpm build`, serve again, and hard-reload — a
 reload alone cannot help if the server keeps handing out the older HTML.
 
+### The pages
+
+`pnpm dev` serves two pages from one build: `/` is the instrumented 630-node
+playground (the fixture every browser proof reads) and `/example/` is a presentable
+release pipeline — custom nodes, a frame with children, a consumer panel, connect,
+resize, collapse — with its own source shown beside it. The source is the file
+itself (`app.ts?raw`), so the page and its code cannot drift. The trailing slash
+matters: a static host serves the prerendered page at `/example/`, while
+`/example` falls back to the playground's HTML.
+
+`pnpm benchmark` serves the measurement pages: `/foldkit.html`, `/react.html`,
+`/svelte.html` (the 625 comparison), `/large.html` and `/large-chrome.html` (1k,
+culled and with chrome), `/subflow.html`, `/large-hidden.html` (10k collapsed),
+`/large-expanded.html` (10k expanded), and the fixture gallery at
+`/gallery-foldkit.html?fixture=edge-types` and
+`/gallery-react.html?fixture=edge-types` (any of `edge-types`, `labels`, `markers`,
+`subflow`, `resize`, `fitview`, with `&variant=off` for the paint comparison).
+
 ### The fast loop
 
-The full browser suite is the frame gate and takes ~2.5 min: 3 libraries × 11
-cold loads of the 625-node fixture, then 11 of the 1k fixture, then 11 of the same
-fixture with M3's chrome on, one worker at a time because the measured quantity is
-a frame-time distribution. Run the files you touched instead, and save the whole
+The full browser suite is the frame gate and takes ~4.6 min (52 tests): 3
+libraries × 11 cold loads of the 625-node fixture, then 11 of the 1k fixture, then
+11 of the same fixture with M3's chrome on, plus the 10k explorations, the gallery
+and the pan-stall diagnostic — one worker at a time, because the measured quantity
+is a frame-time distribution. Run the files you touched instead, and save the whole
 suite for a change to the render path:
 
 ```sh
@@ -121,6 +154,9 @@ pnpm exec playwright test tests/connection.spec.ts   # 5 connection proofs, ~5 s
 pnpm exec playwright test tests/interaction.spec.ts  # pointer layer, ~9 s
 pnpm exec playwright test tests/m4.spec.ts           # graph features, ~11 s
 pnpm exec playwright test tests/hidden.spec.ts       # the 10k exploration, ~9 s
+pnpm exec playwright test tests/expanded.spec.ts     # the 10k ceiling, ~20 s
+pnpm exec playwright test tests/gallery.spec.ts      # the React Flow gallery, ~12 s
+pnpm exec playwright test tests/stall.spec.ts        # the pan-stall diagnostic, ~55 s
 pnpm exec playwright test --grep "1000-node"         # both 1k gates, ~53 s
 pnpm exec playwright test tests/bench.spec.ts        # every gate test, ~2.1 min
 ```
@@ -319,9 +355,11 @@ Three properties worth knowing:
 `hidden: true` on a node removes that node, **its whole subtree**, their edges,
 their measurement and their selection — at any zoom, with `cull` on or off. It is
 the escape hatch for very large graphs: 10,000 nodes with 98% of them collapsed
-pan at the frame rate with 200 nodes in the DOM (`docs/M4-FINDINGS.md` §7). A
-collapsed node is not fitted by `fitViewport`, not drawn in the minimap and not
-listed in the description.
+pan at the frame rate with 200 nodes in the DOM, and the same 10k graph *expanded*
+also pans at the frame rate but takes ~1.6 s to settle, because its first render
+happens before the pane is measured (`docs/BENCHMARKS.md` §"10k"). A collapsed node
+is not fitted by `fitViewport`, not drawn in the minimap and not listed in the
+description.
 
 Collapsing from your own `update` is a graph change the flow never sees, so fold
 `Flow.informGraphChanged(model, context)` in the same handler — that is what prunes
@@ -447,6 +485,12 @@ What the flow provides:
   transform.
 - **The minimap is `aria-hidden`** — it is a picture of what the description says
   in words.
+
+**Selectors.** The flow's per-node instrumentation is `data-nodeid`, and it is on
+the handles and the four resize controls too — a node is
+`.fflow__node[data-nodeid="…"]`, and a loose `[data-nodeid]` query returns seven
+elements per node. Edges are `[data-edgeid]`; the viewport is
+`[data-fflow-viewport]`.
 
 What you have to supply: `accessibleName`, and the same `flow.css`. A node without
 it is announced by its id. If a node contains controls, mark the ones that must not

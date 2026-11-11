@@ -13,8 +13,8 @@
     "lint": "pnpm lint:effect && pnpm lint:tests",
     "lint:effect": "oxlint -c oxlint.config.ts packages",
     "lint:tests": "oxlint -c oxlint.tests.json packages/benchmark/tests packages/flow/src",
-    "format": "prettier --write \"packages/**/*.{ts,tsx,svelte,css,html,json}\" \"*.{json,ts}\" \"docs/M0-*.md\" \"docs/M1-*.md\" \"docs/M2-*.md\" \"docs/M3-*.md\" \"docs/M4-FINDINGS.md\" \"docs/verification.md\"",
-    "format:check": "prettier --check \"packages/**/*.{ts,tsx,svelte,css,html,json}\" \"*.{json,ts}\" \"docs/M0-*.md\" \"docs/M1-*.md\" \"docs/M2-*.md\" \"docs/M3-*.md\" \"docs/M4-FINDINGS.md\" \"docs/verification.md\"",
+    "format": "prettier --write \"packages/**/*.{ts,tsx,svelte,css,html,json}\" \"*.{json,ts}\" \"docs/M0-*.md\" \"docs/M1-*.md\" \"docs/M2-*.md\" \"docs/M3-*.md\" \"docs/M4-FINDINGS.md\" \"docs/M5-FINDINGS.md\" \"docs/BENCHMARKS.md\" \"docs/verification.md\"",
+    "format:check": "prettier --check \"packages/**/*.{ts,tsx,svelte,css,html,json}\" \"*.{json,ts}\" \"docs/M0-*.md\" \"docs/M1-*.md\" \"docs/M2-*.md\" \"docs/M3-*.md\" \"docs/M4-FINDINGS.md\" \"docs/M5-FINDINGS.md\" \"docs/BENCHMARKS.md\" \"docs/verification.md\"",
     "check": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm test"
   },
   "devDependencies": {
