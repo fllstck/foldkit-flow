@@ -102,7 +102,12 @@ const buildGraph = (label: string) => {
       position: { x: column * COLUMN_PITCH, y: row * ROW_PITCH },
       data: { label: `${label} ${index}` },
     });
-    if (index > 0) {
+    // One link per step, except every third one: a fully chained grid makes the
+    // natural gesture — connect a node to the one beside it — always a duplicate,
+    // which the predicate rejects, so the playground reads as "connecting is
+    // broken". The gaps leave pairs that can be connected, and a duplicate still
+    // demonstrates the policy.
+    if (index > 0 && index % 3 !== 0) {
       edges.push({
         id: `e${index}`,
         source: `n${index - 1}`,
@@ -551,11 +556,22 @@ const renderer = Flow.createRenderer<{ label: string }, unknown>({
  *  container. Its button dispatches a *parent* Message: the panel's markup is
  *  built in the parent's boundary, which is the whole point of threading it
  *  through `ViewInput.panel` rather than through the renderer's config. */
-const demoPanel = (h: HtmlBuilder<Message>) =>
+const demoPanel = (model: Model, h: HtmlBuilder<Message>) =>
   Flow.panel(
     { position: "TopRight", label: "Graph actions" },
     [
       h.span([h.Class("panel-title")], ["Graph"]),
+      // Where the user is looking while dragging. A rejected release emits nothing
+      // (the contract), so the demo has to say what happened: an attempt that did
+      // not become an edge stays here until the next one.
+      h.span(
+        [h.Id("panel-attempt"), h.Class("panel-attempt")],
+        [
+          model.lastAttempt === ""
+            ? "Drag a handle onto another node to connect."
+            : `Not connected: ${model.lastAttempt}`,
+        ],
+      ),
       h.button(
         [h.Id("panel-select-all"), h.OnClick(Message.ClickedSelectAll())],
         ["Select all"],
@@ -701,7 +717,7 @@ export const view = (model: Model, h: HtmlBuilder<Message>): Document => {
                     toParentMessage,
                     // Consumer chrome inside the pane (§7 M3): built in this
                     // boundary, so its button dispatches a parent Message.
-                    panel: demoPanel(h),
+                    panel: demoPanel(model, h),
                   },
                   h,
                 )

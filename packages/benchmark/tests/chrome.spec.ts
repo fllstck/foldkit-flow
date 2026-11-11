@@ -517,7 +517,8 @@ test("proof 29: the description lists the graph and does not churn on a pan", as
   await expect(description).toHaveCount(1);
 
   const text = (await description.textContent()) ?? "";
-  expect(text).toContain("Flow graph: 625 nodes and 624 connections.");
+  // The demo's grid links every step except every third one (416 of 624).
+  expect(text).toContain("Flow graph: 625 nodes and 416 connections.");
   expect(text).toContain("Node 1 of 625: Node 0, connects to Node 1.");
   // Capped, and honest about it.
   expect(text).toContain("575 more nodes are not listed.");
@@ -813,12 +814,20 @@ test("proof 33: a rejected duplicate is visible, and a novel connection still la
   expect(await attr(page, "data-edges")).toBe(String(edges));
   expect(await attr(page, "data-last-edge")).toBe("");
   expect(await attr(page, "data-last-attempt")).toBe("n0:out > n1:in");
+  // The panel is next to the gesture, so it is where "nothing happened" is
+  // explained: a rejected release emits no fact to react to.
+  expect((await page.locator("#panel-attempt").textContent()) ?? "").toContain(
+    "Not connected: n0:out > n1:in",
+  );
 
   // A pair that is not already an edge goes through, and the indicator clears.
   expect(await dragTo(n0out, await handleCenter("n2", "in"))).toBe("n2:in");
   expect(await attr(page, "data-edges")).toBe(String(edges + 1));
   expect(await attr(page, "data-last-edge")).toBe("n0:out>n2:in");
   expect(await attr(page, "data-last-attempt")).toBe("");
+  expect((await page.locator("#panel-attempt").textContent()) ?? "").toContain(
+    "Drag a handle onto another node to connect.",
+  );
 });
 
 test("proof 34: dragging does not select the page's text", async ({ page }) => {

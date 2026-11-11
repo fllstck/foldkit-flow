@@ -615,3 +615,41 @@ One scope note: the radius is a constant, not a `RendererConfig` option. Upstrea
 exposes `connectionRadius` as a prop; if a consumer needs to tune it, the honest
 place is this constant behind a config field, and that is a one-line change when
 someone asks (M4's options pass).
+
+## 13. Reported after M3: the preview snaps to a target, then the release does nothing
+
+The follow-up to §11.2, and this time the report is precise: "the edge preview is
+now snapping to the connector box when I drag it anywhere over a target node, but
+it simply disappears when I stop dragging."
+
+The snapping is the new `connectionRadius` (§12.2) working. The disappearing is the
+demo again, in two layers:
+
+1. **The fixture made the natural gesture a duplicate.** `buildGraph` linked every
+   consecutive pair, so dropping on the neighbouring node — the first thing anyone
+   tries — was always rejected by the demo's own `isValidConnection`. The graph now
+   links every step _except every third one_ (416 of 624), which leaves plenty of
+   pairs that can be connected while still demonstrating the duplicate rule. The
+   pairs the proofs depend on are untouched: `e1` (n0→n1) and n3→n4 still exist,
+   n0→n2 is still novel, and `e1` is still the edge proof 19 reconnects.
+2. **The rejection notice was in the wrong place.** §11.2 put it in the toolbar's
+   stats row, which is not where anyone looks mid-gesture. It now also lives in the
+   consumer panel next to the graph — "Not connected: n0:out > n1:in" after a
+   rejected release, and a one-line hint when there is nothing to report. Same
+   state (`lastAttempt`), so the two cannot disagree.
+
+Measured end to end, at the demo's initial viewport:
+
+| Gesture                                       | Result                                                                   |
+| --------------------------------------------- | ------------------------------------------------------------------------ |
+| `n2.out` → drop on n3's body (a fixture gap)  | edges 416 → 417, `data-last-edge="n2:out>n3:in"`, panel back to the hint |
+| `n0.out` → drop on n1's body (a fixture link) | edges unchanged, panel "Not connected: n0:out > n1:in"                   |
+
+Proof 33 now asserts both halves of the panel text as well as the
+`data-last-attempt` attribute. The description proof's connection count moved with
+the fixture (416), and `docs/M3-FINDINGS.md` §12's numbers are otherwise unchanged.
+
+The library is unchanged by this section: the predicate is the consumer's, and a
+rejected release still emits nothing. What changed is that the playground no longer
+makes every connection attempt fail, and that a failure is stated where the user is
+looking.
