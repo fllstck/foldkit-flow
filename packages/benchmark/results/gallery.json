@@ -1,0 +1,187 @@
+{
+  "note": "M5 fixture gallery. Geometry is compared as path `d` strings (numbers rounded to 1e-3) and node screen boxes (rounded to 1e-1); paint is compared within each library, never across stylesheets (PLAN §2.4).",
+  "fixtures": {
+    "edge-types": {
+      "ourEdges": {
+        "e-step": "M150 180L 150,200Q 150,200 150,200L 300,200Q 300,200 300,200L 300,20Q 300,20 300,20L 450,20Q 450,20 450,20L450 40",
+        "e-smooth": "M150 180L 150,205Q 150,210 155,210L 445,210Q 450,210 450,215L450 240",
+        "e-bezier": "M150,180 C150,228.412 770,71.588 770,120"
+      },
+      "theirEdges": {
+        "e-step": "M150 180L 150,200Q 150,200 150,200L 300,200Q 300,200 300,200L 300,20Q 300,20 300,20L 450,20Q 450,20 450,20L450 40",
+        "e-smooth": "M150 180L 150,205Q 150,210 155,210L 445,210Q 450,210 450,215L450 240",
+        "e-bezier": "M150,180 C150,228.412 770,71.588 770,120"
+      },
+      "ourNodes": {
+        "s": "80,120,140,60",
+        "a": "380,40,140,60",
+        "b": "380,240,140,60",
+        "c": "700,120,140,60"
+      },
+      "theirNodes": {
+        "s": "80,120,140,60",
+        "a": "380,40,140,60",
+        "b": "380,240,140,60",
+        "c": "700,120,140,60"
+      },
+      "ourViewport": "position: absolute; top: 0px; left: 0px; transform-origin: 0px 0px; transform: translate(0px, 0px) scale(1);",
+      "theirViewport": "transform: translate(0px, 0px) scale(1);"
+    },
+    "labels": {
+      "ourEdges": {
+        "e-label": "M150,220 C150,268.412 510,111.588 510,160"
+      },
+      "theirEdges": {
+        "e-label": "M150,220 C150,268.412 510,111.588 510,160"
+      },
+      "ourNodes": {
+        "l1": "80,160,140,60",
+        "l2": "440,160,140,60"
+      },
+      "theirNodes": {
+        "l1": "80,160,140,60",
+        "l2": "440,160,140,60"
+      },
+      "ourViewport": "position: absolute; top: 0px; left: 0px; transform-origin: 0px 0px; transform: translate(0px, 0px) scale(1);",
+      "theirViewport": "transform: translate(0px, 0px) scale(1);"
+    },
+    "markers": {
+      "ourEdges": {
+        "e-marker": "M150,220 C150,268.412 510,111.588 510,160"
+      },
+      "theirEdges": {
+        "e-marker": "M150,220 C150,268.412 510,111.588 510,160"
+      },
+      "ourNodes": {
+        "m1": "80,160,140,60",
+        "m2": "440,160,140,60"
+      },
+      "theirNodes": {
+        "m1": "80,160,140,60",
+        "m2": "440,160,140,60"
+      },
+      "ourViewport": "position: absolute; top: 0px; left: 0px; transform-origin: 0px 0px; transform: translate(0px, 0px) scale(1);",
+      "theirViewport": "transform: translate(0px, 0px) scale(1);"
+    },
+    "subflow": {
+      "ourEdges": {
+        "e-child": "M410,210 C410,254.194 790,115.806 790,160",
+        "e-loose": "M910,400 C910,460 170,460 170,520"
+      },
+      "theirEdges": {
+        "e-child": "M410,210 C410,254.194 790,115.806 790,160",
+        "e-loose": "M910,400 C910,460 170,460 170,520"
+      },
+      "ourNodes": {
+        "p1": "100,100,420,300",
+        "c1": "120,160,140,50",
+        "c2": "340,160,140,50",
+        "p2": "700,100,420,300",
+        "d1": "720,160,140,50",
+        "loose": "100,520,140,50"
+      },
+      "theirNodes": {
+        "p1": "100,100,420,300",
+        "c1": "120,160,140,50",
+        "c2": "340,160,140,50",
+        "p2": "700,100,420,300",
+        "d1": "720,160,140,50",
+        "loose": "100,520,140,50"
+      },
+      "ourViewport": "position: absolute; top: 0px; left: 0px; transform-origin: 0px 0px; transform: translate(0px, 0px) scale(1);",
+      "theirViewport": "transform: translate(0px, 0px) scale(1);"
+    },
+    "resize": {
+      "ourEdges": {
+        "e-box": "M240,300 C240,383.853 590,36.147 590,120"
+      },
+      "theirEdges": {
+        "e-box": "M240,300 C240,383.853 590,36.147 590,120"
+      },
+      "ourNodes": {
+        "big": "80,120,320,180",
+        "small": "520,120,140,60"
+      },
+      "theirNodes": {
+        "big": "80,120,320,180",
+        "small": "520,120,140,60"
+      },
+      "ourViewport": "position: absolute; top: 0px; left: 0px; transform-origin: 0px 0px; transform: translate(0px, 0px) scale(1);",
+      "theirViewport": "transform: translate(0px, 0px) scale(1);"
+    },
+    "fitview": {
+      "ourEdges": {
+        "e-fit": "M70,60 C70,400 1130,400 1130,740"
+      },
+      "theirEdges": {
+        "e-fit": "M70,60 C70,400 1130,400 1130,740"
+      },
+      "ourNodes": {
+        "f1": "58,62,135.8,58.2",
+        "f2": "640,353,135.8,58.2",
+        "f3": "1086.2,779.8,135.8,58.2"
+      },
+      "theirNodes": {
+        "f1": "58,62,135.8,58.2",
+        "f2": "640,353,135.8,58.2",
+        "f3": "1086.2,779.8,135.8,58.2"
+      },
+      "ourViewport": "position: absolute; top: 0px; left: 0px; transform-origin: 0px 0px; transform: translate(58px, 62px) scale(0.97);",
+      "theirViewport": "transform: translate(58px, 62px) scale(0.97);"
+    }
+  },
+  "notShipped": [
+    "The resize gesture: React Flow's equivalent is its NodeResizer component, a different seam with its own DOM contract. Both libraries' *boxes* are compared here (the `resize` fixture); the gesture itself is proved in `tests/m4.spec.ts` (proof 44) and is not a cross-library comparison.",
+    "Minimap, controls and the description region: chrome in both libraries is optional and styled by each project. Proved in `tests/chrome.spec.ts` on our side.",
+    "Edge selection, minimap drag, `nodeOrigin`, multi-node resize and interactive edge labels: not shipped in v1.0 (M4-FINDINGS §8) and out of scope for M5."
+  ],
+  "browser": "Brave 156.1.98.63 (Chromium 156), headless",
+  "machine": "MacBook Air (Apple M5), macOS 26.6.2",
+  "divergence": {
+    "hidden": {
+      "ours": "collapsed: the container, its children and every edge into it are gone (1 node, 0 edges)",
+      "theirs": "the flagged node alone is hidden; its children and the edge into them are still drawn (3 nodes, 1 edge)",
+      "why": "`hidden` means collapsed here — the escape hatch for large graphs (M4-FINDINGS §2.3, README). React Flow's `hidden` is per node."
+    }
+  },
+  "paint": {
+    "labels/foldkit": {
+      "pixelsDiffer": true,
+      "domOn": 1,
+      "domOff": 0
+    },
+    "labels/react": {
+      "pixelsDiffer": true,
+      "domOn": 1,
+      "domOff": 0
+    },
+    "markers/foldkit": {
+      "pixelsDiffer": true,
+      "domOn": 1,
+      "domOff": 0
+    },
+    "markers/react": {
+      "pixelsDiffer": true,
+      "domOn": 1,
+      "domOff": 0
+    },
+    "edge-types/foldkit": {
+      "pixelsDiffer": true
+    },
+    "edge-types/react": {
+      "pixelsDiffer": true
+    },
+    "hidden/foldkit": {
+      "pixelsDiffer": true
+    },
+    "hidden/react": {
+      "pixelsDiffer": true
+    }
+  },
+  "resize": {
+    "ourResizeHandles": 8,
+    "ourBoxedNodes": 2,
+    "theirResizeControls": 0,
+    "boxGeometryMatches": true
+  }
+}

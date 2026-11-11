@@ -1,0 +1,27 @@
+{
+  "note": "M5 exploration, not a gate: PLAN §4.5 promises no figure for 10k until it is measured. Recorded from packages/benchmark/tests/expanded.spec.ts.",
+  "fixture": {
+    "nodes": 10000,
+    "renderedNodes": 280,
+    "edges": 300,
+    "collapsed": 0,
+    "measuredNodes": 10000,
+    "timeToFirstViewMs": 792.6,
+    "timeToSettledMs": 3184.2
+  },
+  "pan": {
+    "count": 323,
+    "median": 249.9,
+    "p95": 5766.4,
+    "longest": 6533.1,
+    "longFrames": 205
+  },
+  "flow": {
+    "updates": 30025,
+    "updateTotalMs": 535.4,
+    "cullScanMs": 1807.858,
+    "cullScanSamples": 21
+  },
+  "browser": "Brave 156.1.98.63 (Chromium 156), headless",
+  "machine": "MacBook Air (Apple M5), macOS 26.6.2"
+}

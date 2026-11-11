@@ -9,15 +9,15 @@
     "renderedNodes": 200
   },
   "pan": {
-    "count": 251,
+    "count": 250,
     "median": 16.7,
     "p95": 16.8,
-    "longest": 33.3,
+    "longest": 16.8,
     "longFrames": 0
   },
   "flow": {
     "updates": 625,
-    "cullScanMs": 3.466,
+    "cullScanMs": 2.994,
     "cullScanSamples": 21
   },
   "browser": "Brave 156.1.98.63 (Chromium 156), headless",

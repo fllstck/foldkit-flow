@@ -12,5 +12,12 @@ packages/benchmark/results/*
 !packages/benchmark/results/benchmark-1k.json
 !packages/benchmark/results/benchmark-1k-chrome.json
 !packages/benchmark/results/hidden-10k.json
+# M5's ceiling: the same 10k graph with nothing collapsed, measured by
+# `tests/expanded.spec.ts` and quoted in `docs/BENCHMARKS.md`.
+!packages/benchmark/results/expanded-10k.json
+# M5's fixture gallery against React Flow (`tests/gallery.spec.ts`), and the
+# start-of-pan diagnostic that scopes the carried-forward stall.
+!packages/benchmark/results/gallery.json
+!packages/benchmark/results/pan-stall.json
 test-results/
 playwright-report/

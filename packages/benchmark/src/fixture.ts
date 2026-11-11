@@ -79,6 +79,14 @@ export const nodes = stress.nodes;
 export const edges = stress.edges;
 export const nodeCount = stress.nodeCount;
 
+/**
+ * The 10k **expanded** fixture (M5): the same generated markup as the 625 and 1k
+ * fixtures, a hundred times over, with nothing collapsed. `hidden` is the escape
+ * hatch, so the graph it escapes from has to be measured too — this is the page
+ * behind the ceiling in `docs/BENCHMARKS.md`.
+ */
+export const expanded10k = makeGraph(100, 100);
+
 /** The culling fixture: twice as many nodes, viewed at 1:1 so most of them are
  *  outside the viewport and culling has something to do (§4.5). */
 export const large = makeGraph(40, 25);
@@ -212,3 +220,7 @@ export const nestedViewport = { x: 40, y: 40, zoom: 0.35 };
 export const initialViewport = { x: 20, y: 30, zoom: 0.22 };
 
 export const largeViewport = { x: 20, y: 30, zoom: 1 };
+
+/** 1:1, like `large`: most of a 10k graph is outside the viewport, so a pan is
+ *  the culling scan's worst case rather than a fitView of everything. */
+export const expandedViewport = { x: 20, y: 30, zoom: 1 };

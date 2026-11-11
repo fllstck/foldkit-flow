@@ -1,0 +1,491 @@
+{
+  "note": "M5 diagnostic, not a gate: the start-of-pan stall M3-FINDINGS §5.1 carried forward. Recorded from packages/benchmark/tests/stall.spec.ts.",
+  "fixture": {
+    "page": "/large.html",
+    "nodes": 1000,
+    "culled": true
+  },
+  "invocations": 12,
+  "arms": {
+    "idle": [
+      {
+        "frames": 24,
+        "median": 16.7,
+        "p95": 16.8,
+        "longest": 16.8,
+        "longFrames": 0,
+        "longAtMs": [],
+        "longAtIndex": []
+      },
+      {
+        "frames": 24,
+        "median": 16.7,
+        "p95": 16.7,
+        "longest": 16.7,
+        "longFrames": 0,
+        "longAtMs": [],
+        "longAtIndex": []
+      },
+      {
+        "frames": 24,
+        "median": 16.7,
+        "p95": 16.8,
+        "longest": 16.8,
+        "longFrames": 0,
+        "longAtMs": [],
+        "longAtIndex": []
+      },
+      {
+        "frames": 24,
+        "median": 16.7,
+        "p95": 16.7,
+        "longest": 33.3,
+        "longFrames": 0,
+        "longAtMs": [],
+        "longAtIndex": []
+      },
+      {
+        "frames": 24,
+        "median": 16.7,
+        "p95": 16.7,
+        "longest": 16.8,
+        "longFrames": 0,
+        "longAtMs": [],
+        "longAtIndex": []
+      },
+      {
+        "frames": 24,
+        "median": 16.7,
+        "p95": 16.7,
+        "longest": 16.8,
+        "longFrames": 0,
+        "longAtMs": [],
+        "longAtIndex": []
+      },
+      {
+        "frames": 24,
+        "median": 16.7,
+        "p95": 16.8,
+        "longest": 16.8,
+        "longFrames": 0,
+        "longAtMs": [],
+        "longAtIndex": []
+      },
+      {
+        "frames": 24,
+        "median": 16.7,
+        "p95": 16.7,
+        "longest": 16.7,
+        "longFrames": 0,
+        "longAtMs": [],
+        "longAtIndex": []
+      },
+      {
+        "frames": 24,
+        "median": 16.7,
+        "p95": 16.7,
+        "longest": 16.7,
+        "longFrames": 0,
+        "longAtMs": [],
+        "longAtIndex": []
+      },
+      {
+        "frames": 24,
+        "median": 16.7,
+        "p95": 16.7,
+        "longest": 16.7,
+        "longFrames": 0,
+        "longAtMs": [],
+        "longAtIndex": []
+      },
+      {
+        "frames": 24,
+        "median": 16.7,
+        "p95": 16.7,
+        "longest": 16.7,
+        "longFrames": 0,
+        "longAtMs": [],
+        "longAtIndex": []
+      },
+      {
+        "frames": 24,
+        "median": 16.7,
+        "p95": 16.7,
+        "longest": 16.8,
+        "longFrames": 0,
+        "longAtMs": [],
+        "longAtIndex": []
+      }
+    ],
+    "firstPan": [
+      {
+        "frames": 48,
+        "median": 16.7,
+        "p95": 16.8,
+        "longest": 16.8,
+        "longFrames": 0,
+        "longAtMs": [],
+        "longAtIndex": []
+      },
+      {
+        "frames": 50,
+        "median": 16.7,
+        "p95": 16.7,
+        "longest": 16.8,
+        "longFrames": 0,
+        "longAtMs": [],
+        "longAtIndex": []
+      },
+      {
+        "frames": 47,
+        "median": 16.7,
+        "p95": 16.7,
+        "longest": 16.7,
+        "longFrames": 0,
+        "longAtMs": [],
+        "longAtIndex": []
+      },
+      {
+        "frames": 48,
+        "median": 16.7,
+        "p95": 16.7,
+        "longest": 16.8,
+        "longFrames": 0,
+        "longAtMs": [],
+        "longAtIndex": []
+      },
+      {
+        "frames": 50,
+        "median": 16.7,
+        "p95": 16.7,
+        "longest": 16.8,
+        "longFrames": 0,
+        "longAtMs": [],
+        "longAtIndex": []
+      },
+      {
+        "frames": 48,
+        "median": 16.7,
+        "p95": 16.8,
+        "longest": 16.8,
+        "longFrames": 0,
+        "longAtMs": [],
+        "longAtIndex": []
+      },
+      {
+        "frames": 48,
+        "median": 16.7,
+        "p95": 16.8,
+        "longest": 16.8,
+        "longFrames": 0,
+        "longAtMs": [],
+        "longAtIndex": []
+      },
+      {
+        "frames": 50,
+        "median": 16.7,
+        "p95": 16.8,
+        "longest": 16.8,
+        "longFrames": 0,
+        "longAtMs": [],
+        "longAtIndex": []
+      },
+      {
+        "frames": 50,
+        "median": 16.7,
+        "p95": 16.7,
+        "longest": 16.8,
+        "longFrames": 0,
+        "longAtMs": [],
+        "longAtIndex": []
+      },
+      {
+        "frames": 49,
+        "median": 16.7,
+        "p95": 16.8,
+        "longest": 16.8,
+        "longFrames": 0,
+        "longAtMs": [],
+        "longAtIndex": []
+      },
+      {
+        "frames": 47,
+        "median": 16.7,
+        "p95": 16.8,
+        "longest": 16.8,
+        "longFrames": 0,
+        "longAtMs": [],
+        "longAtIndex": []
+      },
+      {
+        "frames": 47,
+        "median": 16.7,
+        "p95": 16.8,
+        "longest": 16.8,
+        "longFrames": 0,
+        "longAtMs": [],
+        "longAtIndex": []
+      }
+    ],
+    "secondPan": [
+      {
+        "frames": 49,
+        "median": 16.7,
+        "p95": 16.7,
+        "longest": 16.8,
+        "longFrames": 0,
+        "longAtMs": [],
+        "longAtIndex": []
+      },
+      {
+        "frames": 47,
+        "median": 16.7,
+        "p95": 16.8,
+        "longest": 16.8,
+        "longFrames": 0,
+        "longAtMs": [],
+        "longAtIndex": []
+      },
+      {
+        "frames": 50,
+        "median": 16.7,
+        "p95": 16.7,
+        "longest": 16.7,
+        "longFrames": 0,
+        "longAtMs": [],
+        "longAtIndex": []
+      },
+      {
+        "frames": 49,
+        "median": 16.7,
+        "p95": 16.7,
+        "longest": 16.8,
+        "longFrames": 0,
+        "longAtMs": [],
+        "longAtIndex": []
+      },
+      {
+        "frames": 48,
+        "median": 16.7,
+        "p95": 16.8,
+        "longest": 16.8,
+        "longFrames": 0,
+        "longAtMs": [],
+        "longAtIndex": []
+      },
+      {
+        "frames": 47,
+        "median": 16.7,
+        "p95": 16.7,
+        "longest": 16.8,
+        "longFrames": 0,
+        "longAtMs": [],
+        "longAtIndex": []
+      },
+      {
+        "frames": 48,
+        "median": 16.7,
+        "p95": 16.7,
+        "longest": 16.8,
+        "longFrames": 0,
+        "longAtMs": [],
+        "longAtIndex": []
+      },
+      {
+        "frames": 48,
+        "median": 16.7,
+        "p95": 16.7,
+        "longest": 16.8,
+        "longFrames": 0,
+        "longAtMs": [],
+        "longAtIndex": []
+      },
+      {
+        "frames": 48,
+        "median": 16.7,
+        "p95": 16.8,
+        "longest": 16.8,
+        "longFrames": 0,
+        "longAtMs": [],
+        "longAtIndex": []
+      },
+      {
+        "frames": 50,
+        "median": 16.7,
+        "p95": 16.7,
+        "longest": 16.8,
+        "longFrames": 0,
+        "longAtMs": [],
+        "longAtIndex": []
+      },
+      {
+        "frames": 49,
+        "median": 16.7,
+        "p95": 16.7,
+        "longest": 16.8,
+        "longFrames": 0,
+        "longAtMs": [],
+        "longAtIndex": []
+      },
+      {
+        "frames": 49,
+        "median": 16.7,
+        "p95": 16.7,
+        "longest": 16.7,
+        "longFrames": 0,
+        "longAtMs": [],
+        "longAtIndex": []
+      }
+    ],
+    "gatePan": [
+      {
+        "frames": 49,
+        "median": 16.7,
+        "p95": 16.8,
+        "longest": 16.8,
+        "longFrames": 0,
+        "longAtMs": [],
+        "longAtIndex": []
+      },
+      {
+        "frames": 49,
+        "median": 16.7,
+        "p95": 16.8,
+        "longest": 33.3,
+        "longFrames": 0,
+        "longAtMs": [],
+        "longAtIndex": []
+      },
+      {
+        "frames": 50,
+        "median": 16.7,
+        "p95": 16.7,
+        "longest": 16.8,
+        "longFrames": 0,
+        "longAtMs": [],
+        "longAtIndex": []
+      },
+      {
+        "frames": 50,
+        "median": 16.7,
+        "p95": 16.7,
+        "longest": 16.8,
+        "longFrames": 0,
+        "longAtMs": [],
+        "longAtIndex": []
+      },
+      {
+        "frames": 50,
+        "median": 16.7,
+        "p95": 16.7,
+        "longest": 16.7,
+        "longFrames": 0,
+        "longAtMs": [],
+        "longAtIndex": []
+      },
+      {
+        "frames": 49,
+        "median": 16.7,
+        "p95": 16.7,
+        "longest": 16.8,
+        "longFrames": 0,
+        "longAtMs": [],
+        "longAtIndex": []
+      },
+      {
+        "frames": 51,
+        "median": 16.7,
+        "p95": 16.7,
+        "longest": 16.7,
+        "longFrames": 0,
+        "longAtMs": [],
+        "longAtIndex": []
+      },
+      {
+        "frames": 51,
+        "median": 16.7,
+        "p95": 16.8,
+        "longest": 16.8,
+        "longFrames": 0,
+        "longAtMs": [],
+        "longAtIndex": []
+      },
+      {
+        "frames": 49,
+        "median": 16.7,
+        "p95": 16.7,
+        "longest": 16.8,
+        "longFrames": 0,
+        "longAtMs": [],
+        "longAtIndex": []
+      },
+      {
+        "frames": 49,
+        "median": 16.7,
+        "p95": 16.7,
+        "longest": 16.8,
+        "longFrames": 0,
+        "longAtMs": [],
+        "longAtIndex": []
+      },
+      {
+        "frames": 49,
+        "median": 16.7,
+        "p95": 16.7,
+        "longest": 16.8,
+        "longFrames": 0,
+        "longAtMs": [],
+        "longAtIndex": []
+      },
+      {
+        "frames": 49,
+        "median": 16.7,
+        "p95": 16.7,
+        "longest": 16.8,
+        "longFrames": 0,
+        "longAtMs": [],
+        "longAtIndex": []
+      }
+    ]
+  },
+  "totals": {
+    "idle": {
+      "frames": 288,
+      "median": 16.7,
+      "p95": 16.7,
+      "longest": 33.3,
+      "longFrames": 0,
+      "longAtMs": [],
+      "longAtIndex": []
+    },
+    "firstPan": {
+      "frames": 582,
+      "median": 16.7,
+      "p95": 16.8,
+      "longest": 16.8,
+      "longFrames": 0,
+      "longAtMs": [],
+      "longAtIndex": []
+    },
+    "secondPan": {
+      "frames": 582,
+      "median": 16.7,
+      "p95": 16.7,
+      "longest": 16.8,
+      "longFrames": 0,
+      "longAtMs": [],
+      "longAtIndex": []
+    },
+    "gatePan": {
+      "frames": 595,
+      "median": 16.7,
+      "p95": 16.7,
+      "longest": 33.3,
+      "longFrames": 0,
+      "longAtMs": [],
+      "longAtIndex": []
+    }
+  },
+  "browser": "Brave 156.1.98.63 (Chromium 156), headless",
+  "machine": "MacBook Air (Apple M5), macOS 26.6.2"
+}

@@ -17,3 +17,10 @@ body {
   width: 100vw;
   height: 100vh;
 }
+
+/* The gallery pages: both libraries need a sized container, so the wrapper the
+   two pages share gets one rather than each page inventing its own. */
+.gallery-root {
+  width: 100%;
+  height: 100%;
+}
