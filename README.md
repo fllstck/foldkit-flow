@@ -181,6 +181,12 @@ The predicate is asked at release only — hover still previews the target — a
 judges a reconnect as well, with the end that did not move supplying the other
 half of the connection. No predicate means "accept everything".
 
+Because a rejection is silent by design (no OutMessage, nothing to undo), the
+consumer is where the feedback belongs: the demo reads the hovered candidate from
+`model.flow.gesture` and shows it, so a duplicate reads as "rejected" rather than
+as a broken gesture. The library's own `data-connection-target` instrumentation on
+the pane is available for the same purpose.
+
 Edge endpoints come from measured handles: `edge.sourceHandle` /
 `edge.targetHandle` name the handle, the path starts and ends at the handle's
 centre, and it leaves along the handle's own `position`. An edge that names no

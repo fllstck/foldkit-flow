@@ -25,6 +25,15 @@ type MountPaneMessage =
 export const transformOf = (viewport: Viewport): string =>
   `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.zoom})`;
 
+/**
+ * The same transform for an **SVG** `transform` attribute, which takes unitless
+ * user units: `translate(20px, 30px)` is the CSS form and an SVG element silently
+ * ignores it, leaving its geometry where it was. The connection preview is drawn
+ * in flow space, so it needs this one, not `transformOf` (Playwright proof 32).
+ */
+export const svgTransformOf = (viewport: Viewport): string =>
+  `translate(${viewport.x}, ${viewport.y}) scale(${viewport.zoom})`;
+
 const writeTransform = (element: HTMLElement, viewport: Viewport): void => {
   element.style.transform = transformOf(viewport);
 };

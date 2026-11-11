@@ -178,7 +178,9 @@ describe("reconnect preview", () => {
 
   test("starts at the end that is not moving", async () => {
     const html = (await render(reconnecting("e1"))).html;
-    const match = /fflow__connection[^>]*><path d="([^"]+)"/.exec(html);
+    // The preview renders its path inside the `<g>` that carries the viewport
+    // transform (proof 32), so the pattern spans that element.
+    const match = /fflow__connection[^>]*>.*?<path d="([^"]+)"/.exec(html);
     if (match === null) throw new Error("no reconnect preview rendered");
 
     // The source end stays put: a's handle centre, with the handle's position.

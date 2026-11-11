@@ -12,14 +12,14 @@ numbers; every earlier figure in this document is historical and marked as such.
 | Check                                          | Result                                                                |
 | ---------------------------------------------- | --------------------------------------------------------------------- |
 | `pnpm build`                                   | flow → example → benchmark                                            |
-| `pnpm check`                                   | typecheck, Enfect lint, Prettier, **184** Vitest tests green          |
-| `packages/flow` unit tests                     | 184 in 19 files (M2 had 123 in 14)                                    |
-| `packages/benchmark/tests/chrome.spec.ts`      | 11 passed (M3 proofs 22–31)                                           |
+| `pnpm check`                                   | typecheck, Enfect lint, Prettier, **185** Vitest tests green          |
+| `packages/flow` unit tests                     | 185 in 19 files (M2 had 123 in 14)                                    |
+| `packages/benchmark/tests/chrome.spec.ts`      | 13 passed (M3 proofs 22–33)                                           |
 | `packages/benchmark/tests/connection.spec.ts`  | 5 passed (M2 proofs 17–21)                                            |
 | `packages/benchmark/tests/interaction.spec.ts` | 9 passed (M1 proofs 8–16)                                             |
 | `packages/benchmark/tests/proofs.spec.ts`      | 4 passed (M0 proofs 2, 3, 3b, 4)                                      |
 | `packages/benchmark/tests/bench.spec.ts`       | 3 passed (625 comparison, 1k culled gate, 1k culled gate with chrome) |
-| whole Playwright suite                         | 32 tests = 29 proof tests + 3 gate tests, 32 passed in 2 m 30 s       |
+| whole Playwright suite                         | 34 tests = 31 proof tests + 3 gate tests, 34 passed in 2 m 30 s       |
 
 `pnpm check` still needs a build first when the public surface changed: the
 example and the benchmark typecheck against the library's `dist/*.d.ts`. That is
@@ -503,3 +503,66 @@ only — no proof or unit test reads it, and `renderer.cacheSize()` remains a pu
 diagnostic on the renderer, asserted in `src/view/cache.test.ts` — so the demo now
 says why it is not rendered. `view` must be a pure function of the Model; a number
 that changes because of what the _previous_ render did is not.
+
+## 11. Reported after M3: the connection preview drew above the pointer
+
+Reported from a browser session: "when I draw an edge, it doesn't show up at the
+position of my cursor, but somewhere above", and "the edges can't be connected to
+another node". Both reproduced, and they have different causes.
+
+### 11.1 The preview was drawn in flow coordinates, in an untransformed layer
+
+The connection preview is geometry in **flow space** — the source anchor and the
+pointer are both converted with `screenToFlow` — but the `.fflow__connection`
+layer is a sibling of `.fflow__viewport`, not a child of it, so nothing applied the
+viewport transform to it. The line was drawn at raw flow coordinates: at the demo's
+`{ x: 20, y: 200, zoom: 0.9 }` that is ~200 px above the pointer, which is exactly
+what was reported. M2 had the same placement, but its viewport was `y: 30`, so the
+error was ~27 px and nobody noticed; M3 moved the demo's initial viewport down to
+clear the panel and made a latent bug obvious.
+
+Two changes, both needed:
+
+1. The preview's path is wrapped in a `<g>` carrying the viewport transform, so
+   flow space lands on screen. `non-scaling-stroke` on `.fflow__edge-path` keeps
+   the stroke 1.5 px through the scale, as the committed edges do.
+2. A **unitless** transform (`svgTransformOf`, `translate(20, 200) scale(0.9)`).
+   The first attempt reused `transformOf`, whose CSS-form `translate(20px, 200px)`
+   is silently ignored on an SVG `transform` attribute: the attribute was present
+   in the DOM and inert, and `getScreenCTM()` still reported the identity scale.
+   That is why the proof measures a **screen-space** point rather than reading the
+   attribute — the attribute looked right.
+
+Playwright proof 32 pins it: it takes the preview path's end through
+`getScreenCTM()` and asserts it is within 3 px of the pointer, and that it is more
+than 20 px away from where the untransformed flow coordinate would land.
+`connection.test.ts` also asserts the `<g>` transform, since the shape of the
+preview markup is now part of what makes it correct.
+
+### 11.2 Connecting works; the demo rejected duplicates silently
+
+The second report was not a defect in the connection path. Measured in the browser:
+dragging `n0.out` onto `n2.in` produced `data-connection-target="n2:in"`,
+`data-last-edge="n0:out>n2:in"` and one new edge — hit-testing, the release and the
+parent's fold all work.
+
+What was happening is the demo's own fixture: `buildGraph` gives **every
+consecutive pair** an edge, so the natural gesture — connect a node to the one next
+to it — is a duplicate, which the demo's `isValidConnection` rejects by design
+(M2-FINDINGS §2.1). The library emits nothing on a rejection (that is the
+documented contract), so the UI showed nothing at all, and a rejected connection is
+indistinguishable from a broken one.
+
+The demo now surfaces the attempt. It reads the hovered candidate from the gesture
+(`n0:out > n1:in`) into `lastAttempt`, shows it in the toolbar's stats and in
+`data-last-attempt`, and clears it when a connection or reconnect fact arrives —
+the fold is the only thing that knows the attempt succeeded. Proof 33 covers both
+halves: a duplicate leaves `data-last-attempt="n0:out > n1:in"` with the edge count
+unchanged and no `data-last-edge`, and a novel pair adds the edge and clears the
+indicator.
+
+The library-side rule is unchanged and still the documented one: the predicate is
+asked at release only, so a hover still previews a target the parent will reject.
+An "invalid target" style during hover would need the predicate to be asked per
+pointer move, which M2 rejected on the hot path (§2.1) — the indicator is the cheap
+half of that feedback and it lives where the policy lives, in the consumer.

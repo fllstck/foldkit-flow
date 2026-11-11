@@ -24,7 +24,7 @@
         "count": 495,
         "median": 16.7,
         "p95": 16.8,
-        "longest": 33.3,
+        "longest": 33.2,
         "longFrames": 0
       }
     },
@@ -33,27 +33,27 @@
         "count": 499,
         "median": 16.7,
         "p95": 16.7,
-        "longest": 16.8,
+        "longest": 33.2,
         "longFrames": 0
       },
       "pan": {
-        "count": 483,
+        "count": 485,
         "median": 16.7,
-        "p95": 16.8,
+        "p95": 16.7,
         "longest": 16.8,
         "longFrames": 0
       }
     },
     "foldkit": {
       "drag": {
-        "count": 499,
+        "count": 500,
         "median": 16.7,
         "p95": 16.8,
-        "longest": 16.8,
+        "longest": 33.4,
         "longFrames": 0
       },
       "pan": {
-        "count": 485,
+        "count": 493,
         "median": 16.7,
         "p95": 16.8,
         "longest": 33.4,
@@ -63,9 +63,9 @@
   },
   "flow": {
     "updates": 1925,
-    "updateTotalMs": 5.8,
-    "updatePerDispatchMs": 0.003,
-    "cullScanMs": 2.806,
+    "updateTotalMs": 5.9,
+    "updatePerDispatchMs": 0.0031,
+    "cullScanMs": 2.784,
     "cullScanSamples": 21
   }
 }

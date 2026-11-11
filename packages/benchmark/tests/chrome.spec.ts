@@ -688,3 +688,135 @@ test("proof 31: Enter and Space activate the focused node", async ({
   expect((await viewportOf(page)).zoom).toBeGreaterThan(zoomBefore);
   expect(await attr(page, "data-selected-nodes")).toBe("n0");
 });
+
+test("proof 32: the connection preview follows the pointer", async ({
+  page,
+}) => {
+  await page.goto(DEMO);
+  await waitForMount(page);
+
+  const out = await page
+    .locator(
+      '.fflow__node[data-nodeid="n0"] .fflow__handle[data-handleid="out"]',
+    )
+    .boundingBox();
+  if (out === null) throw new Error("source handle not found");
+  const from = { x: out.x + out.width / 2, y: out.y + out.height / 2 };
+
+  // A free point: no handle, so the preview ends at the pointer.
+  const to = { x: from.x + 140, y: from.y + 90 };
+
+  await page.mouse.move(from.x, from.y);
+  await page.mouse.down();
+  for (let step = 1; step <= 6; step += 1) {
+    await page.mouse.move(
+      from.x + ((to.x - from.x) * step) / 6,
+      from.y + ((to.y - from.y) * step) / 6,
+    );
+    await page.waitForTimeout(16);
+  }
+  await page.waitForTimeout(150);
+
+  // Where the preview actually is on screen: the path's own end, taken through
+  // its screen CTM. The layer is a sibling of the transformed viewport, so a
+  // preview drawn at raw flow coordinates lands far above the pointer — which at
+  // this viewport (y 200, zoom 0.9) is the bug this pins.
+  const end = await page.evaluate(() => {
+    const path = document.querySelector(
+      ".fflow__connection path",
+    ) as SVGPathElement | null;
+    if (path === null) return null;
+    const matrix = path.getScreenCTM();
+    if (matrix === null) return null;
+    const point = path.getPointAtLength(path.getTotalLength());
+    const onScreen = point.matrixTransform(matrix);
+    return { x: onScreen.x, y: onScreen.y };
+  });
+  if (end === null) throw new Error("no connection preview");
+
+  expect(Math.abs(end.x - to.x)).toBeLessThan(3);
+  expect(Math.abs(end.y - to.y)).toBeLessThan(3);
+
+  // ...and the same point is nowhere near the raw flow coordinate, which is the
+  // shape the bug had.
+  const flowCoordinate = await page.evaluate(() => {
+    const viewport = (
+      document.querySelector("main.app")?.getAttribute("data-viewport") ??
+      "0,0,1"
+    )
+      .split(",")
+      .map(Number);
+    const pane = document
+      .querySelector(".fflow__pane")
+      ?.getBoundingClientRect();
+    return {
+      left: pane?.left ?? 0,
+      top: pane?.top ?? 0,
+      x: viewport[0] ?? 0,
+      y: viewport[1] ?? 0,
+      zoom: viewport[2] ?? 1,
+    };
+  });
+  const untransformedY =
+    flowCoordinate.top +
+    (to.y - flowCoordinate.top - flowCoordinate.y) / flowCoordinate.zoom;
+  expect(Math.abs(end.y - untransformedY)).toBeGreaterThan(20);
+
+  await page.mouse.up();
+  await page.waitForTimeout(150);
+});
+
+test("proof 33: a rejected duplicate is visible, and a novel connection still lands", async ({
+  page,
+}) => {
+  await page.goto(DEMO);
+  await waitForMount(page);
+
+  const handleCenter = async (nodeId: string, handleId: string) => {
+    const box = await page
+      .locator(
+        `.fflow__node[data-nodeid="${nodeId}"] .fflow__handle[data-handleid="${handleId}"]`,
+      )
+      .boundingBox();
+    if (box === null)
+      throw new Error(`handle not found: ${nodeId}/${handleId}`);
+    return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+  };
+
+  const dragTo = async (
+    from: { x: number; y: number },
+    to: { x: number; y: number },
+  ) => {
+    await page.mouse.move(from.x, from.y);
+    await page.mouse.down();
+    for (let step = 1; step <= 8; step += 1) {
+      await page.mouse.move(
+        from.x + ((to.x - from.x) * step) / 8,
+        from.y + ((to.y - from.y) * step) / 8,
+      );
+      await page.waitForTimeout(16);
+    }
+    await page.waitForTimeout(120);
+    const target = await attr(page, "data-connection-target");
+    await page.mouse.up();
+    await page.waitForTimeout(200);
+    return target;
+  };
+
+  const edges = Number(await attr(page, "data-edges"));
+  const n0out = await handleCenter("n0", "out");
+
+  // The fixture already connects every neighbour, so this is a duplicate: the
+  // parent's `isValidConnection` rejects it and the library emits nothing. The
+  // point is that the demo now says so instead of looking broken.
+  expect(await dragTo(n0out, await handleCenter("n1", "in"))).toBe("n1:in");
+  expect(await attr(page, "data-edges")).toBe(String(edges));
+  expect(await attr(page, "data-last-edge")).toBe("");
+  expect(await attr(page, "data-last-attempt")).toBe("n0:out > n1:in");
+
+  // A pair that is not already an edge goes through, and the indicator clears.
+  expect(await dragTo(n0out, await handleCenter("n2", "in"))).toBe("n2:in");
+  expect(await attr(page, "data-edges")).toBe(String(edges + 1));
+  expect(await attr(page, "data-last-edge")).toBe("n0:out>n2:in");
+  expect(await attr(page, "data-last-attempt")).toBe("");
+});

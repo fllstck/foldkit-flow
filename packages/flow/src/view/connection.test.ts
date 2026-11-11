@@ -101,8 +101,22 @@ const render = (model: Model) =>
 
 const connectionPath = async (model: Model): Promise<string> => {
   const rendered = await render(model);
-  const match = /fflow__connection[^>]*><path d="([^"]+)"/.exec(rendered.html);
+  const match = /fflow__connection[^>]*>.*?<path d="([^"]+)"/.exec(
+    rendered.html,
+  );
   if (match === null) throw new Error("no connection path rendered");
+  return match[1] ?? "";
+};
+
+/** The transform the preview's `<g>` carries, which is what puts flow-space
+ *  geometry on screen: the layer is a sibling of `.fflow__viewport`, so nothing
+ *  else transforms it (Playwright proof 32). */
+const connectionTransform = async (model: Model): Promise<string> => {
+  const rendered = await render(model);
+  const match = /fflow__connection[^>]*>.*?<g transform="([^"]+)"/.exec(
+    rendered.html,
+  );
+  if (match === null) throw new Error("no connection transform rendered");
   return match[1] ?? "";
 };
 
@@ -174,5 +188,21 @@ describe("connection preview", () => {
   test("no connection line while the gesture is idle", async () => {
     const rendered = await render({ ...init().model, handleBounds });
     expect(rendered.html).not.toContain("fflow__connection");
+  });
+
+  test("the preview carries the viewport transform, so flow space is on screen", async () => {
+    // `render` uses a Model whose viewport is the default (0, 0, 1) unless a
+    // test sets one, so the transform of the demo's own viewport is what has to
+    // appear here — a preview drawn at raw flow coordinates is the bug this
+    // pins.
+    const panned: Model = {
+      ...connecting("out-a"),
+      viewport: { x: -120, y: 200, zoom: 1.5 },
+    };
+    expect(await connectionTransform(panned)).toBe(
+      // Unitless on purpose: this is an SVG `transform` attribute, and the
+      // `px` form is ignored there (which is the bug proof 32 pins).
+      "translate(-120, 200) scale(1.5)",
+    );
   });
 });

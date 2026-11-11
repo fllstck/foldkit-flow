@@ -107,7 +107,7 @@ export {
 export { isDeleteKeyAllowed, isEditableTarget } from "./runtime/domTarget.js";
 export { MeasureHandles, Remeasure, SyncViewport } from "./runtime/command.js";
 export { MountNode } from "./runtime/mountNode.js";
-export { MountPane, transformOf } from "./runtime/mountPane.js";
+export { MountPane, svgTransformOf, transformOf } from "./runtime/mountPane.js";
 export { measureHandleBounds } from "./runtime/measure.js";
 export { subscriptions } from "./runtime/subscriptions.js";
 export { createViewportThrottle } from "./runtime/viewportThrottle.js";

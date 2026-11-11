@@ -42,7 +42,11 @@ import {
   isNodeTarget,
 } from "../runtime/domTarget.js";
 import { MountNode } from "../runtime/mountNode.js";
-import { MountPane, transformOf } from "../runtime/mountPane.js";
+import {
+  MountPane,
+  svgTransformOf,
+  transformOf,
+} from "../runtime/mountPane.js";
 import { backgroundView } from "./background.js";
 import type { BackgroundConfig } from "./background.js";
 import * as classes from "./classes.js";
@@ -357,6 +361,18 @@ export const createRenderer = <NodeData = unknown, EdgeData = unknown>(
         position: pointerHandlePosition(start, current),
       }));
 
+    /**
+     * The preview is geometry in flow space — the anchors and the pointer are both
+     * flow points — but this layer is a sibling of `.fflow__viewport`, not a child
+     * of it, so the transform has to be applied here. Without the `<g>` the line
+     * is drawn at raw flow coordinates and lands wherever the viewport has been
+     * panned or zoomed away from, which at the demo's `y: 200` is two hundred
+     * pixels above the pointer (Playwright proof 32).
+     *
+     * `non-scaling-stroke` on `.fflow__edge-path` keeps the stroke 1.5px through
+     * the scale, so the preview looks the same at every zoom, as the committed
+     * edges do.
+     */
     const connectionLine = (
       kind: EdgePathKind,
       source: EdgeAnchor,
@@ -378,12 +394,17 @@ export const createRenderer = <NodeData = unknown, EdgeData = unknown>(
           h.Attribute("aria-hidden", "true"),
         ],
         [
-          h.path(
+          h.g(
+            [h.Attribute("transform", svgTransformOf(model.viewport))],
             [
-              h.Attribute("d", edgePath(kind, pathInput(source, target)).d),
-              h.Class(classes.EdgePath),
+              h.path(
+                [
+                  h.Attribute("d", edgePath(kind, pathInput(source, target)).d),
+                  h.Class(classes.EdgePath),
+                ],
+                [],
+              ),
             ],
-            [],
           ),
         ],
       );

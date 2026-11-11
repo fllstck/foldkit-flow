@@ -57,6 +57,11 @@ export const Model = Schema.Struct({
   // last connection fact, without the proof having to read the whole graph.
   lastEdge: Schema.String,
   lastReconnect: Schema.String,
+  // The connection or reconnect candidate the pointer was last over, as
+  // `n0:out > n1:in`. The fixture already connects every neighbour, so a
+  // rejected duplicate has to be visible: `isValidConnection` drops it and the
+  // library emits nothing, which reads as "connecting is broken".
+  lastAttempt: Schema.String,
   stats: Stats,
 });
 export type Model = typeof Model.Type;
@@ -123,6 +128,7 @@ export const init = (): Init => ({
     isFlowMounted: true,
     lastEdge: "",
     lastReconnect: "",
+    lastAttempt: "",
     stats: initialStats,
   },
 });
@@ -360,14 +366,30 @@ const withFlowCommand = (
 export const update = (model: Model, message: Message): UpdateReturn =>
   Message.match<UpdateReturn>(message, {
     GotFlowMessage: ({ message: flowMessage }) => {
-      const result = foldFlow(contextFrom(model))(model, flowMessage);
-      return {
-        model: {
-          ...result.model,
-          stats: countMessage(model.stats, flowMessage),
-        },
-        commands: result.commands ?? [],
+      // Armed from the gesture *before* the message is folded, so the indicator
+      // shows what the pointer was over while it is over it. A successful
+      // connection clears it below, by observing the fact the fold produced:
+      // the library emits nothing on a rejected release, so "no new edge" is
+      // the only signal there is.
+      const attempt = attemptLabel(model.flow.gesture);
+      const seeded: Model =
+        attempt === "" || attempt === model.lastAttempt
+          ? model
+          : { ...model, lastAttempt: attempt };
+
+      const result = foldFlow(contextFrom(seeded))(seeded, flowMessage);
+      const connected =
+        result.model.graph.edges.length !== seeded.graph.edges.length ||
+        result.model.lastReconnect !== seeded.lastReconnect;
+
+      const folded: Model = {
+        ...result.model,
+        stats: countMessage(model.stats, flowMessage),
       };
+      // The Model is readonly: a success is a new object, not a mutation.
+      const next: Model = connected ? { ...folded, lastAttempt: "" } : folded;
+
+      return { model: next, commands: result.commands ?? [] };
     },
     ClickedRerender: () => ({
       model: modifyFields(
@@ -459,6 +481,26 @@ const gestureTarget = (gesture: Flow.ModelType["gesture"]): string =>
     ),
     () => "",
   );
+
+/** The hovered connection candidate as `from > to`, or `""` when the pointer is
+ *  not over a handle. Read from the gesture, so it needs no Model state of its
+ *  own — only the demo's "what did I just try" indicator. */
+const attemptLabel = (gesture: Flow.ModelType["gesture"]): string => {
+  const target = hoveredHandle(gesture);
+  if (Option.isNone(target)) return "";
+
+  const handleLabel = (handle: Flow.HandleRef): string =>
+    `${handle.nodeId}:${Option.getOrElse(handle.handleId, () => "")}`;
+  const to = handleLabel(target.value);
+
+  if (Flow.Gesture.guards.Connecting(gesture)) {
+    return `${handleLabel(gesture.from)} > ${to}`;
+  }
+  if (Flow.Gesture.guards.Reconnecting(gesture)) {
+    return `${gesture.edgeId}:${gesture.end} > ${to}`;
+  }
+  return "";
+};
 
 const nodesOf = (model: Model): ReadonlyArray<FlowNode<{ label: string }>> =>
   model.graph.nodes;
@@ -561,6 +603,7 @@ export const view = (model: Model, h: HtmlBuilder<Message>): Document => {
         h.DataAttribute("edges", String(model.graph.edges.length)),
         h.DataAttribute("last-edge", model.lastEdge),
         h.DataAttribute("last-reconnect", model.lastReconnect),
+        h.DataAttribute("last-attempt", model.lastAttempt),
         h.DataAttribute("connection-target", gestureTarget(flow.gesture)),
         h.DataAttribute("selected-nodes", flow.selectedNodeIds.join(",")),
         h.DataAttribute("selected-edges", flow.selectedEdgeIds.join(",")),
@@ -582,6 +625,11 @@ export const view = (model: Model, h: HtmlBuilder<Message>): Document => {
                 stat(h, "syncs", model.stats.syncs),
                 stat(h, "selected", flow.selectedNodeIds.length),
                 stat(h, "edges", model.graph.edges.length),
+                stat(
+                  h,
+                  "attempt",
+                  model.lastAttempt === "" ? "—" : model.lastAttempt,
+                ),
                 // No `renderer.cacheSize()` here on purpose: it reads mutable
                 // renderer state during `view`, so the dev server's reused SSR
                 // renderer renders a populated count while the client's first
