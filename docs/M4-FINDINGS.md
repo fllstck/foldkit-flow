@@ -282,23 +282,27 @@ commit that carries this file (`results/benchmark.json`,
 | Leg                   | drag (median / p95 / longest) | pan (median / p95 / longest) | long frames |
 | --------------------- | ----------------------------- | ---------------------------- | ----------- |
 | 625, React Flow       | 0 (not verified, M1 §10)      | 16.7 / 16.8 / 33.3           | 0           |
-| 625, Svelte Flow      | 16.7 / 16.8 / 33.3            | 16.7 / 16.7 / 16.8           | 0           |
-| 625, Foldkit          | 16.7 / 16.8 / 16.8            | 16.7 / 16.8 / 33.4           | 0           |
-| 1k culled             | 16.7 / 16.7 / 33.4            | 16.7 / 16.8 / 50.0           | 0           |
-| 1k culled + M3 chrome | 16.7 / 16.7 / 16.8            | 16.7 / 16.7 / 33.4           | 0           |
+| 625, Svelte Flow      | 16.7 / 16.8 / 16.8            | 16.7 / 16.7 / 16.8           | 0           |
+| 625, Foldkit          | 16.7 / 16.7 / 16.8            | 16.7 / 16.8 / 33.4           | 0           |
+| 1k culled             | 16.7 / 16.7 / 16.8            | 16.7 / 16.8 / 50.1           | 1 (pan)     |
+| 1k culled + M3 chrome | 16.7 / 16.8 / 33.4            | 16.7 / 16.8 / 33.4           | 0           |
 
-Parity with React Flow on pan holds at 625 (16.7/16.8 both). The 1k legs are inside
-the 33 ms p95 gate with zero long frames, and the 50 ms outlier is a single frame
-in one leg — inside §4.5's "long frames bounded at 2% of recorded frames" and
-consistent with the machinery M3 §5.1 describes.
+Parity with React Flow on pan holds at 625 (median and p95 identical). Both 1k legs
+are inside the 33 ms p95 gate. One long frame appeared in the 1k bare leg on this
+run — 50.1 ms, 1 of 591 recorded pan frames, 0.17% — inside §4.5's "long frames
+bounded at 2% of recorded frames" and consistent with the machinery M3 §5.1
+describes; the run before recorded none there, with 50.0 as its longest, so this is
+the distribution rather than a regression.
 
 The per-dispatch cost went up slightly and is recorded rather than hidden:
-`updatePerDispatchMs` is 0.0014 at 625 and 0.0023 at 1k (M3 recorded 0.0019–0.0027
-across its three legs), which is the `visibleIds`/`shiftById`/`positions` work a
-render does per frame now that positions can be relative.
+`updatePerDispatchMs` is 0.0019 at both 1k legs and 0.0041 at 625 on this run
+(M3 recorded 0.0019–0.0027 across its legs; the 625 figure moves the most from run
+to run). The new per-frame work is `visibleIds`/`shiftById`/`positions`, which a
+render does now that a position can be relative.
 
-**The culling scan is the number to watch.** `cullScanMs` is 6.16 at 1k and 2.80
-at 625 (M3 recorded 2.55 and 5.72–5.81) — per scan, not per node. It is O(N) per scan times an O(measured) size
+**The culling scan is the number to watch.** `cullScanMs` is 6.78 (1k bare) and
+6.21 (1k with chrome) and 2.81 at 625 (M3 recorded 2.55 and 5.72–5.81) — per
+scan, not per node. It is O(N) per scan times an O(measured) size
 lookup inside `nodeSizeOf`, so at 1k a scan costs about a third of a 16.7 ms frame.
 M4 does not fix it (the gate passes with zero long frames, and the fix is a
 measured change that deserves its own before/after); it is named here as the first
@@ -313,14 +317,15 @@ each, warm-up discarded (`results/hidden-10k.json`):
 | Metric                     | Value                     |
 | -------------------------- | ------------------------- |
 | rendered nodes             | 200 (of 10,000)           |
-| pan frames                 | 246                       |
-| pan median / p95 / longest | 16.7 / 16.8 / 16.8 ms     |
+| pan frames                 | 248                       |
+| pan median / p95 / longest | 16.7 / 16.7 / 33.4 ms     |
 | long frames (> 50 ms)      | 0                         |
-| cull scan per call         | 3.04 ms over 10,000 nodes |
+| cull scan per call         | 3.13 ms over 10,000 nodes |
 
 So the escape hatch works: a 10k graph whose bulk is collapsed pans at the frame
 rate, with 200 nodes in the DOM. The number that scales with the model rather than
-with the view is the culling scan (3 ms), and it is a scan of 10k _hidden_ nodes
+with the view is the culling scan (3.13 ms), and it is a scan of 10k _hidden_
+nodes
 paying a set lookup each — which is the cheap half of `visibleNodes`. An expanded
 10k graph would pay the rect test and the size lookup for all of them, which §6
 says is where the ceiling is.
