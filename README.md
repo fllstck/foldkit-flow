@@ -4,7 +4,11 @@ A flow / node-graph canvas for [Foldkit](https://foldkit.dev), in the spirit of
 React Flow and Svelte Flow — but Foldkit-native: one Model, pure `update`, every
 effect at a named seam.
 
-**Status: M4 complete — v1.0.** The plan is at revision 7. M4 added the graph
+**Status: M4 complete — v1.0; M5 next.** M5's starting state is
+**[docs/M5-HANDOFF.md](docs/M5-HANDOFF.md)**: hardening and publishing (the
+culling-scan index, the 1k/10k numbers, the pan-stall question, the fixture gallery,
+package docs, an example page), and the M6 research milestone the plan carries after
+it. The plan is at revision 7. M4 added the graph
 features on top of M3's chrome and accessibility layer: parent/child sub-flows, the
 `hidden` collapse, node resizing, the snap grid, `fitView` options, edge markers and
 labels, and minimap click-to-centre. The gate is still green: 625 nodes at parity
@@ -53,9 +57,13 @@ and the retracted measurements are in
 - **[docs/M3-FINDINGS.md](docs/M3-FINDINGS.md)** — what M3 shipped, the stacking
   bug its own CSS introduced, the a11y contract, and the gate numbers with chrome
   on.
-- **[docs/M4-HANDOFF.md](docs/M4-HANDOFF.md)** — what M4 inherits, the graph-feature
+- **[docs/M4-HANDOFF.md](docs/M4-HANDOFF.md)** — what M4 inherited, the graph-feature
   scope (sub-flows, resizing, snap, fitView options, edge types, `hidden`
   collapsing), and the traps M3's follow-ups cost.
+- **[docs/M5-HANDOFF.md](docs/M5-HANDOFF.md)** — what M5 inherits, the hardening and
+  publishing scope (index the culling scan, publish the 1k/10k numbers, settle the
+  pan stall, the fixture gallery, package docs, the example page), and the M6 list
+  it must not pre-empt.
 
 Decisions locked: package `@fllstck/foldkit-flow`; MIT; our own CSS and visual
 identity (no upstream stylesheet, no attribution component); Foldkit-native API
