@@ -424,3 +424,32 @@ function". `pnpm typecheck` named both sites immediately. The fast loop for a
 Message change therefore starts with `pnpm typecheck`, not with `pnpm build` — the
 `dist` only matters for the example and benchmark typechecks, which are the same
 command.
+
+## 9. Response to `docs/M3-REVIEW-2.md`
+
+No findings in the second pass. Both first-pass items are confirmed fixed, and the
+review's own validation (`pnpm check` with 184 unit tests, 32/32 Playwright) matches
+this document's table.
+
+Two record-keeping notes, since the difference matters if someone reads the reviews
+in order:
+
+- **The description memo needed no code change for the first finding.** The review
+  describes `accessibleNameOf` as "now created once per renderer rather than once
+  per `view()` call"; it was already in the `createRenderer` closure in `69a630e`,
+  the commit that added it (`view.ts:245`, above `view` at line 248). What §8.1
+  added was the measurement and the regression test, not a fix. The memo was
+  behaving as claimed before the first review; the review's premise was wrong, not
+  the code.
+- **`packages/benchmark/results/benchmark.json` in this commit is the reviewer's
+  validation run** of the same code, not a new measurement on my side: the diff is
+  the 625 comparison's frame counts and longest frames (foldkit drag
+  16.7/16.7/33.3 → 16.7/16.8/16.8, Svelte pan longest 16.8, and the per-dispatch
+  and cull-scan figures), all inside the run-to-run noise the §5 table already
+  records. The 1k legs are unchanged in kind and remain in the git-ignored
+  `benchmark-1k*.json`.
+
+The review's note about a chrome-only run failing on a preview-server/port
+collision before the first test is the M1 finding §11 class of problem: a preview
+left running owns port 4173 while `webServer.reuseExistingServer` is true, so
+`pkill -f vite` before a suite run is still the documented first step.
