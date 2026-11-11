@@ -11,7 +11,7 @@ Verification at the end of M1 (all read from a real run, not assumed):
 | `pnpm check`                                   | typecheck, Enfect lint, Prettier, **75** Vitest tests green |
 | `pnpm build`                                   | flow → example → benchmark                                  |
 | `packages/benchmark/tests/proofs.spec.ts`      | 4 passed (M0 proofs, unchanged)                             |
-| `packages/benchmark/tests/interaction.spec.ts` | 8 passed, 5.3 s (M1 proofs 8–15)                            |
+| `packages/benchmark/tests/interaction.spec.ts` | 8 passed, 5.3 s (M1 proofs 8–15), 9 with proof 16           |
 | `packages/benchmark/tests/bench.spec.ts`       | 2 passed, ~1 m 35 s (625 comparison + 1k gate at 23 s)      |
 
 ## 1. Gate results
@@ -21,12 +21,18 @@ protocol from M0 (`packages/benchmark/results/benchmark.json`):
 
 | Library | drag median | drag p95 | drag >50 ms | pan median | pan p95 | pan >50 ms |
 | ------- | ----------- | -------- | ----------- | ---------- | ------- | ---------- |
-| React   | 16.7        | 16.8     | 0           | 16.7       | 16.7    | 0          |
-| Svelte  | 16.7        | 16.8     | 0           | 16.7       | 16.7    | 0          |
-| Foldkit | 16.7        | 16.8     | 0           | 16.7       | 16.8    | 0          |
+| React   | 16.7        | 16.7     | 0           | 16.7       | 16.7    | 0          |
+| Svelte  | 16.7        | 16.8     | 0           | 16.7       | 16.8    | 0          |
+| Foldkit | 16.7        | 16.8     | 0           | 16.7       | 16.7    | 0          |
 
 1k nodes, culling on, zoom 1 (`packages/benchmark/results/benchmark-1k.json`):
-drag p95 16.8 ms, pan p95 16.7 ms, no frame over 50 ms. Gate was p95 < 33 ms.
+drag p95 16.8 ms, pan p95 16.8 ms, no frame over 50 ms. Gate was p95 < 33 ms.
+
+Both tables are from the run that follows §9's harness fix. The pan leg had been
+pressing a point that is inside a node on the 1k fixture, so it recorded idle
+frames — the earlier "1k pan p95 16.7 ms" measured nothing. With the pan actually
+panning (`cullScanSamples: 21` per run proves viewport frames arrived) the 1k pan
+p95 is 16.8 ms, and parity at 625 is unchanged.
 
 Extra columns §4.5 asks for, both fixtures:
 
@@ -209,6 +215,7 @@ Beyond §3.3/§3.4:
 | cache hit/miss/sweep/dispose         | `src/view/cache.test.ts` (two passes inside one runtime frame)         |
 | propagation (§4.6)                   | `src/view/propagation.test.ts` (Scene, jsdom)                          |
 | pointer layer, remeasure, ShadowRoot | `tests/interaction.spec.ts` (Playwright proofs 8–15)                   |
+| a node press never pans the pane     | Playwright proof 16, `src/view/render.test.ts` (the class)             |
 | frame gate                           | `tests/bench.spec.ts`                                                  |
 
 `jsdom` is a dev dependency solely for Scene: its `pointerDown` builds a detached
@@ -321,10 +328,9 @@ calls use 20 s. The suite's cost is now dominated by what it actually does: 33
 cold page loads of the 625-node fixture (11 per library, warm-up discarded) plus
 11 of the 1k fixture, which is the §4.5 protocol.
 
-The browser suite is 14 tests in 1 m 41 s: 12 proof tests — 4 M0
-(`proofs.spec.ts`: proofs 2, 3, 3b, 4) plus 8 M1 (`interaction.spec.ts`: proofs
-8–15) — and 2 gate tests (`bench.spec.ts`: the 625 comparison and the 1k culled
-gate). Vitest adds 88 more, including the render-level cases Playwright cannot
+The browser suite is 15 tests: 13 proof tests — 4 M0 (`proofs.spec.ts`: proofs 2,
+3, 3b, 4) plus 9 M1 (`interaction.spec.ts`: proofs 8–16) — and 2 gate tests
+(`bench.spec.ts`: the 625 comparison and the 1k culled gate). Vitest adds 88 more, including the render-level cases Playwright cannot
 reach (`view/connection.test.ts`, `view/culling.test.ts`, `view/cache.test.ts`).
 
 ## 7. Response to `docs/M1-REVIEW-2.md`
@@ -335,3 +341,78 @@ No functional finding. The one Low item — stale coverage counts in this docume
 12 proof tests (4 M0 + 8 M1) and 2 gate tests instead of quoting a bare total, so
 the counts cannot drift from the suite again. Every number in this document is
 from a run of the code at the commit that carries it.
+
+## 8. Post-review bug: a node press also panned the pane
+
+Reported after the M1 reviews closed: dragging a node moved the whole viewport
+with it.
+
+**Cause.** `XYPanZoom` is constructed on the pane element, so its d3 filter sees
+`pointerdown` for every press inside the pane — nodes included. The engine's
+only opt-out for that is `noPanClassName`, and `createFilter` tests it with
+`isWrappedWithClass(event, className)` → `event.target.closest('.fflow__nopan')`.
+The renderer never put that class on a node, so a press on a node armed
+`PressedNode` _and_ started a pane pan. Foldkit cannot stop the propagation
+there (`OnPointerDown` has no propagation option), and stopping it would be the
+wrong fix anyway: the filter is an allow-list, not a bubble-phase decision.
+
+**Fix.** The node wrapper's class list carries `classes.NoPan`
+(`fflow__node fflow__nopan`). Because the engine uses `closest`, that one class
+also exempts everything inside the node — handles, `.fflow__nodrag` regions, and
+any consumer control — so a handle press or a control press can no longer pan
+either. Wheel zoom is unaffected: the filter's `noPan` branch only rejects press
+and scroll events, and `.fflow__nowheel` remains the wheel opt-out. `mountPane`
+now passes `classes.NoPan` / `classes.NoWheel` instead of repeating the literals,
+so `view/classes.ts` is the only place the contract is spelled out.
+
+**Proof.** `tests/interaction.spec.ts` proof 16 presses a node, moves the pointer
+56×40 px, asserts the viewport transform is byte-identical and the node's overlay
+transform changed, then drags an empty corner of the pane and asserts the
+viewport _did_ move (so the fix cannot regress panning). Before the fix the same
+test reads
+`Expected: "translate(20px, 30px) scale(0.9)" / Received: "translate(76px, 70px) scale(0.9)"`
+— the viewport travelling with the pointer, exactly as reported.
+`src/view/render.test.ts` asserts the class on the wrapper, so the DOM contract
+is pinned without a browser.
+
+**What the fix exposed.** M0's pointer-pan proof (3b) started its pan 80 px from
+the pane's bottom-right corner — a point inside a node. It passed for the wrong
+reason: the old behaviour panned _and_ armed a node drag, so the pan it wanted
+came from a press that should never have panned. It now pans from the fixture's
+gap between node boxes (flow `170, 60`) and asserts `data-gesture` stayed `Idle`,
+which is the same fact from the other side: empty pane pans, a node does not.
+
+## 9. The pan leg of the benchmark was measuring an idle page
+
+Found while fixing §8: the harness's pan gesture pressed
+`pane.bottomRight − 60`. On the 625 fixture that point is empty pane, but on the
+1k fixture at zoom 1 it is inside a node (x 1200 is within column 6,
+y 810 within row 9). Once nodes carry `.fflow__nopan`, that press is a node drag,
+so the "pan" recorded ~0 viewport frames and reported 16.7 ms — an idle page
+scoring perfectly. The tell was `cullScanSamples: 0` in the flow metrics: a
+culling sample is taken on every `MovedViewport`, so zero samples means the pan
+never happened.
+
+Fix, in `tests/bench.spec.ts`:
+
+- Every library declares its pan point (`panPoint: (paneBox) => point`), with the
+  reason inline: the 625 pages keep the empty corner; the 1k page pans from flow
+  `(170, 60)`, the fixture's gap between node boxes at zoom 1.
+- `panPane` reads the library's viewport transform before and after the gesture
+  and **throws if it did not move**. A stale point now fails the run instead of
+  silently flattering it. The 1k gate also asserts `cullScanSamples > 0`
+  implicitly through the same mechanism (`flow.cullScanSamples: 21`).
+- The drag leg now runs _after_ the pan leg, because the drag moves a node in all
+  three libraries and could otherwise land it on the pan point.
+- Library descriptors gained `viewport` (the transformed content element:
+  `.react-flow__viewport`, `.svelte-flow__viewport`, `[data-fflow-viewport]`), so
+  the check is library-agnostic.
+
+Probing for a pan point was tried first and rejected: a probe pan moves the
+content, and at fitView zoom (0.22) one node pitch is ~42 px, smaller than the
+probe, so a point that pans once can sit over a node immediately afterwards. An
+explicit, verified point is both simpler and stable.
+
+This is the second silent-invalid-measurement bug in the harness found this way
+(the first was `waitForFunction` having no timeout, §6.4). Both shared a shape: a
+scripted gesture whose failure looked like a fast frame time.

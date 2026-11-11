@@ -9,6 +9,7 @@ import type {
   ResizedPane,
 } from "../message.js";
 import type { Viewport } from "../model.js";
+import * as classes from "../view/classes.js";
 import {
   createPanZoom,
   infiniteExtent,
@@ -29,8 +30,8 @@ const writeTransform = (element: HTMLElement, viewport: Viewport): void => {
 };
 
 const panZoomUpdate: PanZoomUpdate = {
-  noWheelClassName: "fflow__nowheel",
-  noPanClassName: "fflow__nopan",
+  noWheelClassName: classes.NoWheel,
+  noPanClassName: classes.NoPan,
   preventScrolling: true,
   panOnScroll: false,
   panOnDrag: true,

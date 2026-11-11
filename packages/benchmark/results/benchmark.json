@@ -9,58 +9,58 @@
   "libraries": {
     "react": {
       "drag": {
-        "count": 417,
+        "count": 403,
         "median": 16.7,
         "p95": 16.7,
         "longest": 16.8,
         "longFrames": 0
       },
       "pan": {
-        "count": 409,
+        "count": 494,
         "median": 16.7,
-        "p95": 16.8,
+        "p95": 16.7,
         "longest": 16.8,
         "longFrames": 0
       }
     },
     "svelte": {
       "drag": {
-        "count": 416,
+        "count": 405,
+        "median": 16.7,
+        "p95": 16.8,
+        "longest": 16.8,
+        "longFrames": 0
+      },
+      "pan": {
+        "count": 500,
+        "median": 16.7,
+        "p95": 16.7,
+        "longest": 33.4,
+        "longFrames": 0
+      }
+    },
+    "foldkit": {
+      "drag": {
+        "count": 403,
         "median": 16.7,
         "p95": 16.7,
         "longest": 16.8,
         "longFrames": 0
       },
       "pan": {
-        "count": 403,
+        "count": 499,
         "median": 16.7,
-        "p95": 16.8,
-        "longest": 16.8,
-        "longFrames": 0
-      }
-    },
-    "foldkit": {
-      "drag": {
-        "count": 427,
-        "median": 16.7,
-        "p95": 16.8,
-        "longest": 16.8,
-        "longFrames": 0
-      },
-      "pan": {
-        "count": 400,
-        "median": 16.7,
-        "p95": 16.8,
-        "longest": 16.8,
+        "p95": 16.7,
+        "longest": 33.4,
         "longFrames": 0
       }
     }
   },
   "flow": {
-    "updates": 1923,
-    "updateTotalMs": 4.7,
-    "updatePerDispatchMs": 0.0024,
-    "cullScanMs": 4.816,
-    "cullScanSamples": 41
+    "updates": 1900,
+    "updateTotalMs": 2.2,
+    "updatePerDispatchMs": 0.0012,
+    "cullScanMs": 2.246,
+    "cullScanSamples": 21
   }
 }

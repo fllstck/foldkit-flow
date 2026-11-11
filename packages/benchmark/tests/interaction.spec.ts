@@ -380,3 +380,55 @@ test("proof 15: culling renders only the viewport and still drags", async ({
   await page.mouse.up();
   await page.waitForTimeout(100);
 });
+
+test("proof 16: dragging a node does not pan the pane", async ({ page }) => {
+  await page.goto(DEMO);
+  await waitForMount(page);
+
+  const viewportTransform = () =>
+    page
+      .locator("[data-fflow-viewport]")
+      .getAttribute("style")
+      .then(
+        (style) =>
+          /translate\([^)]*\)\s*scale\([^)]*\)/.exec(style ?? "")?.[0] ?? "",
+      );
+
+  const before = await viewportTransform();
+  const nodeBefore = await nodeTranslate(page, "n0");
+  const { x, y } = await nodeCenter(page, "n0");
+
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  for (let step = 1; step <= 8; step += 1) {
+    await page.mouse.move(x + step * 7, y + step * 5);
+    await page.waitForTimeout(16);
+  }
+
+  // The press is a node drag, not a pane pan: the viewport transform is
+  // untouched while the node's overlay follows the pointer.
+  expect(await viewportTransform()).toBe(before);
+  expect(await nodeTranslate(page, "n0")).not.toBe(nodeBefore);
+  expect(await attr(page, "data-gesture")).toBe("DraggingNodes");
+
+  await page.mouse.up();
+  await page.waitForTimeout(100);
+
+  // A drag on empty pane still pans. The top-left corner is outside every node
+  // at this viewport, which matters: a press that lands on a node is a node
+  // drag, and the whole point here is that the pane still pans where it should.
+  const paneBounds = await page.locator(".fflow__pane").first().boundingBox();
+  if (paneBounds === null) throw new Error("pane not found");
+  const px = paneBounds.x + 10;
+  const py = paneBounds.y + 10;
+  await page.mouse.move(px, py);
+  await page.mouse.down();
+  for (let step = 1; step <= 6; step += 1) {
+    await page.mouse.move(px + step * 10, py + step * 6);
+    await page.waitForTimeout(16);
+  }
+  await page.mouse.up();
+  await page.waitForTimeout(200);
+
+  expect(await viewportTransform()).not.toBe(before);
+});

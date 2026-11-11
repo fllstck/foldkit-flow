@@ -269,8 +269,12 @@ test("proof 3b: a pointer pan commits the terminal viewport to the Model", async
   const pane = page.locator(".fflow__pane");
   const box = await pane.boundingBox();
   if (box === null) throw new Error("pane not found");
-  const x = box.x + box.width - 80;
-  const y = box.y + box.height - 80;
+
+  // The pan has to start on empty pane. A press that lands on a node is a node
+  // drag (nodes carry `.fflow__nopan`), so this point sits in the fixture's gap
+  // between node boxes: flow (170, 60), with the initial viewport 20/30 @ 0.9.
+  const x = box.x + 20 + 170 * 0.9;
+  const y = box.y + 30 + 60 * 0.9;
 
   await page.mouse.move(x, y);
   await page.mouse.down();
@@ -278,6 +282,8 @@ test("proof 3b: a pointer pan commits the terminal viewport to the Model", async
     await page.mouse.move(x - step * 8, y - step * 4);
     await page.waitForTimeout(16);
   }
+  // Nothing was armed: this was a pane press, not a node press.
+  expect(await attr(page, "data-gesture")).toBe("Idle");
   await page.mouse.up();
   await page.waitForTimeout(400);
 

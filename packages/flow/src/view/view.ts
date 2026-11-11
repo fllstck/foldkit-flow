@@ -328,6 +328,11 @@ export const createRenderer = <NodeData = unknown, EdgeData = unknown>(
             h.Class(
               [
                 classes.Node,
+                // The pane's d3 filter checks `noPanClassName` with
+                // `target.closest`, so this exempts the node and everything
+                // inside it (handles, controls). Without it a node press also
+                // starts a pane pan and the viewport travels with the node.
+                classes.NoPan,
                 isSelected ? classes.IsSelected : "",
                 isDragging ? classes.IsDragging : "",
               ]

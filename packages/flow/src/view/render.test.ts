@@ -76,6 +76,13 @@ describe("static render (proof 1)", () => {
     expect(rendered.html).toContain('d="M50,40 C50,80 250,80 250,120"');
   });
 
+  test("the node wrapper opts out of pane panning", async () => {
+    // `.fflow__nopan` is what the pane's d3 filter checks with
+    // `target.closest`: without it a node press also starts a pane pan.
+    const rendered = await render();
+    expect(rendered.html).toContain('class="fflow__node fflow__nopan"');
+  });
+
   test("every node renders as a positioned div", async () => {
     const rendered = await render();
     expect(rendered.html).toContain('data-nodeid="a"');

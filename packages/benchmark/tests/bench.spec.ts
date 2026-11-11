@@ -18,18 +18,40 @@ type Stats = {
   longFrames: number;
 };
 
-const libraries: ReadonlyArray<{
+type Box = Readonly<{ x: number; y: number; width: number; height: number }>;
+
+type Library = Readonly<{
   name: LibraryName;
   path: string;
   pane: string;
   node: string;
+  /** The library's transformed content element; its `style` proves a pan moved. */
+  viewport: string;
+  /** Where the pan gesture starts, in page coordinates.
+   *
+   *  It has to be empty pane: a press on a node is a node drag in every one of
+   *  these libraries, and the recorded "pan" frames would then be idle frames.
+   *  It is declared rather than probed because probing pans the content, which
+   *  at fitView zoom moves a different node under the point — and `panPane`
+   *  asserts the pan moved, so a stale point fails the run instead of quietly
+   *  flattering the numbers. */
+  panPoint: (box: Box) => { x: number; y: number };
   ready: string;
-}> = [
+}>;
+
+const cornerPan = (box: Box) => ({
+  x: box.x + box.width - 60,
+  y: box.y + box.height - 60,
+});
+
+const libraries: ReadonlyArray<Library> = [
   {
     name: "react",
     path: "/react.html",
     pane: ".react-flow__pane",
     node: '[data-id="n0"]',
+    viewport: ".react-flow__viewport",
+    panPoint: cornerPan,
     ready: '[data-bench-ready="true"]',
   },
   {
@@ -37,6 +59,8 @@ const libraries: ReadonlyArray<{
     path: "/svelte.html",
     pane: ".svelte-flow__pane",
     node: '[data-id="n0"]',
+    viewport: ".svelte-flow__viewport",
+    panPoint: cornerPan,
     ready: '[data-bench-ready="true"]',
   },
   {
@@ -44,6 +68,8 @@ const libraries: ReadonlyArray<{
     path: "/foldkit.html",
     pane: ".fflow__pane",
     node: '[data-nodeid="n0"]',
+    viewport: "[data-fflow-viewport]",
+    panPoint: cornerPan,
     ready: '[data-measured="625"]',
   },
 ];
@@ -136,37 +162,46 @@ const dragNode = async (page: Page, nodeSelector: string) => {
   await page.mouse.up();
 };
 
-const panPane = async (page: Page, paneSelector: string) => {
-  const pane = page.locator(paneSelector).first();
-  const box = await pane.boundingBox();
-  if (box === null) throw new Error(`pane not found: ${paneSelector}`);
+const viewportTransform = (page: Page, viewportSelector: string) =>
+  page.locator(viewportSelector).first().getAttribute("style");
 
-  const x = box.x + box.width - 60;
-  const y = box.y + box.height - 60;
-  await page.mouse.move(x, y);
+const panPane = async (page: Page, library: Library) => {
+  const box = await page.locator(library.pane).first().boundingBox();
+  if (box === null) throw new Error(`pane not found: ${library.pane}`);
+  const point = library.panPoint(box);
+  const before = await viewportTransform(page, library.viewport);
+
+  await page.mouse.move(point.x, point.y);
   await page.mouse.down();
   for (let step = 1; step <= 20; step += 1) {
-    await page.mouse.move(x - step * 5, y - step * 2);
+    await page.mouse.move(point.x - step * 5, point.y - step * 2);
     await page.waitForTimeout(16);
   }
   await page.mouse.up();
+  await page.waitForTimeout(120);
+
+  // Idle frames would silently flatter the numbers; fail instead.
+  if ((await viewportTransform(page, library.viewport)) === before) {
+    throw new Error(
+      `the scripted pan did not move ${library.viewport} (pressed ${library.pane})`,
+    );
+  }
 };
 
 const waitForReady = async (page: Page, ready: string) => {
-  await page.waitForSelector(ready, { timeout: 60_000 });
+  await page.waitForSelector(ready, { timeout: 20_000 });
   await page.waitForTimeout(500);
 };
 
-const runOnce = async (
-  page: Page,
-  library: (typeof libraries)[number],
-): Promise<Sample> => {
-  await start(page, "drag");
-  await dragNode(page, library.node);
+const runOnce = async (page: Page, library: Library): Promise<Sample> => {
+  // Pan first: the drag leg moves a node in every one of these libraries, and
+  // the resolved pan point must still be empty pane when the pan press lands.
+  await start(page, "pan");
+  await panPane(page, library);
   await stop(page);
 
-  await start(page, "pan");
-  await panPane(page, library.pane);
+  await start(page, "drag");
+  await dragNode(page, library.node);
   await stop(page);
 
   return readFrames(page);
@@ -258,6 +293,18 @@ test("625-node drag and pan frame times", async ({ browser }) => {
   expect(results.foldkit?.pan.count ?? 0).toBeGreaterThan(0);
 });
 
+const largeLibrary: Library = {
+  name: "foldkit",
+  path: "/large.html",
+  pane: ".fflow__pane",
+  node: '[data-nodeid="n0"]',
+  viewport: "[data-fflow-viewport]",
+  // Zoom 1 puts nodes under the corner; flow (170, 60) is the fixture's gap
+  // between node boxes, with the pane at the page origin and viewport 20/30.
+  panPoint: (box) => ({ x: box.x + 190, y: box.y + 90 }),
+  ready: ".fflow__pane",
+};
+
 test("1000-node culled drag and pan gate", async ({ browser }) => {
   test.setTimeout(600_000);
 
@@ -267,33 +314,19 @@ test("1000-node culled drag and pan gate", async ({ browser }) => {
 
   const open = async () => {
     await page.goto("/large.html");
-    await page.waitForSelector(".fflow__pane", { timeout: 60_000 });
-    await page.waitForSelector('[data-nodeid="n0"]', { timeout: 60_000 });
+    await page.waitForSelector(".fflow__pane", { timeout: 20_000 });
+    await page.waitForSelector('[data-nodeid="n0"]', { timeout: 20_000 });
     await page.waitForTimeout(500);
     await installRecorder(page);
   };
 
   await open();
   // Warm-up, discarded.
-  await runOnce(page, {
-    name: "foldkit",
-    path: "/large.html",
-    pane: ".fflow__pane",
-    node: '[data-nodeid="n0"]',
-    ready: ".fflow__pane",
-  });
+  await runOnce(page, largeLibrary);
 
   for (let run = 0; run < RUNS; run += 1) {
     await open();
-    samples.push(
-      await runOnce(page, {
-        name: "foldkit",
-        path: "/large.html",
-        pane: ".fflow__pane",
-        node: '[data-nodeid="n0"]',
-        ready: ".fflow__pane",
-      }),
-    );
+    samples.push(await runOnce(page, largeLibrary));
   }
 
   const metrics = await readFlowMetrics(page);
