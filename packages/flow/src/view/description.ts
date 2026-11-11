@@ -1,4 +1,4 @@
-import { Array as Arr, Option } from "effect";
+import { Array as Arr } from "effect";
 import type { Html, HtmlBuilder } from "foldkit/html";
 
 import type { FlowEdge, FlowNode } from "../model.js";
@@ -73,20 +73,25 @@ export const describeGraph = <NodeData, EdgeData>(
   );
   const nameOfId = (id: string): string => nameOf.get(id) ?? id;
 
+  /**
+   * One pass per direction instead of an adjacent `filter().map()` pair: the
+   * policy `anti-slop/no-array-filter-map` states, applied by hand because that
+   * rule resolves array types locally and `input.edges` reaches it as a
+   * property of a generic parameter.
+   */
+  const targetsOf = (nodeId: string): ReadonlyArray<string> =>
+    edges.flatMap((edge) =>
+      edge.source === nodeId ? [nameOfId(edge.target)] : [],
+    );
+  const sourcesOf = (nodeId: string): ReadonlyArray<string> =>
+    edges.flatMap((edge) =>
+      edge.target === nodeId ? [nameOfId(edge.source)] : [],
+    );
+
   const listed = nodes.slice(0, descriptionLimits.nodes);
   const sentences = listed.map((node, index) => {
-    const outgoing = edges
-      .filter((edge) => edge.source === node.id)
-      .map((edge) => nameOfId(edge.target));
-    const incoming = edges
-      .filter((edge) => edge.target === node.id)
-      .map((edge) => nameOfId(edge.source));
-
-    const name = Option.getOrElse(
-      Option.fromNullishOr(nameOf.get(node.id)),
-      () => node.id,
-    );
-    return `Node ${index + 1} of ${nodes.length}: ${name}, ${connectionsOf(outgoing, incoming)}.`;
+    const connections = connectionsOf(targetsOf(node.id), sourcesOf(node.id));
+    return `Node ${index + 1} of ${nodes.length}: ${nameOfId(node.id)}, ${connections}.`;
   });
 
   const omitted = nodes.length - listed.length;

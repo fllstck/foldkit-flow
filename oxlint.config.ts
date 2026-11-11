@@ -38,6 +38,11 @@ export default defineConfig({
     "effect/prefer-option-over-null": "off",
     "effect/casting-awareness": "off",
     "effect/no-unsupported-tailwind-spacing": "off",
+    // Native oxc rule, adopted from `dmmulroy/anti-slop`'s recommendation: it
+    // rejects spreading an accumulator inside `reduce` (and the supported loop
+    // shapes), which is the quadratic-copy class `@enfect/oxlint` does not cover.
+    // Zero hits today; it guards the bounds/edges merge paths in `update.ts`.
+    "oxc/no-accumulating-spread": "error",
   },
   overrides: [
     {
