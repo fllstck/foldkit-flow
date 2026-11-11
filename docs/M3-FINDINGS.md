@@ -12,14 +12,14 @@ numbers; every earlier figure in this document is historical and marked as such.
 | Check                                          | Result                                                                |
 | ---------------------------------------------- | --------------------------------------------------------------------- |
 | `pnpm build`                                   | flow → example → benchmark                                            |
-| `pnpm check`                                   | typecheck, Enfect lint, Prettier, **191** Vitest tests green          |
-| `packages/flow` unit tests                     | 191 in 20 files (M2 had 123 in 14)                                    |
-| `packages/benchmark/tests/chrome.spec.ts`      | 16 passed (M3 proofs 22–36)                                           |
+| `pnpm check`                                   | typecheck, Enfect lint, Prettier, **194** Vitest tests green          |
+| `packages/flow` unit tests                     | 194 in 20 files (M2 had 123 in 14)                                    |
+| `packages/benchmark/tests/chrome.spec.ts`      | 17 passed (M3 proofs 22–37)                                           |
 | `packages/benchmark/tests/connection.spec.ts`  | 5 passed (M2 proofs 17–21)                                            |
 | `packages/benchmark/tests/interaction.spec.ts` | 9 passed (M1 proofs 8–16)                                             |
 | `packages/benchmark/tests/proofs.spec.ts`      | 4 passed (M0 proofs 2, 3, 3b, 4)                                      |
 | `packages/benchmark/tests/bench.spec.ts`       | 3 passed (625 comparison, 1k culled gate, 1k culled gate with chrome) |
-| whole Playwright suite                         | 37 tests = 34 proof tests + 3 gate tests, 37 passed in 2.8 min        |
+| whole Playwright suite                         | 38 tests = 35 proof tests + 3 gate tests, 38 passed in 2.7 min        |
 
 `pnpm check` still needs a build first when the public surface changed: the
 example and the benchmark typecheck against the library's `dist/*.d.ts`. That is
@@ -720,3 +720,27 @@ Edge strokes are paint work the previous milestones never measured, so the 1k ga
 was re-run with them visible: drag 16.7/16.8/33.3 and pan 16.7/16.8/33.4 with
 **0 long frames**, and the chrome leg 16.7/16.8/33.4 with 0 — the same
 distribution as before, inside the noise §5 already documents.
+
+## 15. Reported after M3: edges only update when a dragged node is dropped
+
+Correct, and not intended. The drag overlay renders the node at `position + delta`
+while the parent's positions are untouched until release (§4.5), but the edge
+endpoints were computed from the **committed** positions only — so an edge hung at
+the node's old place for the whole gesture and snapped into position on release.
+
+The renderer now applies the same delta to the anchors of edges whose end is on a
+dragged node (`shiftForDrag` in `view.ts`), and only to those ends: an edge between
+two untouched nodes is the memoized geometry unchanged. The cost is nil — the
+`d` strings were already rebuilt per render, and the memoized endpoints are still
+reused as-is, because the shift happens on the way into `edgePath`, not in the memo.
+
+Tests: `src/view/edges.test.ts` (`edge geometry during a node drag`) covers an
+edge following its dragged target, only the attached end moving, and an unrelated
+edge not changing. Playwright proof 37 does it in the browser: the `d` changes
+mid-gesture, and after release the committed path starts within 0.01 of where the
+overlay had it — compared numerically, because the two values come from different
+arithmetic (handle centre plus a delta, then committed position plus handle centre)
+and differ in the last float digits.
+
+The gate is unaffected: the 1k legs are 16.7/16.8 with **0 long frames** in both
+the bare and the chrome page, which is the same distribution as before the change.

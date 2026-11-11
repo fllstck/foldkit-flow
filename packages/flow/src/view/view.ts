@@ -455,6 +455,12 @@ export const createRenderer = <NodeData = unknown, EdgeData = unknown>(
         [],
       );
 
+    /** The live drag offset for one edge end, or the anchor unchanged. */
+    const shiftForDrag = (anchor: EdgeAnchor, nodeId: string): EdgeAnchor =>
+      draggedIds.has(nodeId)
+        ? { ...anchor, x: anchor.x + delta.x, y: anchor.y + delta.y }
+        : anchor;
+
     const edgesView = h.svg(
       [
         h.Class(classes.Edges),
@@ -472,7 +478,17 @@ export const createRenderer = <NodeData = unknown, EdgeData = unknown>(
         const maybeEndpoints =
           endpointsByEdgeId.get(edge.id) ?? Option.none<EdgeEndpoints>();
         if (Option.isNone(maybeEndpoints)) return [];
-        const endpoints = maybeEndpoints.value;
+        const base = maybeEndpoints.value;
+
+        // A node being dragged is drawn at `position + delta`, and the parent's
+        // positions are not touched until release (§4.5). An edge attached to it
+        // has to follow the same overlay or it hangs behind the node for the
+        // length of the gesture. Only the anchors of dragged nodes move, so the
+        // memoized geometry above is still reused as-is.
+        const endpoints: EdgeEndpoints = {
+          source: shiftForDrag(base.source, edge.source),
+          target: shiftForDrag(base.target, edge.target),
+        };
 
         const geometry = edgePath(
           edge.type ?? "Bezier",

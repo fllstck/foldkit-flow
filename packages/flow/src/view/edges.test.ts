@@ -201,3 +201,57 @@ describe("reconnect preview", () => {
     expect(html).not.toContain("fflow__connection");
   });
 });
+
+describe("edge geometry during a node drag", () => {
+  const dragging = (nodeIds: ReadonlyArray<string>, deltaX: number): Model =>
+    model({
+      gesture: Gesture.DraggingNodes({
+        pointer: { pointerId: 1, pointerType: "mouse", button: 0 },
+        nodeIds,
+        origin: { x: 0, y: 0 },
+        delta: { x: deltaX, y: deltaX / 2 },
+        hasMoved: true,
+      }),
+    });
+
+  test("an edge follows the node the overlay is moving", async () => {
+    // The parent's positions are untouched until release (§4.5), so the edge has
+    // to apply the same delta the wrapper applies — otherwise it hangs behind.
+    const html = (await render(dragging(["b"], 40))).html;
+
+    expect(edgePathOf(html)).toBe(
+      edgePath("Bezier", {
+        sourceX: 296,
+        sourceY: 70,
+        sourcePosition: "Right",
+        targetX: 440,
+        targetY: 240,
+        targetPosition: "Left",
+      }).d,
+    );
+  });
+
+  test("only the ends attached to dragged nodes move", async () => {
+    // Dragging `a` moves the source end and leaves the target where it is.
+    const html = (await render(dragging(["a"], 10))).html;
+
+    expect(edgePathOf(html)).toBe(
+      edgePath("Bezier", {
+        sourceX: 306,
+        sourceY: 75,
+        sourcePosition: "Right",
+        targetX: 400,
+        targetY: 220,
+        targetPosition: "Left",
+      }).d,
+    );
+  });
+
+  test("an edge between two untouched nodes is unchanged", async () => {
+    const still = edgePathOf((await render(model())).html);
+    const dragged = edgePathOf(
+      (await render(dragging(["elsewhere"], 40))).html,
+    );
+    expect(dragged).toBe(still);
+  });
+});

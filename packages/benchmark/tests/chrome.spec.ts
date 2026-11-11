@@ -978,3 +978,53 @@ test("proof 36: edges are actually painted", async ({ page }) => {
 
   expect(painted.equals(unpainted)).toBe(false);
 });
+
+test("proof 37: an edge follows its node while it is dragged", async ({
+  page,
+}) => {
+  await page.goto(DEMO);
+  await waitForMount(page);
+
+  const edgePathOf = (edgeId: string) =>
+    page
+      .locator(`.fflow__edge[data-edgeid="${edgeId}"] path`)
+      .getAttribute("d")
+      .then((d) => d ?? "");
+
+  // `e1` is n0 -> n1; n0 is the node the drag below moves.
+  const before = await edgePathOf("e1");
+  expect(before).not.toBe("");
+
+  const centre = await nodeCenter(page, "n0");
+  await page.mouse.move(centre.x, centre.y);
+  await page.mouse.down();
+  for (let step = 1; step <= 8; step += 1) {
+    await page.mouse.move(centre.x + step * 7, centre.y + step * 5);
+    await page.waitForTimeout(16);
+  }
+  expect(await attr(page, "data-gesture")).toBe("DraggingNodes");
+
+  // Mid-gesture: the node is drawn at position + delta, and the parent's
+  // positions have not been touched, so the edge has to apply the same delta.
+  const during = await edgePathOf("e1");
+  expect(during).not.toBe(before);
+
+  await page.mouse.up();
+  await page.waitForTimeout(250);
+
+  // On release the parent commits the move and the edge follows the committed
+  // geometry: the delta and the new position describe the same place. Compared
+  // numerically — the two paths come from different arithmetic (a handle centre
+  // plus a delta, then a committed position plus a handle centre) and differ in
+  // the last few float digits.
+  const after = await edgePathOf("e1");
+  expect(after).not.toBe(before);
+
+  const startOf = (d: string) => {
+    const match = /^M([-\d.]+),([-\d.]+)/.exec(d);
+    if (match === null) throw new Error(`unparsable path: ${d}`);
+    return { x: Number(match[1]), y: Number(match[2]) };
+  };
+  expect(Math.abs(startOf(after).x - startOf(during).x)).toBeLessThan(0.01);
+  expect(Math.abs(startOf(after).y - startOf(during).y)).toBeLessThan(0.01);
+});
