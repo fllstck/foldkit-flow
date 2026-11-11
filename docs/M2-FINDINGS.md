@@ -9,15 +9,15 @@ file records the diff and why.
 Verification state at the commit that carries this file — the authoritative
 numbers; every earlier figure in this document is historical and marked as such.
 
-| Check                                          | Result                                                                 |
-| ---------------------------------------------- | ---------------------------------------------------------------------- |
-| `pnpm build`                                   | flow → example → benchmark                                             |
-| `pnpm check`                                   | typecheck, Enfect lint, Prettier, **120** Vitest tests green           |
-| `packages/benchmark/tests/connection.spec.ts`  | 4 passed (M2 proofs 17–20)                                             |
-| `packages/benchmark/tests/interaction.spec.ts` | 9 passed (M1 proofs 8–16)                                              |
-| `packages/benchmark/tests/proofs.spec.ts`      | 4 passed (M0 proofs 2, 3, 3b, 4)                                       |
-| `packages/benchmark/tests/bench.spec.ts`       | 2 passed (625 comparison + 1k culled gate)                             |
-| whole Playwright suite                         | 19 tests = 17 proof tests + 2 gate tests, 1 m 48 s                     |
+| Check                                          | Result                                                       |
+| ---------------------------------------------- | ------------------------------------------------------------ |
+| `pnpm build`                                   | flow → example → benchmark                                   |
+| `pnpm check`                                   | typecheck, Enfect lint, Prettier, **120** Vitest tests green |
+| `packages/benchmark/tests/connection.spec.ts`  | 4 passed (M2 proofs 17–20)                                   |
+| `packages/benchmark/tests/interaction.spec.ts` | 9 passed (M1 proofs 8–16)                                    |
+| `packages/benchmark/tests/proofs.spec.ts`      | 4 passed (M0 proofs 2, 3, 3b, 4)                             |
+| `packages/benchmark/tests/bench.spec.ts`       | 2 passed (625 comparison + 1k culled gate)                   |
+| whole Playwright suite                         | 19 tests = 17 proof tests + 2 gate tests, 1 m 48 s           |
 
 `pnpm check` needs a build first when the library's public surface changed: the
 example and the benchmark typecheck against the library's `dist/*.d.ts`, so a
@@ -34,7 +34,7 @@ pre-existing trap (it was true in M1) and it cost time twice this session.
    its own endpoint arithmetic (the old `edgeEndpoints` at `view.ts:247` is gone).
 2. **Connection line geometry.** The preview is the same geometry: `Bezier`,
    starting at the source handle's centre and leaving along its `position`,
-   ending at the hovered handle's centre with *its* position, or at the pointer,
+   ending at the hovered handle's centre with _its_ position, or at the pointer,
    entered from the side it approaches (`pointerHandlePosition`).
 3. **`isValidConnection`.** `Context.isValidConnection?: (connection: Connection) => boolean`,
    evaluated in `update` at release (`isAcceptedConnection`). A rejected release
@@ -100,7 +100,7 @@ M1 DOM.
 `resolveHandle` follows upstream's rule ("if no handleId is given, we use the
 first handle"). Without it, every edge drawn before a parent learned handle ids
 would fall back to the node border, which is the behaviour M2 replaces. A
-*declared* id resolves to that handle or to the border — never to a sibling,
+_declared_ id resolves to that handle or to the border — never to a sibling,
 because anchoring on the wrong handle is worse than anchoring on the border.
 Both rules are pinned in `src/geometry/edgeEndpoints.test.ts`.
 
@@ -129,7 +129,7 @@ Two changes, both reference-keyed because the Model is immutable:
 Found while writing proof 17: the demo imported only its own CSS, never
 `@fllstck/foldkit-flow/style.css`. Every handle therefore measured **0×0** and
 was unhittable — `data-handle-nodes` was 1250 entries of zero-size boxes, and the
-M1 browser proofs only ever exercised handle *markup* (proof 11 mutates
+M1 browser proofs only ever exercised handle _markup_ (proof 11 mutates
 `data-handlepos` and watches the measurement counter, which works at 0×0).
 
 The demo now imports the stylesheet, and the column pitch widened from 190 to 220
@@ -171,7 +171,7 @@ unverified. Flow metrics from the same run: `updatePerDispatchMs` 0.0027,
 
 So the assertion now bounds long frames at 2% of recorded frames (≈ 10 of 572)
 while keeping the p95 gate at 33 ms and the movement verification untouched. That
-is not a boundary moved to fit a regression: the frame-time *distribution* is
+is not a boundary moved to fit a regression: the frame-time _distribution_ is
 identical to M1 (median 16.7, p95 16.8), the frame that contains the outlier does
 one render and no measurement work, and the stall class is present in the M1
 tree. **The residual M2 sensitivity — roughly one invocation in three versus
@@ -205,26 +205,26 @@ visible.
 
 ## 7. Test coverage map for M2
 
-| Requirement (§7 M2)                          | Where                                                                                     |
-| -------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| endpoint on the measured handle, with its position | `src/geometry/edgeEndpoints.test.ts`, `src/view/edges.test.ts`, Playwright proof 17 |
-| fallback when a handle is unmeasured/missing | `src/geometry/edgeEndpoints.test.ts` (three cases), `src/view/edges.test.ts`               |
-| an edge that names no handle                 | `src/geometry/edgeEndpoints.test.ts`                                                       |
-| connection preview geometry                  | `src/view/connection.test.ts` (anchors, sides, hovered target)                             |
-| `isValidConnection` accept / reject / duplicate / self-loop | `src/state.test.ts` (`connections`)                                          |
-| reconnect accept / reject / cancel / dead edge | `src/state.test.ts` (`reconnect`)                                                       |
-| reconnect affordance, opt-in                 | `src/view/edges.test.ts`, Playwright proof 19                                              |
-| pane press on an edge end                    | `src/runtime/domTarget.test.ts`, Playwright proof 19 (viewport unchanged)                   |
-| stylesheet-only move + `Flow.Remeasure`      | Playwright proof 20, README §"Measuring the graph"                                         |
-| indexed and array endpoints agree            | `src/geometry/edgeEndpoints.test.ts`                                                       |
-| frame gate                                   | `tests/bench.spec.ts` (§4 above)                                                           |
+| Requirement (§7 M2)                                         | Where                                                                               |
+| ----------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| endpoint on the measured handle, with its position          | `src/geometry/edgeEndpoints.test.ts`, `src/view/edges.test.ts`, Playwright proof 17 |
+| fallback when a handle is unmeasured/missing                | `src/geometry/edgeEndpoints.test.ts` (three cases), `src/view/edges.test.ts`        |
+| an edge that names no handle                                | `src/geometry/edgeEndpoints.test.ts`                                                |
+| connection preview geometry                                 | `src/view/connection.test.ts` (anchors, sides, hovered target)                      |
+| `isValidConnection` accept / reject / duplicate / self-loop | `src/state.test.ts` (`connections`)                                                 |
+| reconnect accept / reject / cancel / dead edge              | `src/state.test.ts` (`reconnect`)                                                   |
+| reconnect affordance, opt-in                                | `src/view/edges.test.ts`, Playwright proof 19                                       |
+| pane press on an edge end                                   | `src/runtime/domTarget.test.ts`, Playwright proof 19 (viewport unchanged)           |
+| stylesheet-only move + `Flow.Remeasure`                     | Playwright proof 20, README §"Measuring the graph"                                  |
+| indexed and array endpoints agree                           | `src/geometry/edgeEndpoints.test.ts`                                                |
+| frame gate                                                  | `tests/bench.spec.ts` (§4 above)                                                    |
 
 ## 8. What M2 deliberately does not do
 
 - No edge selection by press (the Model holds `selectedEdgeIds`, but nothing in
   the pointer layer sets it; `selectAll`/delete cover the edges). Not on the M2
   list.
-- No hover *styling* for an invalid target, and no preview validation during
+- No hover _styling_ for an invalid target, and no preview validation during
   hover (§2.1).
 - No `interactionWidth` invisible hit path for edges, so reconnecting needs the
   ring rather than a press anywhere near the line.
