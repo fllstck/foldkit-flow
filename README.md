@@ -4,10 +4,14 @@ A flow / node-graph canvas for [Foldkit](https://foldkit.dev), in the spirit of
 React Flow and Svelte Flow — but Foldkit-native: one Model, pure `update`, every
 effect at a named seam.
 
-**Status: M0 complete.** The plan is at revision 7; the six M0 proofs and the 625-node
-benchmark are green. Evidence and deviations are in
-**[docs/M0-FINDINGS.md](docs/M0-FINDINGS.md)**; the next milestone is M1
-(`docs/PLAN.md` §7). Start with:
+**Status: M1 complete, M2 next.** The plan is at revision 7. The interaction core
+(drag, select, delete, connect), handle measurement, viewport culling, the
+renderer node cache, and the performance gate are green: 625 nodes at parity with
+React Flow on pan, and 1k culled under the 33 ms p95 gate. Evidence, deviations,
+and the retracted measurements are in
+**[docs/M1-FINDINGS.md](docs/M1-FINDINGS.md)**; the next milestone is M2
+(`docs/PLAN.md` §7), whose starting state is
+**[docs/M2-HANDOFF.md](docs/M2-HANDOFF.md)**. Start with:
 
 - **[docs/PLAN.md](docs/PLAN.md)** — the design: ownership split, public API, runtime
   wiring, performance budget, milestones, decisions.
@@ -22,6 +26,10 @@ benchmark are green. Evidence and deviations are in
 - **[docs/M0-REVIEW.md](docs/M0-REVIEW.md)** — the independent M0 review.
 - **[docs/M1-HANDOFF.md](docs/M1-HANDOFF.md)** — the starting state and task list
   for M1.
+- **[docs/M1-FINDINGS.md](docs/M1-FINDINGS.md)** — what M1 shipped, the gate
+  numbers, the diffs from the plan, and the bugs the proofs found.
+- **[docs/M2-HANDOFF.md](docs/M2-HANDOFF.md)** — what M2 inherits, its scope, and
+  the gotchas the next session should not re-learn.
 
 Decisions locked: package `@fllstck/foldkit-flow`; MIT; our own CSS and visual
 identity (no upstream stylesheet, no attribution component); Foldkit-native API
