@@ -15,7 +15,15 @@ type PointerRoot = Dom.TypedEventTarget<{
   pointerup: PointerEvent;
   pointercancel: PointerEvent;
   keydown: KeyboardEvent;
+  keyup: KeyboardEvent;
 }>;
+
+/** Shift, Meta, and Control all mean "add to the selection" in practice. The
+ *  flags on the event already reflect the state *after* the key change, so a
+ *  keyup of Shift is `false` and releasing one of two held modifiers is
+ *  correct. */
+const isAdditiveOf = (event: KeyboardEvent): boolean =>
+  event.shiftKey || event.metaKey || event.ctrlKey;
 
 const pointerIdOf = (model: Model): Option.Option<number> => {
   const gesture = model.gesture;
@@ -141,6 +149,71 @@ export const subscriptions = Subscription.make<Model, Message>()((entry) => ({
               type: "blur",
               mapEvent: () =>
                 Message.CancelledGesture({ reason: "WindowBlur" }),
+            }),
+        }),
+    },
+  ),
+
+  modifierKeys: entry(
+    { paneId: Schema.Option(Schema.String) },
+    {
+      modelToDependencies: (model) => ({ paneId: model.paneId }),
+      dependenciesToStream: ({ paneId }) =>
+        Option.match(paneId, {
+          onNone: () => Stream.empty,
+          onSome: (hostId) =>
+            Option.match(getPaneRoot(hostId), {
+              onNone: () => Stream.empty,
+              onSome: (root) => {
+                const changed = Dom.streamFromEventFilterMap({
+                  target: (): PointerRoot => root,
+                  type: "keydown",
+                  filterMapEvent: (event) => {
+                    if (
+                      event.key !== "Shift" &&
+                      event.key !== "Meta" &&
+                      event.key !== "Control"
+                    ) {
+                      return Option.none();
+                    }
+                    return Option.some(
+                      Message.ChangedModifierState({
+                        isAdditive: isAdditiveOf(event),
+                      }),
+                    );
+                  },
+                });
+
+                const released = Dom.streamFromEventFilterMap({
+                  target: (): PointerRoot => root,
+                  type: "keyup",
+                  filterMapEvent: (event) => {
+                    if (
+                      event.key !== "Shift" &&
+                      event.key !== "Meta" &&
+                      event.key !== "Control"
+                    ) {
+                      return Option.none();
+                    }
+                    return Option.some(
+                      Message.ChangedModifierState({
+                        isAdditive: isAdditiveOf(event),
+                      }),
+                    );
+                  },
+                });
+
+                // A blur can swallow the keyup (alt-tab, an OS gesture), which
+                // would otherwise leave every later press additive.
+                const blurred = Dom.streamFromEvent({
+                  target: window,
+                  type: "blur",
+                  mapEvent: () =>
+                    Message.ChangedModifierState({ isAdditive: false }),
+                });
+
+                return Stream.merge(Stream.merge(changed, released), blurred);
+              },
             }),
         }),
     },

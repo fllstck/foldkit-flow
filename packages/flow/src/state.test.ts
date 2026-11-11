@@ -279,6 +279,26 @@ describe("selection", () => {
     );
   });
 
+  test("the additive modifier is tracked in the Model", () => {
+    story(
+      flow().update,
+      given(initial),
+      message(Message.ChangedModifierState({ isAdditive: true })),
+      model((m) => {
+        expect(m.isAdditiveModifier).toBe(true);
+      }),
+    );
+
+    story(
+      flow().update,
+      given({ ...initial, isAdditiveModifier: true }),
+      message(Message.ChangedModifierState({ isAdditive: false })),
+      model((m) => {
+        expect(m.isAdditiveModifier).toBe(false);
+      }),
+    );
+  });
+
   test("selection keeps node and edge ids apart", () => {
     const selected = selectAll(initial, context);
     expect(selected.model.selectedNodeIds).toEqual(["n1", "n2"]);

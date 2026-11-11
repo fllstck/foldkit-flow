@@ -3,6 +3,7 @@ import { Mount } from "foldkit";
 import type { Html, HtmlBuilder } from "foldkit/html";
 
 import { edgePath } from "../geometry/paths.js";
+import { handleCenter } from "../geometry/handles.js";
 import { screenToFlow } from "../geometry/screen.js";
 import { visibleEdges, visibleNodes } from "../geometry/visible.js";
 import { Message } from "../message.js";
@@ -190,13 +191,45 @@ export const createRenderer = <NodeData = unknown, EdgeData = unknown>(
     h: HtmlBuilder<ParentMessage>,
   ): Html => {
     const { model } = input;
+    const gesture = model.gesture;
+    const draggedIds = new Set(
+      Gesture.guards.DraggingNodes(gesture) ? gesture.nodeIds : [],
+    );
+    const delta = Gesture.guards.DraggingNodes(gesture)
+      ? gesture.delta
+      : zeroDelta;
+
     const isCulling =
       config.cull === true && model.pane.width > 0 && model.pane.height > 0;
 
-    const nodes = isCulling ? visibleNodes(model, input.nodes) : input.nodes;
-    const edges = isCulling
-      ? visibleEdges(model, input.edges, input.nodes)
-      : input.edges;
+    // Culling is derived from the graph position, but a dragged node is rendered
+    // at `position + delta`: a node dragged past the overscan would vanish from
+    // under the pointer that owns the gesture. Active drags (and the edges they
+    // carry) stay rendered for the length of the gesture.
+    const visibleNodeIds: ReadonlySet<string> | undefined = isCulling
+      ? new Set(visibleNodes(model, input.nodes).map((node) => node.id))
+      : undefined;
+    const visibleEdgeIds: ReadonlySet<string> | undefined = isCulling
+      ? new Set(
+          visibleEdges(model, input.edges, input.nodes).map((edge) => edge.id),
+        )
+      : undefined;
+
+    const nodes =
+      visibleNodeIds === undefined
+        ? input.nodes
+        : input.nodes.filter(
+            (node) => visibleNodeIds.has(node.id) || draggedIds.has(node.id),
+          );
+    const edges =
+      visibleEdgeIds === undefined
+        ? input.edges
+        : input.edges.filter(
+            (edge) =>
+              visibleEdgeIds.has(edge.id) ||
+              draggedIds.has(edge.source) ||
+              draggedIds.has(edge.target),
+          );
 
     const nodesById = new Map(
       input.nodes.map((node) => [node.id, node] as const),
@@ -205,16 +238,11 @@ export const createRenderer = <NodeData = unknown, EdgeData = unknown>(
     const positionOf = (nodeId: string): Point =>
       nodesById.get(nodeId)?.position ?? { x: 0, y: 0 };
 
-    const handleCenter = (ref: HandleRef): Point => {
-      const bounds = model.handleBounds.find(
-        (entry) => entry.nodeId === ref.nodeId && entry.type === ref.type,
+    const centerOf = (ref: HandleRef): Point =>
+      Option.getOrElse(
+        handleCenter(model.handleBounds, positionOf(ref.nodeId), ref),
+        () => positionOf(ref.nodeId),
       );
-      if (bounds === undefined) return positionOf(ref.nodeId);
-      return {
-        x: positionOf(ref.nodeId).x + bounds.x + bounds.width / 2,
-        y: positionOf(ref.nodeId).y + bounds.y + bounds.height / 2,
-      };
-    };
 
     const edgeEndpoints = (edge: FlowEdge<EdgeData>) => {
       const source = nodesById.get(edge.source);
@@ -282,14 +310,6 @@ export const createRenderer = <NodeData = unknown, EdgeData = unknown>(
       }),
     );
 
-    const gesture = model.gesture;
-    const draggedIds = Gesture.guards.DraggingNodes(gesture)
-      ? gesture.nodeIds
-      : [];
-    const delta = Gesture.guards.DraggingNodes(gesture)
-      ? gesture.delta
-      : zeroDelta;
-
     const toFlowPoint = (clientX: number, clientY: number): Point =>
       screenToFlow(model, { screenX: clientX, screenY: clientY });
 
@@ -297,7 +317,7 @@ export const createRenderer = <NodeData = unknown, EdgeData = unknown>(
       [h.Class(classes.Nodes)],
       nodes.map((node) => {
         const isSelected = model.selectedNodeIds.includes(node.id);
-        const isDragging = draggedIds.includes(node.id);
+        const isDragging = draggedIds.has(node.id);
         const position = isDragging
           ? { x: node.position.x + delta.x, y: node.position.y + delta.y }
           : node.position;
@@ -345,7 +365,7 @@ export const createRenderer = <NodeData = unknown, EdgeData = unknown>(
                     Message.PressedNode({
                       nodeId: node.id,
                       point: toFlowPoint(clientX, clientY),
-                      isAdditive: false,
+                      isAdditive: model.isAdditiveModifier,
                       pointer: pointerOf(pointerId, pointerType, button),
                     }),
                   ),
@@ -377,9 +397,9 @@ export const createRenderer = <NodeData = unknown, EdgeData = unknown>(
 
     const connectionView = Gesture.guards.Connecting(gesture)
       ? (() => {
-          const from = handleCenter(gesture.from);
+          const from = centerOf(gesture.from);
           const end = Option.getOrElse(
-            Option.map(gesture.maybeTarget, handleCenter),
+            Option.map(gesture.maybeTarget, centerOf),
             () => gesture.current,
           );
           return h.svg(
@@ -447,7 +467,7 @@ export const createRenderer = <NodeData = unknown, EdgeData = unknown>(
               input.toParentMessage(
                 Message.PressedPane({
                   point: toFlowPoint(clientX, clientY),
-                  isAdditive: false,
+                  isAdditive: model.isAdditiveModifier,
                   pointer: pointerOf(pointerId, pointerType, button),
                 }),
               ),

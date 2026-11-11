@@ -135,6 +135,10 @@ export const Model = Schema.Struct({
   nodeSizes: Schema.Array(NodeSize),
   handleBounds: Schema.Array(HandleBounds),
   gesture: Gesture,
+  // True while a multi-select modifier (Shift, Meta, or Control) is held. It
+  // lives in the Model because a press stamps it onto `PressedNode` /
+  // `PressedPane`, and Foldkit's pointer attributes carry no modifier state.
+  isAdditiveModifier: Schema.Boolean,
 });
 export type Model = typeof Model.Type;
 
@@ -156,5 +160,6 @@ export const init = (maybeViewport?: Viewport): Init => ({
     nodeSizes: [],
     handleBounds: [],
     gesture: Gesture.Idle(),
+    isAdditiveModifier: false,
   },
 });

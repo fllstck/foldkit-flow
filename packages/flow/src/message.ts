@@ -63,6 +63,7 @@ export const Message = defineMessageUnion({
   },
   PressedDeleteKey: {},
   PressedEscape: {},
+  ChangedModifierState: { isAdditive: Schema.Boolean },
 
   // connections
   StartedConnection: { from: HandleRef, pointer: Pointer },
@@ -96,6 +97,9 @@ export type ReleasedPointer = ReturnType<typeof Message.ReleasedPointer>;
 export type CancelledGesture = ReturnType<typeof Message.CancelledGesture>;
 export type PressedDeleteKey = ReturnType<typeof Message.PressedDeleteKey>;
 export type PressedEscape = ReturnType<typeof Message.PressedEscape>;
+export type ChangedModifierState = ReturnType<
+  typeof Message.ChangedModifierState
+>;
 export type StartedConnection = ReturnType<typeof Message.StartedConnection>;
 export type HoveredHandle = ReturnType<typeof Message.HoveredHandle>;
 export type MovedViewport = ReturnType<typeof Message.MovedViewport>;

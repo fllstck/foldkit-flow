@@ -2,6 +2,7 @@ import { Option } from "effect";
 import { describe, expect, test } from "vitest";
 
 import { nodeBounds } from "./bounds.js";
+import { findHandle, handleCenter, isSameHandle } from "./handles.js";
 import { hitTestHandle, oppositeHandleType } from "./hitTest.js";
 import { dragDelta, flowToScreen, screenToFlow } from "./screen.js";
 import { visibleEdges, visibleNodes } from "./visible.js";
@@ -109,6 +110,87 @@ describe("culling", () => {
       width: 300,
       height: 140,
     });
+  });
+});
+
+describe("handle identity", () => {
+  const first: HandleBounds = {
+    ...measured,
+    handleId: Option.some("out-a"),
+    x: 0,
+  };
+  const second: HandleBounds = {
+    ...measured,
+    handleId: Option.some("out-b"),
+    x: 100,
+  };
+  const bounds = [first, second];
+
+  test("compares node, type, and handle id", () => {
+    expect(
+      isSameHandle(
+        { nodeId: "a", handleId: Option.some("out-b"), type: "Source" },
+        second,
+      ),
+    ).toBe(true);
+    expect(
+      isSameHandle(
+        { nodeId: "a", handleId: Option.some("out-b"), type: "Source" },
+        first,
+      ),
+    ).toBe(false);
+    expect(
+      isSameHandle(
+        { nodeId: "a", handleId: Option.some("out-b"), type: "Target" },
+        second,
+      ),
+    ).toBe(false);
+  });
+
+  test("an unset handle id matches an unset measured id", () => {
+    expect(
+      isSameHandle(
+        { nodeId: "a", handleId: Option.none(), type: "Source" },
+        measured,
+      ),
+    ).toBe(true);
+  });
+
+  test("finds the requested handle among same-type siblings", () => {
+    expect(
+      Option.map(
+        findHandle(bounds, {
+          nodeId: "a",
+          handleId: Option.some("out-b"),
+          type: "Source",
+        }),
+        (entry) => entry.x,
+      ),
+    ).toEqual(Option.some(100));
+  });
+
+  test("centers the requested handle in flow space", () => {
+    expect(
+      handleCenter(
+        bounds,
+        { x: 100, y: 50 },
+        {
+          nodeId: "a",
+          handleId: Option.some("out-b"),
+          type: "Source",
+        },
+      ),
+    ).toEqual(Option.some({ x: 204, y: 70 }));
+  });
+
+  test("a missing handle yields None", () => {
+    expect(
+      findHandle(bounds, {
+        nodeId: "a",
+        handleId: Option.some("missing"),
+        type: "Source",
+      }),
+    ).toEqual(Option.none());
   });
 });
 

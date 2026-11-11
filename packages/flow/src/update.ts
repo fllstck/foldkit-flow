@@ -1,12 +1,20 @@
 import { Array as Arr, Option } from "effect";
 import type { Update } from "foldkit";
 
+import { handleCenter } from "./geometry/handles.js";
 import { hitTestHandle, oppositeHandleType } from "./geometry/hitTest.js";
 import { screenToFlow } from "./geometry/screen.js";
 import { visibleNodes } from "./geometry/visible.js";
 import { Message } from "./message.js";
 import { Gesture, zeroDelta } from "./model.js";
-import type { Context, HandleBounds, Model, NodeSize } from "./model.js";
+import type {
+  Context,
+  HandleBounds,
+  HandleRef,
+  Model,
+  NodeSize,
+  Point,
+} from "./model.js";
 import { OutMessage } from "./outMessage.js";
 import { MeasureHandles, SyncViewport } from "./runtime/command.js";
 
@@ -79,25 +87,16 @@ const isDraggable = (context: Context, nodeId: string): boolean =>
 const hasNode = (context: Context, nodeId: string): boolean =>
   nodeById(context, nodeId) !== undefined;
 
-const handleCenter = (
+const centerOf = (
   model: Model,
   context: Context,
-  nodeId: string,
-  handleId: Option.Option<string>,
-): Option.Option<{ x: number; y: number }> => {
-  const bounds = model.handleBounds.find(
-    (entry) =>
-      entry.nodeId === nodeId &&
-      Option.getOrUndefined(entry.handleId) === Option.getOrUndefined(handleId),
+  from: HandleRef,
+): Option.Option<Point> =>
+  handleCenter(
+    model.handleBounds,
+    nodeById(context, from.nodeId)?.position ?? { x: 0, y: 0 },
+    from,
   );
-  if (bounds === undefined) return Option.none();
-
-  const origin = nodeById(context, nodeId)?.position ?? { x: 0, y: 0 };
-  return Option.some({
-    x: origin.x + bounds.x + bounds.width / 2,
-    y: origin.y + bounds.y + bounds.height / 2,
-  });
-};
 
 const measureVisible = (model: Model, context: Context) =>
   Arr.fromOption(
@@ -330,6 +329,10 @@ export const update = (
           };
     },
 
+    ChangedModifierState: ({ isAdditive }) => ({
+      model: { ...model, isAdditiveModifier: isAdditive },
+    }),
+
     PressedEscape: () =>
       Gesture.guards.Idle(model.gesture)
         ? withSelection(model, [])
@@ -338,10 +341,10 @@ export const update = (
     StartedConnection: ({ from, pointer }) => {
       if (!hasNode(context, from.nodeId)) return { model };
 
-      const current = Option.getOrElse(
-        handleCenter(model, context, from.nodeId, from.handleId),
-        () => ({ x: 0, y: 0 }),
-      );
+      const current = Option.getOrElse(centerOf(model, context, from), () => ({
+        x: 0,
+        y: 0,
+      }));
 
       return {
         model: {
