@@ -106,15 +106,6 @@ button:hover {
   white-space: nowrap;
 }
 
-/* A resized node: the wrapper has an explicit box, so the content fills it and the
-   new size is what the user sees. `border-box` keeps the border inside the box the
-   flow measured. */
-.node-shell--boxed {
-  width: 100%;
-  height: 100%;
-  box-sizing: border-box;
-}
-
 .node-label {
   min-width: 64px;
 }

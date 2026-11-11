@@ -109,6 +109,60 @@ describe("resize handles (§7 M4)", () => {
     expect(withoutSize.html).not.toContain("height: 60px");
   });
 
+  test("the live box is on the wrapper and reaches the content (M4 hand report)", async () => {
+    // The report: "the first time I resize a node, it only changes its visual size
+    // after I release". The wrapper grew, but a consumer's content did not — so the
+    // wrapper marks the box (`data-boxed`) and `tools.size` carries it while the
+    // pointer is still down.
+    const composed = await render(model, true);
+    // A declared size is a box too, so `data-boxed` is already on `a`; `b` declares
+    // none and is sized by its content, so it must not be stretched.
+    expect(composed.html).toContain('data-nodeid="a" data-boxed=""');
+    expect(composed.html).not.toContain('data-nodeid="b" data-boxed=""');
+
+    const seen: Array<{ width: number; height: number } | undefined> = [];
+    const renderer = createRenderer<Data, unknown>({
+      paneId: "pane-resize-tools",
+      renderNode: (_node, tools, h) => {
+        seen.push(tools.size);
+        return h.div([h.Class("demo-node")], []);
+      },
+      resize: true,
+    });
+
+    await Effect.runPromise(
+      Server.renderToString(
+        {
+          init: () => ({
+            model: resizing(model, {
+              left: 10,
+              top: 20,
+              width: 200,
+              height: 90,
+            }),
+          }),
+          view: (state, h) => ({
+            title: "resize-tools",
+            body: renderer.view(
+              {
+                model: state,
+                nodes: sized,
+                edges: [],
+                toParentMessage: (message: Message) => message,
+              },
+              h,
+            ),
+          }),
+        },
+        { isHydratable: false },
+      ),
+    );
+
+    // The resized node reports the live box; the other node reports none.
+    expect(seen).toContainEqual({ width: 200, height: 90 });
+    expect(seen).toContainEqual(undefined);
+  });
+
   test("the live gesture's box overrides the declared one", async () => {
     const rendered = await render(
       resizing(model, { left: 10, top: 20, width: 200, height: 90 }),
@@ -116,6 +170,9 @@ describe("resize handles (§7 M4)", () => {
     );
     expect(rendered.html).toContain("width: 200px; height: 90px");
     expect(rendered.html).not.toContain("width: 120px");
+    // …and the wrapper says so, which is what lets a stylesheet stretch the content
+    // before the parent has persisted anything.
+    expect(rendered.html).toContain('data-boxed=""');
   });
 
   test("a resize from the top-left moves the node as it grows", async () => {

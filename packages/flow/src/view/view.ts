@@ -80,6 +80,16 @@ export type NodeTools = Readonly<{
   handle: (spec: HandleSpec) => Html;
   isSelected: boolean;
   isDragging: boolean;
+  /** The box the flow is drawing for this node **right now**: the live resize
+   *  while one runs, otherwise the node's declared `size` when `resize` is on.
+   *  `undefined` means "sized by its content".
+   *
+   *  It is here because a resize has to be visible *during* the gesture, not on
+   *  release: a node whose content does not fill the box the flow draws grows an
+   *  invisible wrapper and appears to snap only when the parent persists the size
+   *  (reported by hand after M4). The wrapper carries `data-boxed` as well, so a
+   *  stylesheet can key on it without any markup change. */
+  size: Size | undefined;
 }>;
 
 export type RendererConfig<NodeData, EdgeData> = Readonly<{
@@ -281,6 +291,7 @@ export const createRenderer = <NodeData = unknown, EdgeData = unknown>(
     node: FlowNode<NodeData>,
     isSelected: boolean,
     isDragging: boolean,
+    box: Size | undefined,
     h: HtmlBuilder<any>,
     toParentMessage: (message: Message) => any,
     renderNode: RendererConfig<NodeData, EdgeData>["renderNode"],
@@ -291,6 +302,7 @@ export const createRenderer = <NodeData = unknown, EdgeData = unknown>(
         handle: (spec) => handleHtml(node.id, spec, h, toParentMessage),
         isSelected,
         isDragging,
+        size: box,
       },
       h,
     );
@@ -746,6 +758,10 @@ export const createRenderer = <NodeData = unknown, EdgeData = unknown>(
                 .join(" "),
             ),
             h.DataAttribute("nodeid", node.id),
+            // Present exactly while the flow draws the node's box, so a stylesheet
+            // can stretch the content (`[data-boxed] > *` in the consumer's CSS) and
+            // a proof can see that the box is live rather than committed.
+            ...(box === undefined ? [] : [h.DataAttribute("boxed", "")]),
             // Focusable and named (§7 M3): a node is a toggle button in the
             // accessibility tree — pressing it selects it — so `aria-pressed`
             // says what the selection ring says, and `aria-label` comes from the
@@ -808,6 +824,10 @@ export const createRenderer = <NodeData = unknown, EdgeData = unknown>(
               node,
               isSelected,
               isDragging,
+              // The box is a cache input because the content is told about it: a
+              // resize frame is a new box, so the resized node's own slot is the
+              // one that re-renders, and `tools.size` is never stale.
+              box,
               h,
               input.toParentMessage,
               config.renderNode,

@@ -60,6 +60,25 @@ const translateOf = async (page: Page, nodeId: string) => {
   return parseTranslate(style);
 };
 
+/** The *content* box: the node's first child, which is what the user sees. The
+ *  wrapper growing while the content stays put is exactly the bug that was
+ *  reported by hand — "it only changes its visual size after I release". */
+const contentOf = async (page: Page, nodeId: string) => {
+  const box = await page.evaluate((id) => {
+    const node = document.querySelector(`.fflow__node[data-nodeid="${id}"]`);
+    const content = node?.firstElementChild;
+    if (content === null || content === undefined) return null;
+    const rect = content.getBoundingClientRect();
+    return {
+      width: rect.width,
+      height: rect.height,
+      boxed: node?.hasAttribute("data-boxed") ?? false,
+    };
+  }, nodeId);
+  if (box === null) throw new Error(`no content for ${nodeId}`);
+  return box;
+};
+
 const boxOf = async (page: Page, nodeId: string) => {
   const box = await page
     .locator(`.fflow__node[data-nodeid="${nodeId}"]`)
@@ -358,6 +377,7 @@ test("proof 44: a resize corner grows the node and the parent persists the box",
   await waitForDemo(page);
 
   const before = await boxOf(page, "n0");
+  const contentBefore = await contentOf(page, "n0");
   const corner = await centreOf(
     page,
     '.fflow__node[data-nodeid="n0"] .fflow__resize--bottom-right',
@@ -375,6 +395,14 @@ test("proof 44: a resize corner grows the node and the parent persists the box",
   const during = await boxOf(page, "n0");
   expect(during.width).toBeGreaterThan(before.width + 30);
   expect(Math.abs(during.x - before.x)).toBeLessThan(1);
+
+  // …and so is what the user actually sees. The wrapper carries `data-boxed` while
+  // the gesture runs, and the content fills it, which is what makes the resize
+  // visible before the parent has persisted anything (reported by hand after M4).
+  const contentDuring = await contentOf(page, "n0");
+  expect(contentDuring.boxed).toBe(true);
+  expect(contentDuring.width).toBeGreaterThan(contentBefore.width + 30);
+  expect(Math.abs(contentDuring.width - during.width)).toBeLessThan(3);
   // A resize is not a connection and not a node drag.
   expect(await attr(page, "data-gesture")).toBe("Resizing");
   expect(await attr(page, "data-selected-nodes")).toBe("");

@@ -660,16 +660,12 @@ const renderNode = (
   node: FlowNode<{ label: string }>,
   tools: Flow.NodeTools,
   h: HtmlBuilder<any>,
-): Html => {
-  // Two classes, one attribute: a second `h.Class` replaces the first rather than
-  // adding to it, and the element lost its base styling when this was two calls.
-  // A node the flow has drawn a box for (a persisted resize) fills it, so the new
-  // size is visible instead of being an empty wrapper around an unchanged label.
-  const shellClass =
-    node.size === undefined ? "node-shell" : "node-shell node-shell--boxed";
-
-  return h.div(
-    [h.Class(shellClass)],
+): Html =>
+  h.div(
+    // The shell fills whatever box the flow draws for the node, live or persisted:
+    // the library's `.fflow__node[data-boxed] > *` rule does that, so a resize is
+    // visible while the pointer is down instead of only on release.
+    [h.Class("node-shell")],
     [
       h.span([h.Class("node-label")], [node.data.label]),
       // Three things a real node contains, each with a different relationship to
@@ -687,7 +683,6 @@ const renderNode = (
       tools.handle({ id: "out", type: "Source", position: "Right" }),
     ],
   );
-};
 
 /** Unculled on purpose: the demo's readiness proof counts 625 measured nodes, so
  *  every node must render at least once. Culling is exercised by the benchmark's

@@ -605,3 +605,47 @@ into a server it did not start, so nothing is asserted and nothing is measured.
 `pkill -f vite` before a run is the documented mitigation, and the full suite at
 this commit passed in one invocation: **48 tests in 3.3 min**, `tests/hidden.spec.ts`
 included.
+
+## 14. Reported after M4: a resize only shows on release
+
+Reported by hand within minutes of trying the demo, and it was a real defect in
+what M4 shipped:
+
+> the first time I resize a node, it only changes its visual size after I release
+> the mouse button.
+
+**Cause.** The flow drew the live box on the node _wrapper_ (proof 44 asserted
+exactly that, from `getBoundingClientRect()` of the wrapper, mid-gesture) but told
+the consumer's content nothing: `NodeTools` carried `isSelected` and `isDragging`
+and no size, and the demo only stretched its shell when `node.size` was set — that
+is, when the **parent had already persisted** the `ResizedNodes` fact. So the
+wrapper grew invisibly under the pointer and the content snapped into place on
+release, which is precisely the symptom.
+
+The proofs did not catch it because they measured the wrapper: a DOM assertion on
+the element the library owns says nothing about whether the user can see the change
+(`M3-FINDINGS` §14, the same lesson one layer out).
+
+**Fix, in three parts.**
+
+1. `NodeTools.size` — the box the flow is drawing _right now_ (the live resize, or
+   the declared size with `resize` on, or `undefined` for "sized by content"). The
+   box is a cache input, so a resize frame re-renders only the resized node and
+   `tools.size` is never stale.
+2. The wrapper carries `data-boxed` while a box is drawn, and `flow.css` stretches
+   its direct children (`box-sizing: border-box; width/height: 100%`). A consumer
+   that renders its own markup gets the live behaviour with no change; one that
+   wants a different layout overrides the rule. The demo then dropped its
+   `node-shell--boxed` class entirely.
+3. Proof 44 now measures the **content** as well as the wrapper: `data-boxed` is
+   present mid-gesture, the content's width grows with the wrapper, and the two
+   agree within 3 px. Watched failing with the fix stashed (`Expected: true /
+Received: false` at the `data-boxed` assertion), then passing with it restored.
+   `view/resize.test.ts` covers the same fact without a browser, including that
+   `tools.size` reports the live box and that a node with no box is not stretched.
+
+**What it says about the M4 evidence.** Every M4 proof measured library-owned DOM;
+the one thing the milestone added that a user manipulates _by its size_ was
+asserted only on the wrapper. The rule "a DOM assertion is not a paint assertion"
+extends to: an assertion on the element the library owns is not an assertion on what
+the consumer sees.
