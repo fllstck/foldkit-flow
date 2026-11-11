@@ -5,7 +5,8 @@ React Flow and Svelte Flow — but Foldkit-native: one Model, pure `update`, eve
 effect at a named seam.
 
 **Status: M3 complete, M4 next.** The plan is at revision 7; v0.1 shipped at M2,
-and v1.0 runs to M5. M3 added our own chrome (`Background`, `Controls`,
+and v1.0 ships at M4. M4's starting state is
+**[docs/M4-HANDOFF.md](docs/M4-HANDOFF.md)**. M3 added our own chrome (`Background`, `Controls`,
 `MiniMap`, `Panel`) and the accessibility layer (focusable nodes, arrow-key
 nudging, the description region) on top of the interaction core (drag, select,
 delete, connect, reconnect), measured handle geometry, `isValidConnection`,
@@ -42,6 +43,9 @@ retracted measurements are in
 - **[docs/M3-FINDINGS.md](docs/M3-FINDINGS.md)** — what M3 shipped, the stacking
   bug its own CSS introduced, the a11y contract, and the gate numbers with chrome
   on.
+- **[docs/M4-HANDOFF.md](docs/M4-HANDOFF.md)** — what M4 inherits, the graph-feature
+  scope (sub-flows, resizing, snap, fitView options, edge types, `hidden`
+  collapsing), and the traps M3's follow-ups cost.
 
 Decisions locked: package `@fllstck/foldkit-flow`; MIT; our own CSS and visual
 identity (no upstream stylesheet, no attribution component); Foldkit-native API
