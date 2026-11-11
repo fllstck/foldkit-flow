@@ -13,8 +13,8 @@ numbers; every earlier figure in this document is historical and marked as such.
 | ---------------------------------------------- | --------------------------------------------------------------------- |
 | `pnpm typecheck`                               | flow → example → benchmark                                            |
 | `pnpm build`                                   | flow → example → benchmark                                            |
-| `pnpm check`                                   | typecheck, Enfect lint, Prettier, **268** Vitest tests green          |
-| `packages/flow` unit tests                     | 268 in 26 files (M3 had 194 in 20)                                    |
+| `pnpm check`                                   | typecheck, Enfect lint, Prettier, **270** Vitest tests green          |
+| `packages/flow` unit tests                     | 270 in 26 files (M3 had 194 in 20)                                    |
 | `packages/benchmark/tests/m4.spec.ts`          | 9 passed (M4 proofs 38–46)                                            |
 | `packages/benchmark/tests/hidden.spec.ts`      | 1 passed (the 10k exploration)                                        |
 | `packages/benchmark/tests/chrome.spec.ts`      | 17 passed (M3 proofs 22–37)                                           |
@@ -22,7 +22,7 @@ numbers; every earlier figure in this document is historical and marked as such.
 | `packages/benchmark/tests/interaction.spec.ts` | 9 passed (M1 proofs 8–16)                                             |
 | `packages/benchmark/tests/proofs.spec.ts`      | 4 passed (M0 proofs 2, 3, 3b, 4)                                      |
 | `packages/benchmark/tests/bench.spec.ts`       | 3 passed (625 comparison, 1k culled gate, 1k culled gate with chrome) |
-| whole Playwright suite                         | 48 tests = 44 proof tests + 3 gate tests + 1 exploration, in 3.6 min  |
+| whole Playwright suite                         | 48 tests = 44 proof tests + 3 gate tests + 1 exploration, in 3.3 min  |
 
 `pnpm check` still needs a build first when the public surface changed: the
 example and the benchmark typecheck against the library's `dist/*.d.ts`.
@@ -58,8 +58,15 @@ once per graph change instead of once per frame. The index is memoized on the
 **array reference**, which a frozen Foldkit Model makes a sound identity, so a
 drag frame or a pan frame reuses it and a graph edit rebuilds it. Three rules are
 load-bearing: a missing `parentId` resolves as absolute (a child vanishes only if
-the parent removed it), a cycle stops at the node the walk re-enters, and
-`maxParentDepth` (12) bounds a pathological chain.
+the parent removed it), a parent cycle keeps its nodes at their own coordinates,
+and **there is no depth limit**.
+
+_Superseded detail, kept so the history reads straight:_ this section originally
+said the resolution walked each node's chain, bounded by `maxParentDepth (12)`.
+That cap was removed in `§12.4` (it truncated valid nesting and made the result
+depend on array order) and the walk became a downward breadth-first pass in
+`§13.1` (the per-node walk was quadratic on a large flat graph). See those two
+sections for the current algorithm and its measured cost.
 
 ### 2.2 Dragging a parent moves the subtree for free, and the child is not dragged
 
@@ -282,11 +289,11 @@ commit that carries this file (`results/benchmark.json`,
 
 | Leg                   | drag (median / p95 / longest) | pan (median / p95 / longest) | long frames |
 | --------------------- | ----------------------------- | ---------------------------- | ----------- |
-| 625, React Flow       | 0 (not verified, M1 §10)      | 16.7 / 16.7 / 33.4           | 0           |
-| 625, Svelte Flow      | 16.7 / 16.7 / 33.4            | 16.7 / 16.8 / 16.8           | 0           |
-| 625, Foldkit          | 16.7 / 16.8 / 33.3            | 16.7 / 16.8 / 33.4           | 0           |
-| 1k culled             | 16.7 / 16.8 / 33.3            | 16.7 / 16.8 / 50.0           | 0           |
-| 1k culled + M3 chrome | 16.7 / 16.8 / 33.3            | 16.7 / 16.8 / 33.3           | 0           |
+| 625, React Flow       | 0 (not verified, M1 §10)      | 16.7 / 16.8 / 33.3           | 0           |
+| 625, Svelte Flow      | 16.7 / 16.8 / 16.8            | 16.7 / 16.7 / 16.8           | 0           |
+| 625, Foldkit          | 16.7 / 16.7 / 16.8            | 16.7 / 16.8 / 33.4           | 0           |
+| 1k culled             | 16.7 / 16.8 / 16.8            | 16.7 / 16.8 / 50.0           | 0           |
+| 1k culled + M3 chrome | 16.7 / 16.7 / 16.8            | 16.7 / 16.8 / 33.4           | 0           |
 
 Parity with React Flow on pan holds at 625 (median and p95 identical). Both 1k legs
 are inside the 33 ms p95 gate with zero long frames; the 50.0 ms pan outlier in the
@@ -294,15 +301,15 @@ are inside the 33 ms p95 gate with zero long frames; the 50.0 ms pan outlier in 
 `longFrames` counts as _not_ long, exactly as §4.5's 2% bound defines it.
 
 The per-dispatch cost went up slightly and is recorded rather than hidden:
-`updatePerDispatchMs` is 0.0018–0.0020 at 1k and 0.0024 at 625 on this run
+`updatePerDispatchMs` is 0.0018 at 625 and 0.0018–0.0019 at 1k on this run
 (M3 recorded 0.0019–0.0027 across its legs; the 625 figure moves the most from run
 to run). The new per-frame work is `visibleIds`/`shiftById`/`positions`, which a
 render does now that a position can be relative.
 
-**The culling scan is the number to watch.** `cullScanMs` is 6.67 (1k bare), 6.23 (1k with
-chrome) and 3.92 at 625 on this run, against 6.78 / 6.21 / 2.81 on the run before
-it and 5.72–5.81 / 2.55 at M3 — the scan is noisy at the ±1 ms level on this
-machine, and the level itself is the finding. Per scan, not per node. It is O(N) per scan times an O(measured) size
+**The culling scan is the number to watch.** `cullScanMs` is 6.7 (1k bare), 6.2 (1k with chrome)
+and 2.8 at 625 on this run, against 6.67 / 6.23 / 3.92 on the run before it and
+5.72–5.81 / 2.55 at M3 — the scan is noisy at the ±1 ms level on this machine, and
+the level itself is the finding. Per scan, not per node. It is O(N) per scan times an O(measured) size
 lookup inside `nodeSizeOf`, so at 1k a scan costs about a third of a 16.7 ms frame.
 M4 does not fix it (the gate passes with zero long frames, and the fix is a
 measured change that deserves its own before/after); it is named here as the first
@@ -317,14 +324,14 @@ each, warm-up discarded (`results/hidden-10k.json`):
 | Metric                     | Value                     |
 | -------------------------- | ------------------------- |
 | rendered nodes             | 200 (of 10,000)           |
-| pan frames                 | 251                       |
-| pan median / p95 / longest | 16.7 / 16.8 / 16.8 ms     |
+| pan frames                 | 247                       |
+| pan median / p95 / longest | 16.7 / 16.7 / 16.8 ms     |
 | long frames (> 50 ms)      | 0                         |
-| cull scan per call         | 3.09 ms over 10,000 nodes |
+| cull scan per call         | 3.21 ms over 10,000 nodes |
 
 So the escape hatch works: a 10k graph whose bulk is collapsed pans at the frame
 rate, with 200 nodes in the DOM. The number that scales with the model rather than
-with the view is the culling scan (3.09 ms), and it is a scan of 10k _hidden_
+with the view is the culling scan (3.21 ms), and it is a scan of 10k _hidden_
 nodes
 paying a set lookup each — which is the cheap half of `visibleNodes`. An expanded
 10k graph would pay the rect test and the size lookup for all of them, which §6
@@ -475,6 +482,10 @@ frames, §6).
 
 ### 12.4 MEDIUM — parent-chain behaviour was limited to 12 levels: fixed, not documented
 
+_Superseded by `§13.1`: the fix below kept a `nodes.length`-round walk per node,
+which was linear per node and therefore quadratic on a flat graph. The bound is now
+a downward breadth-first pass with no per-node walk at all._
+
 Accepted as a defect rather than a limit worth documenting. `maxParentDepth = 12`
 was used in three places, and in `positionIndex` it was worse than a cap: because a
 node's chain was resolved from whatever depth the node happened to start at, the
@@ -516,3 +527,74 @@ collision `M1-FINDINGS` §11 documents: a preview left running owns 4173/4174 an
 body ran, which is why the run looked partial. `pkill -f vite` before a suite run is
 the mitigation, and the full suite at this commit passed in one invocation:
 **48 tests in 3.6 min**, including `tests/hidden.spec.ts`.
+
+## 13. Response to `docs/M4-REVIEW-2.md`
+
+Two items, both accepted: one algorithm defect and one stale sentence of my own.
+The review also confirms the five findings from §12 are closed and that the suite
+is green at 268 tests (270 after this section's tests).
+
+### 13.1 MEDIUM — the position index was quadratic on a flat graph: fixed by replacing the walk
+
+Correct, and worse than "unnecessarily quadratic for flat graphs" suggests. The
+`§12.4` fix bounded each node's walk with `Arr.range(0, nodes.length).reduce(...)`,
+where the reducer returns its input unchanged once the chain is done. The bound was
+correct but the _loop_ was not: for a flat graph every one of the 10,000 nodes still
+ran 10,000 no-op reducer calls, so a graph change paid 10⁸ function calls. The same
+shape appeared twice more, in `ancestorIds` (which allocated a `byId.size`-long
+range per call, and `hiddenIds` called it once per node) and in `withDescendants`
+(`nodes.length` rounds × a full `nodes.forEach` per round).
+
+All three are gone. The resolver is now a **downward breadth-first pass**: roots are
+placed from their own positions, then each round expands the previous frontier's
+children through one precomputed `children` map. One visit per node, and an empty
+frontier makes the remaining rounds free. `hiddenIds` is the closure of the flagged
+nodes down the same map, and `withDescendants` is the closure from the dragged ids —
+so "the subtree of a collapsed node" and "the nodes that move with the one you
+dragged" are literally the same function. `ancestorIds` remains a small recursive
+walk, used only by a press and by tests, and says so in its docblock.
+
+Measured on a production build of `packages/flow/dist` (Node, median of 7, a fresh
+array per run so the memo misses):
+
+| Call                                          | Before (§12.4 code)                                         | After      |
+| --------------------------------------------- | ----------------------------------------------------------- | ---------- |
+| `positionIndex`, 10,000 flat nodes            | 726 ms (review) / 2,983 ms (re-lifted and re-measured here) | **2.0 ms** |
+| `positionIndex`, 10,000 nested nodes          | —                                                           | **2.3 ms** |
+| `hiddenIds`, 10,000 nested (9,800 hidden)     | —                                                           | **1.4 ms** |
+| `withDescendants`, 10,000 flat, one root      | —                                                           | **0.4 ms** |
+| `withDescendants`, 10,000 nested, a container | —                                                           | **0.3 ms** |
+
+The reviewer's 726 ms and my 2,983 ms for the same algorithm are the same finding
+measured on different arrays and machines; the ratio is what matters, and the new
+implementation is two to three orders of magnitude faster on the shape that hurt.
+
+Instrumentation, as the review asked: two unit tests in
+`geometry/positions.test.ts` ("building the index is one visit per node…" and
+"collapsing and subtree expansion are linear on the same graph") build a 10,000-node
+flat fixture and assert the results _and_ a wall-clock ceiling of 200 ms — a 100×
+margin over the fixed cost, and well under the broken one. They are the only
+time-based tests in the suite, and their comments say why.
+
+The gate is unchanged by the fix (§6, re-run at this commit): 625 parity, both 1k
+legs p95 16.8 with zero long frames. The 10k exploration is unchanged too — 247 pan
+frames, 16.7/16.7, 0 long frames, 200 rendered of 10,000 — because the index is
+built once per graph change, not per frame; the fix removes a startup pause rather
+than a frame cost.
+
+### 13.2 Documentation inconsistency — §2.1 still cited `maxParentDepth`: fixed
+
+Correct, and it was my own text: §12.4 removed the constant but §2.1 still described
+it as a live rule. §2.1 now states that there is no depth limit and carries a
+"superseded detail" note pointing at §12.4 and §13.1, so the historical claim stays
+readable instead of being quietly rewritten. §12.4 gained the same marker, because
+its fix is the one this section replaced.
+
+### 13.3 On the blocked browser reruns
+
+Occupied 4173/4174 is the preview-server collision documented in `M1-FINDINGS` §11:
+a leftover preview owns the port and `reuseExistingServer` makes the run navigate
+into a server it did not start, so nothing is asserted and nothing is measured.
+`pkill -f vite` before a run is the documented mitigation, and the full suite at
+this commit passed in one invocation: **48 tests in 3.3 min**, `tests/hidden.spec.ts`
+included.

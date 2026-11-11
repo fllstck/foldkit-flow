@@ -1,5 +1,7 @@
 import { describe, expect, test } from "vitest";
 
+import { hiddenIds } from "./hidden.js";
+
 import type { FlowNode } from "../model.js";
 import {
   ancestorIds,
@@ -129,6 +131,43 @@ describe("positionIndex (§7 M4)", () => {
     expect(positionIndex(nested)).toBe(positionIndex(nested));
     // And a new array is a new index, because the graph may have changed.
     expect(positionIndex([...nested])).not.toBe(positionIndex(nested));
+  });
+});
+
+describe("cost on a large flat graph (M4-REVIEW-2)", () => {
+  /** 10,000 unparented nodes — the shape a stress fixture has, and the shape the
+   *  per-node walk was quadratic on. */
+  const flat10k: ReadonlyArray<FlowNode<null>> = Array.from(
+    { length: 10_000 },
+    (_, index) => node(`n${index}`, { x: index, y: index }),
+  );
+
+  test("building the index is one visit per node, not one walk per node", () => {
+    // The bound is deliberately loose: the ceiling exists to catch a return to a
+    // `nodes.length`-rounds-per-node walk, which measured ~726 ms for this graph
+    // in a production build (M4-REVIEW-2). The linear pass is single-digit
+    // milliseconds, so 200 ms is a 20x margin over the fix and 3x under the bug.
+    const startedAt = performance.now();
+    const index = positionIndex(flat10k);
+    const elapsed = performance.now() - startedAt;
+
+    expect(index.size).toBe(10_000);
+    expect(positionOf(flat10k[9_999] as FlowNode<null>, index)).toEqual({
+      x: 9_999,
+      y: 9_999,
+    });
+    expect(elapsed).toBeLessThan(200);
+  });
+
+  test("collapsing and subtree expansion are linear on the same graph", () => {
+    const collapsed = flat10k.map((entry, index) =>
+      index === 0 ? { ...entry, hidden: true } : entry,
+    );
+    const startedAt = performance.now();
+    // `hiddenIds` is the collapsing closure; `withDescendants` is the drag's.
+    expect(hiddenIds(collapsed).size).toBe(1);
+    expect(withDescendants(new Set(["n42"]), flat10k).size).toBe(1);
+    expect(performance.now() - startedAt).toBeLessThan(200);
   });
 });
 

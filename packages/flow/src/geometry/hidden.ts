@@ -1,5 +1,5 @@
 import type { FlowEdge, FlowNode } from "../model.js";
-import { ancestorIds } from "./positions.js";
+import { withDescendants } from "./positions.js";
 
 /**
  * `FlowNode.hidden` means **collapsed**, not merely "not drawn" (§7 M4).
@@ -22,19 +22,15 @@ const hiddenMemo: WeakMap<
 const computeHiddenIds = <NodeData>(
   nodes: ReadonlyArray<FlowNode<NodeData>>,
 ): ReadonlySet<string> => {
-  const byId = new Map(nodes.map((node) => [node.id, node] as const));
+  // Downward, from every node that carries the flag: one pass per level of
+  // nesting, and a flat graph costs a single round. Walking each node's ancestors
+  // instead was linear per node, and therefore quadratic on a large flat graph
+  // (M4-REVIEW-2).
+  const roots = nodes
+    .filter((node) => node.hidden === true)
+    .map((node) => node.id);
 
-  const hidden = new Set<string>();
-  nodes.forEach((node) => {
-    // The chain is `[node, parent, grandparent, …]`, so a hidden ancestor
-    // anywhere in it collapses this node too, and a hidden node hides itself.
-    const isCollapsed = ancestorIds(node, byId).some(
-      (id) => byId.get(id)?.hidden === true,
-    );
-    if (isCollapsed) hidden.add(node.id);
-  });
-
-  return hidden;
+  return withDescendants(new Set(roots), nodes);
 };
 
 /** Every node id hidden by its own flag **or** by an ancestor's. */
