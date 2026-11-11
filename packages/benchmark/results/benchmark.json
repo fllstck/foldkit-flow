@@ -21,25 +21,25 @@
         "longFrames": 0
       },
       "pan": {
-        "count": 494,
+        "count": 499,
         "median": 16.7,
-        "p95": 16.8,
-        "longest": 33.3,
+        "p95": 16.7,
+        "longest": 33.4,
         "longFrames": 0
       }
     },
     "svelte": {
       "drag": {
-        "count": 501,
+        "count": 502,
         "median": 16.7,
-        "p95": 16.8,
+        "p95": 16.7,
         "longest": 16.8,
         "longFrames": 0
       },
       "pan": {
-        "count": 484,
+        "count": 492,
         "median": 16.7,
-        "p95": 16.7,
+        "p95": 16.8,
         "longest": 16.8,
         "longFrames": 0
       }
@@ -48,12 +48,12 @@
       "drag": {
         "count": 500,
         "median": 16.7,
-        "p95": 16.7,
-        "longest": 16.8,
+        "p95": 16.8,
+        "longest": 33.4,
         "longFrames": 0
       },
       "pan": {
-        "count": 481,
+        "count": 484,
         "median": 16.7,
         "p95": 16.8,
         "longest": 33.4,
@@ -63,9 +63,9 @@
   },
   "flow": {
     "updates": 1925,
-    "updateTotalMs": 3.5,
-    "updatePerDispatchMs": 0.0018,
-    "cullScanMs": 2.842,
+    "updateTotalMs": 3.9,
+    "updatePerDispatchMs": 0.002,
+    "cullScanMs": 3.754,
     "cullScanSamples": 21
   }
 }

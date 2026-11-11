@@ -55,15 +55,23 @@
 }
 
 /* A node the flow is drawing a box for — a resize in flight, or a persisted size
-   with `resize` on. The consumer's markup is what fills the box, so the default is
-   deliberately gentle: the direct children stretch, and a consumer that wants a
-   different layout opts out with its own rule. Without this the wrapper grows and
-   the content does not, which reads as "the resize only applies on release". */
-.fflow__node[data-boxed] > * {
-  box-sizing: border-box;
-  width: 100%;
-  height: 100%;
-}
+   with `resize` on — carries `data-boxed`. The flow does **not** restyle the
+   consumer's markup to fill it: a container node wants a frame with children
+   inside, a leaf wants a filled box, and the library cannot know which. So the
+   attribute is the contract and the one-line rule belongs to the consumer:
+
+     .fflow__node[data-boxed] > .my-node-content {
+       box-sizing: border-box;
+       width: 100%;
+       height: 100%;
+     }
+
+   `NodeTools.size` carries the same fact for markup-driven layouts. Both were
+   added because a resize that only appeared on release was reported by hand
+   (`M4-FINDINGS` §14), and a *default* stretch was tried first and reverted: it
+   also stretched the four 10×10 corner handles to the node's box, and the
+   containers on the sub-flow benchmark page to a filled rectangle over their
+   children and the edges between them. */
 
 .fflow__node-label {
   box-sizing: border-box;

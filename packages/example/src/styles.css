@@ -106,6 +106,16 @@ button:hover {
   white-space: nowrap;
 }
 
+/* A node the flow gives a box to (a resize, live or persisted) fills it: without
+   this the wrapper grows and the content does not, which reads as "the resize only
+   applies when I release". `data-boxed` is the flow's contract; the rule is the
+   consumer's, because a container node wants a frame rather than a filled box. */
+.fflow__node[data-boxed] > .node-shell {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+}
+
 .node-label {
   min-width: 64px;
 }

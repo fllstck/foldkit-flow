@@ -14,24 +14,24 @@
   "browser": "Brave 156.1.98.63 (Chromium 156), headless",
   "machine": "MacBook Air (Apple M5), macOS 26.6.2",
   "drag": {
-    "count": 505,
+    "count": 514,
     "median": 16.7,
-    "p95": 16.7,
-    "longest": 16.8,
+    "p95": 16.8,
+    "longest": 33.3,
     "longFrames": 0
   },
   "pan": {
-    "count": 598,
+    "count": 652,
     "median": 16.7,
     "p95": 16.8,
-    "longest": 33.4,
+    "longest": 33.3,
     "longFrames": 0
   },
   "flow": {
     "updates": 3078,
-    "updateTotalMs": 7.6,
-    "updatePerDispatchMs": 0.0025,
-    "cullScanMs": 6.206,
+    "updateTotalMs": 5.4,
+    "updatePerDispatchMs": 0.0018,
+    "cullScanMs": 6.474,
     "cullScanSamples": 21
   }
 }

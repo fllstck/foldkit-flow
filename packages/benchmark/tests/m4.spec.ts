@@ -422,6 +422,35 @@ test("proof 44: a resize corner grows the node and the parent persists the box",
   expect(after.width).toBeGreaterThan(before.width + 30);
   expect(Math.abs(after.width - during.width)).toBeLessThan(3);
   expect(await attr(page, "data-gesture")).toBe("Idle");
+
+  // The box stretches the consumer's content, not the library's corner handles.
+  // With the pointer resting on the node — handles at full opacity, the state the
+  // defect was reported in — all four stay corner-sized and the content still fills
+  // the box. A `> *` stretch rule made each of them as large as the node, which
+  // read as "the box goes grey with a bar at the top and the side".
+  await page.mouse.move(after.x + after.width / 2, after.y + after.height / 2);
+  await page.waitForTimeout(150);
+  const handles = await page.evaluate(() => {
+    const node = document.querySelector('.fflow__node[data-nodeid="n0"]');
+    return Array.from(node?.querySelectorAll(".fflow__resize") ?? []).map(
+      (handle) => {
+        const rect = handle.getBoundingClientRect();
+        return {
+          width: rect.width,
+          height: rect.height,
+          opacity: getComputedStyle(handle).opacity,
+        };
+      },
+    );
+  });
+  expect(handles).toHaveLength(4);
+  handles.forEach((handle) => {
+    expect(handle.opacity).toBe("1");
+    expect(handle.width).toBeLessThan(20);
+    expect(handle.height).toBeLessThan(20);
+  });
+  const contentAfter = await contentOf(page, "n0");
+  expect(Math.abs(contentAfter.width - after.width)).toBeLessThan(3);
 });
 
 test("proof 45: the same resize snaps to the demo's grid", async ({ page }) => {

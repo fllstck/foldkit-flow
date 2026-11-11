@@ -321,6 +321,22 @@ them. The gesture is a Flow gesture: pure geometry in `Flow.resizeRect`, one
 the DOM without waiting a frame. `XYResizer` is deliberately not used
 (`docs/M4-FINDINGS.md` §2.6).
 
+The box is the flow's; filling it is yours. A node the flow draws a box for carries
+`data-boxed`, and `tools.size` reports that box to `renderNode` (live, while a
+resize runs), so one line of your own CSS makes the resize visible:
+
+```css
+.fflow__node[data-boxed] > .my-node-content {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+}
+```
+
+It is deliberately not a library default: a container node wants a frame with its
+children inside, a leaf wants a filled box, and only you know which you have
+(`docs/M4-FINDINGS.md` §14).
+
 ### Snap grid
 
 ```ts

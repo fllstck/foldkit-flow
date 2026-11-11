@@ -644,6 +644,43 @@ Received: false` at the `data-boxed` assertion), then passing with it restored.
    `view/resize.test.ts` covers the same fact without a browser, including that
    `tools.size` reports the live box and that a node with no box is not stretched.
 
+**Second-order defect, reported by hand ten minutes later.** The first version of
+the fix stretched **every** direct child of a boxed wrapper
+(`.fflow__node[data-boxed] > *`), and the wrapper's children are the consumer's
+content _and the four resize handles_. A handle is a 10×10 corner target; stretched
+to the node's box it became a dark bordered rectangle, and four of them covered the
+node at hover/selection opacity — "it stays grey without any content and a bar at
+the top and the side". Proof 44 read the handle geometry now, so the state is
+pinned: with the pointer resting on a resized node (handles at opacity 1) all four
+measure 11×11 and the content still fills the box.
+
+Then the same rule turned out to restyle a page it had no business touching: the
+sub-flow benchmark page's containers started drawing a filled label over their
+children and the edges between them, which broke proofs 38 and 42 — the tests were
+right, the CSS was wrong. So the stretch is **not** a library default. The flow
+publishes the fact (`data-boxed` on the wrapper, `tools.size` to `renderNode`) and
+the consumer writes one rule:
+
+```css
+.fflow__node[data-boxed] > .my-node-content {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+}
+```
+
+The demo carries exactly that rule; the README documents it. A container node wants
+a frame with children inside it and a leaf wants a filled box, and a shared
+stylesheet cannot know which — which is the same reason §2.4 keeps the library's CSS
+to things the library owns.
+
+**A third lesson, about builds.** The two proofs above failed for a while against a
+preview that was serving the _previous_ library CSS: the benchmark bundle inlines
+`@fllstck/foldkit-flow/style.css` at its own build time, so rebuilding the library
+and the example is not enough — `pnpm build` (all three) is. `M1-FINDINGS` §11 is
+the same failure one layer out (build skew), and the tell is identical: behaviour
+that does not match the source you just read.
+
 **What it says about the M4 evidence.** Every M4 proof measured library-owned DOM;
 the one thing the milestone added that a user manipulates _by its size_ was
 asserted only on the wrapper. The rule "a DOM assertion is not a paint assertion"
