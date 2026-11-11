@@ -56,7 +56,14 @@ const edge: FlowEdge = {
   targetHandle: "in",
 };
 
+/** Reconnect grab rings are opt-in, so the renderer that draws them is its own. */
 const renderer = createRenderer({
+  paneId: "p",
+  renderNode: (n, _t, h) => h.div([], [n.id]),
+  reconnect: true,
+});
+
+const plainRenderer = createRenderer({
   paneId: "p",
   renderNode: (n, _t, h) => h.div([], [n.id]),
 });
@@ -68,14 +75,18 @@ const model = (overrides?: Partial<Model>): Model => ({
   ...overrides,
 });
 
-const render = (current: Model, edges: ReadonlyArray<FlowEdge> = [edge]) =>
+const render = (
+  current: Model,
+  edges: ReadonlyArray<FlowEdge> = [edge],
+  withRings = true,
+) =>
   Effect.runPromise(
     Server.renderToString(
       {
         init: () => ({ model: current }),
         view: (state, h) => ({
           title: "edges",
-          body: renderer.view(
+          body: (withRings ? renderer : plainRenderer).view(
             {
               model: state,
               nodes,
@@ -143,6 +154,13 @@ describe("edge geometry", () => {
     expect(html).toContain('data-edgeend="Target"');
     expect(html).toContain('cx="400"');
     expect(html).toContain('cy="220"');
+  });
+
+  test("the rings are opt-in: a renderer without them draws none", async () => {
+    const html = (await render(model(), [edge], false)).html;
+    expect(html).not.toContain("fflow__edge-endpoint");
+    // The path is unaffected: the flag is about the affordance, not geometry.
+    expect(edgePathOf(html)).toBe(edgePathOf((await render(model())).html));
   });
 });
 

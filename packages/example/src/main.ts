@@ -479,6 +479,8 @@ const renderNode = (
 const renderer = Flow.createRenderer<{ label: string }, unknown>({
   paneId: FLOW_PANE_ID,
   renderNode,
+  // The demo folds `ReconnectedEdge`, so it opts into the grab rings.
+  reconnect: true,
 });
 
 const stat = (h: HtmlBuilder<Message>, key: string, value: number | string) =>

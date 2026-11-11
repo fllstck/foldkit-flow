@@ -5,6 +5,8 @@ import {
   connectionOf,
   edgeAnchor,
   edgeEndpoints,
+  indexHandles,
+  indexedEdgeEndpoints,
   pointerHandlePosition,
   resolveHandle,
 } from "./handles.js";
@@ -136,6 +138,34 @@ describe("edge endpoints from measured handles", () => {
 
   test("no node, no edge: the renderer drops it rather than guessing", () => {
     expect(edgeEndpoints(model, edge(), [sourceHandle])).toEqual(Option.none());
+  });
+
+  test("the indexed lookups agree with the array path", () => {
+    // The renderer draws edges through `indexedEdgeEndpoints`, so the two forms
+    // have to make the same decision — including the fallbacks.
+    const handles = indexHandles(bounds);
+    const cases: ReadonlyArray<{
+      edges: ReadonlyArray<FlowNode>;
+      edge: FlowEdge;
+    }> = [
+      { edges: [sourceHandle, targetHandle], edge: edge() },
+      {
+        edges: [sourceHandle, targetHandle],
+        edge: { id: "e1", source: "a", target: "b" },
+      },
+      {
+        edges: [sourceHandle, targetHandle],
+        edge: edge({ sourceHandle: "x" }),
+      },
+      { edges: [sourceHandle], edge: edge() },
+    ];
+
+    cases.forEach(({ edges, edge: current }) => {
+      const nodes = new Map(edges.map((node) => [node.id, node] as const));
+      expect(
+        indexedEdgeEndpoints(model.nodeSizes, handles, nodes, current),
+      ).toEqual(edgeEndpoints(model, current, edges));
+    });
   });
 });
 

@@ -1,4 +1,4 @@
-import { Option } from "effect";
+import { Array as Arr, Option } from "effect";
 
 import { nodeSizeOf } from "./bounds.js";
 import type {
@@ -55,20 +55,44 @@ export const resolveHandle = (
   nodeId: string,
   type: HandleType,
   handleId: Option.Option<string>,
+): Option.Option<HandleBounds> => resolveIn(bounds, nodeId, type, handleId);
+
+const resolveIn = (
+  candidates: ReadonlyArray<HandleBounds>,
+  nodeId: string,
+  type: HandleType,
+  handleId: Option.Option<string>,
 ): Option.Option<HandleBounds> =>
   Option.match(handleId, {
     // A declared id means that handle or none: silently anchoring on a sibling
     // would draw the edge in the wrong place, which is worse than the border.
-    onSome: () => findHandle(bounds, { nodeId, handleId, type }),
+    onSome: () => findHandle(candidates, { nodeId, handleId, type }),
     onNone: () =>
-      Option.orElse(findHandle(bounds, { nodeId, handleId, type }), () =>
+      Option.orElse(findHandle(candidates, { nodeId, handleId, type }), () =>
         Option.fromNullishOr(
-          bounds.find(
+          candidates.find(
             (entry) => entry.nodeId === nodeId && entry.type === type,
           ),
         ),
       ),
   });
+
+/**
+ * Measured bounds grouped by node. The renderer builds this once per measurement
+ * change: `resolveHandle` scans the whole array, and a viewport frame that paid
+ * that scan twice per edge — on a graph with a thousand measured nodes — was the
+ * regression the §4.5 gate caught (long pan frames). Grouping first turns each
+ * edge end into a two-entry lookup.
+ */
+export type HandleBoundsByNode = ReadonlyMap<
+  string,
+  ReadonlyArray<HandleBounds>
+>;
+
+export const indexHandles = (
+  bounds: ReadonlyArray<HandleBounds>,
+): HandleBoundsByNode =>
+  new Map(Object.entries(Arr.groupBy(bounds, (entry) => entry.nodeId)));
 
 /** One end of an edge in flow space, with the side a path should leave from. */
 export type EdgeAnchor = Readonly<{
@@ -108,14 +132,14 @@ const borderAnchor = (
  * or the node-border anchor when that handle is unmeasured or missing (§7 M2).
  * Bounds are node-local, so the node position comes from the graph (§2.5.2).
  */
-export const edgeAnchor = (
-  model: Model,
+const anchorOf = (
   node: FlowNode<unknown>,
+  nodeSizes: ReadonlyArray<NodeSize>,
+  maybeHandle: Option.Option<HandleBounds>,
   type: HandleType,
-  handleId: Option.Option<string>,
 ): EdgeAnchor =>
-  Option.match(resolveHandle(model.handleBounds, node.id, type, handleId), {
-    onNone: () => borderAnchor(node, model.nodeSizes, type),
+  Option.match(maybeHandle, {
+    onNone: () => borderAnchor(node, nodeSizes, type),
     onSome: (entry) => ({
       x: node.position.x + entry.x + entry.width / 2,
       y: node.position.y + entry.y + entry.height / 2,
@@ -123,32 +147,73 @@ export const edgeAnchor = (
     }),
   });
 
-/** Both ends of an edge, or `None` when either node is absent from the graph. */
+export const edgeAnchor = (
+  model: Model,
+  node: FlowNode<unknown>,
+  type: HandleType,
+  handleId: Option.Option<string>,
+): EdgeAnchor =>
+  anchorOf(
+    node,
+    model.nodeSizes,
+    resolveHandle(model.handleBounds, node.id, type, handleId),
+    type,
+  );
+
+/**
+ * Both ends of an edge against pre-built lookups, or `None` when either node is
+ * absent from the graph. This is the form the renderer uses, once per edge per
+ * render, with `indexHandles` and a node map built above the loop.
+ */
+export const indexedEdgeEndpoints = <EdgeData>(
+  nodeSizes: ReadonlyArray<NodeSize>,
+  handles: HandleBoundsByNode,
+  nodes: ReadonlyMap<string, FlowNode<unknown>>,
+  edge: FlowEdge<EdgeData>,
+): Option.Option<EdgeEndpoints> => {
+  const source = nodes.get(edge.source);
+  const target = nodes.get(edge.target);
+  if (source === undefined || target === undefined) return Option.none();
+
+  return Option.some({
+    source: anchorOf(
+      source,
+      nodeSizes,
+      resolveIn(
+        handles.get(source.id) ?? [],
+        source.id,
+        "Source",
+        Option.fromNullishOr(edge.sourceHandle),
+      ),
+      "Source",
+    ),
+    target: anchorOf(
+      target,
+      nodeSizes,
+      resolveIn(
+        handles.get(target.id) ?? [],
+        target.id,
+        "Target",
+        Option.fromNullishOr(edge.targetHandle),
+      ),
+      "Target",
+    ),
+  });
+};
+
+/** Both ends of an edge given the graph as an array: convenient, and O(nodes +
+ *  bounds) per call. The renderer uses `indexedEdgeEndpoints`. */
 export const edgeEndpoints = <NodeData, EdgeData>(
   model: Model,
   edge: FlowEdge<EdgeData>,
   nodes: ReadonlyArray<FlowNode<NodeData>>,
-): Option.Option<EdgeEndpoints> => {
-  const source = nodes.find((node) => node.id === edge.source);
-  const target = nodes.find((node) => node.id === edge.target);
-
-  if (source === undefined || target === undefined) return Option.none();
-
-  return Option.some({
-    source: edgeAnchor(
-      model,
-      source,
-      "Source",
-      Option.fromNullishOr(edge.sourceHandle),
-    ),
-    target: edgeAnchor(
-      model,
-      target,
-      "Target",
-      Option.fromNullishOr(edge.targetHandle),
-    ),
-  });
-};
+): Option.Option<EdgeEndpoints> =>
+  indexedEdgeEndpoints(
+    model.nodeSizes,
+    indexHandles(model.handleBounds),
+    new Map(nodes.map((node) => [node.id, node] as const)),
+    edge,
+  );
 
 /**
  * Which side a free end should approach from: a pointer that sits to the right

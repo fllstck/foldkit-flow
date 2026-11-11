@@ -64,10 +64,16 @@ export {
   connectionOf,
   edgeAnchor,
   edgeEndpoints,
+  indexHandles,
+  indexedEdgeEndpoints,
   pointerHandlePosition,
   resolveHandle,
 } from "./geometry/handles.js";
-export type { EdgeAnchor, EdgeEndpoints } from "./geometry/handles.js";
+export type {
+  EdgeAnchor,
+  EdgeEndpoints,
+  HandleBoundsByNode,
+} from "./geometry/handles.js";
 export { hitTestHandle } from "./geometry/hitTest.js";
 export { dragDelta, flowToScreen, screenToFlow } from "./geometry/screen.js";
 export type { ScreenPoint } from "./geometry/screen.js";

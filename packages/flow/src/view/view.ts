@@ -6,10 +6,15 @@ import { edgePath } from "../geometry/paths.js";
 import type { EdgePathInput, EdgePathKind } from "../geometry/paths.js";
 import {
   edgeAnchor,
-  edgeEndpoints,
+  indexHandles,
+  indexedEdgeEndpoints,
   pointerHandlePosition,
 } from "../geometry/handles.js";
-import type { EdgeAnchor } from "../geometry/handles.js";
+import type {
+  EdgeAnchor,
+  EdgeEndpoints,
+  HandleBoundsByNode,
+} from "../geometry/handles.js";
 import { oppositeHandleType } from "../geometry/hitTest.js";
 import { screenToFlow } from "../geometry/screen.js";
 import { visibleEdges, visibleNodes } from "../geometry/visible.js";
@@ -68,6 +73,11 @@ export type RendererConfig<NodeData, EdgeData> = Readonly<{
    *  default: culling trades a per-frame scan for unmount/remeasure churn at the
    *  edges of the viewport, so it is an explicit choice (§4.5). */
   cull?: boolean;
+  /** Draw a reconnect grab ring around each edge end and dispatch
+   *  `Message.StartedReconnect` when one is pressed. Off by default: it adds two
+   *  hit-testable SVG elements per edge, and a parent that does not fold
+   *  `OutMessage.ReconnectedEdge` has nothing to do with them. */
+  reconnect?: boolean;
   minZoom?: number;
   maxZoom?: number;
 }>;
@@ -106,6 +116,23 @@ export const createRenderer = <NodeData = unknown, EdgeData = unknown>(
   config: RendererConfig<NodeData, EdgeData>,
 ): Renderer<NodeData, EdgeData> => {
   const cache: NodeCache = createNodeCache();
+
+  // Measured bounds grouped by node, rebuilt only when the Model's bounds array
+  // is replaced (measurement replaces it; a pan or a drag frame does not). The
+  // renderer owns its caches already (§3.3), and this one keeps a viewport frame
+  // off a scan of every measured bound — twice per edge (§4.5).
+  let indexedBounds: Model["handleBounds"] | undefined;
+  let handleIndex: HandleBoundsByNode = new Map();
+
+  // Edge endpoints, memoized on the four inputs they read. A viewport frame
+  // changes none of them — the transform lives on the wrapper — so panning and
+  // dragging reuse the geometry instead of re-deriving every edge, twice per
+  // edge, once per frame (§4.5).
+  let geometryInputs: ReadonlyArray<unknown> | undefined;
+  let endpointsByEdgeId: ReadonlyMap<
+    string,
+    Option.Option<EdgeEndpoints>
+  > = new Map();
 
   const handleHtml = (
     nodeId: string,
@@ -193,6 +220,11 @@ export const createRenderer = <NodeData = unknown, EdgeData = unknown>(
       ? gesture.delta
       : zeroDelta;
 
+    if (indexedBounds !== model.handleBounds) {
+      indexedBounds = model.handleBounds;
+      handleIndex = indexHandles(model.handleBounds);
+    }
+
     const isCulling =
       config.cull === true && model.pane.width > 0 && model.pane.height > 0;
 
@@ -228,6 +260,35 @@ export const createRenderer = <NodeData = unknown, EdgeData = unknown>(
     const nodesById = new Map(
       input.nodes.map((node) => [node.id, node] as const),
     );
+
+    const nextGeometryInputs = [
+      model.handleBounds,
+      model.nodeSizes,
+      input.nodes,
+      input.edges,
+    ];
+    if (
+      geometryInputs === undefined ||
+      nextGeometryInputs.some(
+        (value, index) => value !== geometryInputs?.[index],
+      )
+    ) {
+      geometryInputs = nextGeometryInputs;
+      endpointsByEdgeId = new Map(
+        input.edges.map(
+          (edge) =>
+            [
+              edge.id,
+              indexedEdgeEndpoints(
+                model.nodeSizes,
+                handleIndex,
+                nodesById,
+                edge,
+              ),
+            ] as const,
+        ),
+      );
+    }
 
     const pathInput = (
       source: EdgeAnchor,
@@ -349,7 +410,8 @@ export const createRenderer = <NodeData = unknown, EdgeData = unknown>(
         h.Attribute("aria-hidden", "true"),
       ],
       edges.flatMap((edge) => {
-        const maybeEndpoints = edgeEndpoints(model, edge, input.nodes);
+        const maybeEndpoints =
+          endpointsByEdgeId.get(edge.id) ?? Option.none<EdgeEndpoints>();
         if (Option.isNone(maybeEndpoints)) return [];
         const endpoints = maybeEndpoints.value;
 
@@ -380,8 +442,12 @@ export const createRenderer = <NodeData = unknown, EdgeData = unknown>(
             [
               h.path([h.Attribute("d", geometry.d), h.Class(classes.EdgePath)]),
               ...label,
-              edgeEndpoint(edge.id, "Source", endpoints.source, h),
-              edgeEndpoint(edge.id, "Target", endpoints.target, h),
+              ...(config.reconnect === true
+                ? [
+                    edgeEndpoint(edge.id, "Source", endpoints.source, h),
+                    edgeEndpoint(edge.id, "Target", endpoints.target, h),
+                  ]
+                : []),
             ],
           ),
         ];
