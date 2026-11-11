@@ -1,0 +1,28 @@
+{
+  "name": "foldkit-flow-workspace",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.13.0",
+  "scripts": {
+    "dev": "pnpm --filter @fllstck/foldkit-flow-example dev",
+    "benchmark": "pnpm -r build && pnpm --filter @fllstck/foldkit-flow-benchmark preview -- --host 127.0.0.1",
+    "bench": "pnpm --filter @fllstck/foldkit-flow-benchmark exec playwright test",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "build": "pnpm -r build",
+    "lint": "pnpm lint:effect && pnpm lint:tests",
+    "lint:effect": "oxlint -c oxlint.config.ts packages",
+    "lint:tests": "oxlint -c oxlint.tests.json packages/benchmark/tests packages/flow/src",
+    "format": "prettier --write \"packages/**/*.{ts,tsx,svelte,css,html,json}\" \"*.{json,ts}\" \"docs/M0-*.md\"",
+    "format:check": "prettier --check \"packages/**/*.{ts,tsx,svelte,css,html,json}\" \"*.{json,ts}\" \"docs/M0-*.md\"",
+    "check": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm test"
+  },
+  "devDependencies": {
+    "@enfect/oxlint": "0.10.0",
+    "@types/node": "^24.10.1",
+    "oxlint": "1.85.0",
+    "prettier": "3.9.10",
+    "prettier-plugin-svelte": "4.1.1",
+    "typescript": "^5.9.3"
+  }
+}

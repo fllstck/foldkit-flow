@@ -1,0 +1,19 @@
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: #0f1115;
+  color: #e6e8ee;
+  font-family:
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    sans-serif;
+}
+
+.bench-root {
+  width: 100vw;
+  height: 100vh;
+}

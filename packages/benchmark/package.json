@@ -1,0 +1,32 @@
+{
+  "name": "@fllstck/foldkit-flow-benchmark",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "preview": "vite preview --port 4173 --strictPort",
+    "bench": "playwright test",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@effect/platform-browser": "~4.1.0",
+    "@fllstck/foldkit-flow": "workspace:*",
+    "@xyflow/react": "12.12.1",
+    "@xyflow/svelte": "1.7.1",
+    "effect": "~4.1.0",
+    "foldkit": "0.170.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "svelte": "5.57.3"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.65.0",
+    "@sveltejs/vite-plugin-svelte": "^7.3.1",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@vitejs/plugin-react": "^6.3.0",
+    "typescript": "^5.9.3",
+    "vite": "^8.0.0"
+  }
+}

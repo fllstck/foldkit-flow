@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.vite/
+coverage/
+*.tsbuildinfo
+.DS_Store
+packages/benchmark/results/*
+!packages/benchmark/results/benchmark.json
+test-results/
+playwright-report/

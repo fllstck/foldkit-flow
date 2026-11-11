@@ -1,0 +1,45 @@
+:root {
+  --fflow-pane-background: #0f1115;
+  --fflow-pane-foreground: #e6e8ee;
+  --fflow-edge-stroke: #596273;
+  --fflow-node-background: #1b1f27;
+  --fflow-node-border: #3a4150;
+}
+
+.fflow__pane {
+  background-color: var(--fflow-pane-background);
+  color: var(--fflow-pane-foreground);
+  font-family:
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    sans-serif;
+  touch-action: none;
+}
+
+.fflow__viewport {
+  will-change: transform;
+}
+
+.fflow__edge-path {
+  fill: none;
+  stroke: var(--fflow-edge-stroke);
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+
+.fflow__node {
+  cursor: default;
+}
+
+.fflow__node-label {
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border: 1px solid var(--fflow-node-border);
+  border-radius: 6px;
+  background-color: var(--fflow-node-background);
+  font-size: 12px;
+  line-height: 1.4;
+  white-space: nowrap;
+}

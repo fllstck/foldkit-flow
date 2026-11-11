@@ -1,0 +1,92 @@
+:root {
+  color-scheme: dark;
+  font-family:
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    sans-serif;
+  background: #0b0d11;
+  color: #e6e8ee;
+}
+
+body {
+  margin: 0;
+}
+
+.app {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+}
+
+.title {
+  margin: 0;
+  font-size: 18px;
+}
+
+.stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 12px;
+  color: #9aa3b2;
+}
+
+.stat {
+  white-space: nowrap;
+}
+
+.stat-key {
+  color: #6b7484;
+}
+
+.stat-value {
+  color: #e6e8ee;
+  font-variant-numeric: tabular-nums;
+}
+
+.buttons {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+
+button {
+  padding: 6px 10px;
+  border: 1px solid #3a4150;
+  border-radius: 6px;
+  background: #1b1f27;
+  color: #e6e8ee;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+button:hover {
+  border-color: #596273;
+}
+
+#flow-container {
+  border: 1px solid #262c37;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+/* Fixed box so a text edit is a pure content re-render: the node Mount must
+   survive it without a new measurement. */
+.fflow__node-label {
+  display: flex;
+  width: 150px;
+  height: 36px;
+  align-items: center;
+  box-sizing: border-box;
+  font-size: 11px;
+}

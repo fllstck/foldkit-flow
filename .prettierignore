@@ -1,0 +1,8 @@
+node_modules/
+dist/
+coverage/
+packages/benchmark/results/
+test-results/
+playwright-report/
+pnpm-lock.yaml
+docs/PLAN*.md

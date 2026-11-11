@@ -1,0 +1,11 @@
+export const Pane = "fflow__pane";
+export const Viewport = "fflow__viewport";
+export const Edges = "fflow__edges";
+export const Edge = "fflow__edge";
+export const EdgePath = "fflow__edge-path";
+export const Nodes = "fflow__nodes";
+export const Node = "fflow__node";
+export const NodeLabel = "fflow__node-label";
+export const NoDrag = "fflow__nodrag";
+export const NoPan = "fflow__nopan";
+export const NoWheel = "fflow__nowheel";

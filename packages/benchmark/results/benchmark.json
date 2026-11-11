@@ -1,0 +1,59 @@
+{
+  "fixture": {
+    "nodes": 625,
+    "edges": 624
+  },
+  "runs": 10,
+  "browser": "Brave 156.1.98.63 (Chromium 156), headless",
+  "machine": "MacBook Air (Apple M5), macOS 26.6.2",
+  "libraries": {
+    "react": {
+      "drag": {
+        "count": 419,
+        "median": 16.7,
+        "p95": 16.8,
+        "longest": 16.8,
+        "longFrames": 0
+      },
+      "pan": {
+        "count": 410,
+        "median": 16.7,
+        "p95": 16.7,
+        "longest": 16.8,
+        "longFrames": 0
+      }
+    },
+    "svelte": {
+      "drag": {
+        "count": 415,
+        "median": 16.7,
+        "p95": 16.7,
+        "longest": 16.8,
+        "longFrames": 0
+      },
+      "pan": {
+        "count": 402,
+        "median": 16.7,
+        "p95": 16.7,
+        "longest": 16.8,
+        "longFrames": 0
+      }
+    },
+    "foldkit": {
+      "drag": {
+        "count": 417,
+        "median": 16.7,
+        "p95": 16.7,
+        "longest": 16.8,
+        "longFrames": 0
+      },
+      "pan": {
+        "count": 400,
+        "median": 16.7,
+        "p95": 16.7,
+        "longest": 16.8,
+        "longFrames": 0
+      }
+    }
+  }
+}
