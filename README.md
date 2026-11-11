@@ -20,6 +20,8 @@ benchmark are green. Evidence and deviations are in
 - **[docs/M0-FINDINGS.md](docs/M0-FINDINGS.md)** — what M0 proved, the benchmark
   numbers, what needed workarounds, and proposed `docs/PLAN.md` diffs.
 - **[docs/M0-REVIEW.md](docs/M0-REVIEW.md)** — the independent M0 review.
+- **[docs/M1-HANDOFF.md](docs/M1-HANDOFF.md)** — the starting state and task list
+  for M1.
 
 Decisions locked: package `@fllstck/foldkit-flow`; MIT; our own CSS and visual
 identity (no upstream stylesheet, no attribution component); Foldkit-native API
