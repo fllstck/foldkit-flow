@@ -10,8 +10,10 @@ features on top of M3's chrome and accessibility layer: parent/child sub-flows, 
 labels, and minimap click-to-centre. The gate is still green: 625 nodes at parity
 with React Flow on pan, and 1k culled under the 33 ms p95 gate with zero long
 frames — including with the chrome on — and a 10k graph with 98% of its nodes
-collapsed pans at the frame rate (200 nodes in the DOM). Evidence, deviations, and
-the retracted measurements are in
+collapsed pans at the frame rate (200 nodes in the DOM). The named gaps M4 left —
+`XYResizer`, minimap drag, edge selection, `nodeOrigin` and the rest — are planned
+as **M6, research first**, at the end of `docs/PLAN.md` §7. Evidence, deviations,
+and the retracted measurements are in
 **[docs/M0-FINDINGS.md](docs/M0-FINDINGS.md)**,
 **[docs/M1-FINDINGS.md](docs/M1-FINDINGS.md)**,
 **[docs/M2-FINDINGS.md](docs/M2-FINDINGS.md)** and

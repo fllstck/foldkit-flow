@@ -381,7 +381,9 @@ Each of the sharpened traps was real and each cost something:
 
 ## 10. Proposed `docs/PLAN.md` diffs
 
-Not applied, per the working agreement:
+Not applied at M4, per the working agreement. Items 3 and 4 are now superseded by
+M6 (below), which researches them before any of them changes; the others remain
+proposals:
 
 1. §3.3: add `hidden`, `parentId` semantics (relative position), `markerStart`,
    `markerEnd` to the type sketches, and `RendererConfig.snapGrid`, `.resize`,
@@ -396,3 +398,23 @@ Not applied, per the working agreement:
 5. §4.5: name the culling scan's O(measured) size lookup as the known 10k
    bottleneck, with the measured numbers in §6 and §7 here.
 6. §6: the demo fixture is 630 nodes from M4 on; the earlier proofs count that.
+
+## 11. `PLAN.md` gained an M6 after this document was written
+
+`docs/PLAN.md` §7 now ends with **M6 — the deliberate gaps, researched first**,
+added at the project owner's request after v1.0 shipped. It is the first milestone
+whose deliverable is a research document rather than a feature: one section per
+row of the out-list in §8 above, primary sources only, two sources per claim, and a
+three-way verdict (ship / ship differently / keep out) before any code.
+
+Two consequences for this document, both bookkeeping rather than findings:
+
+- §7's scope line now reads "v1.0 = M0–M4 as shipped" (it said M0–M5, which was
+  written before the split). No M4 behaviour changed with that edit.
+- §10's proposals stay proposals. Items 3 (`XYResizer` rejected) and 4 (minimap
+  click-only) are exactly what M6 rows 1 and 2 re-examine against the primary
+  sources; the outcome — including "M4 was right" — belongs in
+  `docs/M6-RESEARCH.md`, not here.
+
+No M4 number, decision or proof in this document changes as a result. The M4 gate
+figures in §6 and §7 were produced at `a080633`, before the M6 section existed.

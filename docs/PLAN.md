@@ -1505,9 +1505,9 @@ The whole point of this design is that the interesting logic is pure:
 
 **Scope.** **v0.1 = M0–M2**: the first iteration — pan/zoom, drag, select,
 connect, custom nodes, plus the performance work that makes them usable.
-**v1.0 = M0–M5**: adds sub-flows, resizing, minimap, edge types, and the polish
-pass. Sub-flows, resizing, minimap, and edge types are in the product scope; they
-are just not in the first iteration.
+**v1.0 = M0–M4** as shipped: adds sub-flows, resizing, minimap, edge types, and the
+polish pass. Sub-flows, resizing, minimap, and edge types are in the product scope;
+they are just not in the first iteration. **M5 and M6 are post-v1.0.**
 
 **M0 — spike, 3–4 days. Retire the risky assumptions, pin the API, stand up the
 benchmark.** Static render only: nodes as positioned divs, edges as paths from
@@ -1577,6 +1577,79 @@ _—— v1.0 ships here ——_
 numbers, including the ceiling if there is one. Ship the fixture gallery against
 React Flow, package docs, and an example app page in the style of `foldkit.dev`'s
 examples.
+
+**M6 — the deliberate gaps, researched first.** M4 shipped v1.0 with eleven named
+omissions (`docs/M4-FINDINGS.md` §8). Each was a decision taken inside a milestone,
+several of them before the primary sources had been read in full: `XYResizer` was
+rejected from the Mount seam's properties, edge selection was deferred, `nodeOrigin`
+was scoped out, and the minimap stopped at a click. M6 pays that debt in the right
+order — **research, then decide, then code only what the decision says** — and its
+first deliverable is a document, not a feature.
+
+**Method (binding, not advisory).**
+
+1. **Primary sources only.** The pinned `@xyflow/system@0.0.84` source in
+   `node_modules` and the corresponding `@xyflow/react` / `@xyflow/svelte` files on
+   GitHub; their API-reference pages; the issues, discussions and release notes
+   where the maintainers explain a design. Documentation prose is a claim to check
+   against the source, not the answer.
+2. **A second implementation per point.** For every question, one non-xyflow
+   implementation of the same behaviour (tldraw, Excalidraw, LiteGraph, Cytoscape,
+   or a comparable library) — to separate "how xyflow does it" from "what the
+   problem is".
+3. **Two independent sources per factual claim**, each dated and linked. Where the
+   docs describe a newer version than the pinned one, say so and mark which
+   behaviour we would get.
+4. **Behaviour, never look.** §2.4 still holds: no upstream stylesheet, no copied
+   visual identity, no attribution component. Research tells us what is *correct*;
+   the design stays ours.
+5. **What the sources cannot settle is measured**, not assumed: a Story test, a
+   browser probe, or a benchmark leg, recorded with its number.
+6. Every decision lands in `docs/M6-RESEARCH.md` as one of **ship**, **ship
+   differently** (with the difference stated), or **keep out** (with the reason and
+   what would change the answer), and then in code with a proof — or in
+   `docs/M6-FINDINGS.md` as a documented gap.
+
+**The research questions.** Each row is one section of `docs/M6-RESEARCH.md`; § is
+the M4-FINDINGS section that left it open.
+
+| #  | Gap (§)                    | What the research has to answer                                                                                                                                                                                                                                  | Decision it unblocks                                  |
+| -- | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| 1  | `XYResizer` (§2.6)         | Can its `getStoreItems` be satisfied without a reactive store — what do the wrappers pass, must `update()` be re-called per render, what happens if the box changes mid-gesture, and did anything change after 0.0.84?                                              | Adopt `XYResizer`; keep our gesture; or adopt only its geometry |
+| 2  | Minimap interaction (§2.9) | The semantics of `pannable`, `zoomable`, `onClick(event, position)`, `onNodeClick`, `inversePan`, `zoomStep`, `offsetScale`; how `XYMinimap` (in the pinned package) handles pointer identity, cancel and the viewBox→flow mapping; what a screen reader should be told | Click-only, click + drag, click + drag + wheel, and whether a node is a target |
+| 3  | Edge selection (§2.10)     | `interactionWidth` and its default; the `pointer-events` history of the invisible helper path; how selection is done without lifting the edges layer above the nodes; `elementsSelectable`, `edgesFocusable`                                                      | Ship edge selection, and its hit path                 |
+| 4  | `nodeOrigin` (§8)          | Flow-level and per-node `origin`; how an origin interacts with parent/child relative positions, `extent`, handle bounds and `getNodesBounds`; which of our helpers would become origin-aware                                                                        | Ship, ship per-node only, or keep out with a workaround |
+| 5  | Parent resize re-placing children (§8) | `childChanges` from `XYResizer`, `extent: "parent"`, `expandParent`, `nodeToChildExtent`; how children stay visually still when a parent's top-left moves, and what happens to grandchildren                                                                 | Compensate children, or document it as the parent's job |
+| 6  | `keepAspectRatio`, `resizeDirection`, `shouldResize` (§8) | The control props `XYResizer` takes; whether upstream binds a modifier for aspect locking; what `shouldResize` can veto                                                                                                                          | Add aspect locking, edge controls, or neither         |
+| 7  | Interactive edge labels (§8) | How upstream labels are built: SVG text versus an HTML layer (`EdgeLabelRenderer`, `nodrag nopan`), label backgrounds, and the `edge-toolbar` / `node-toolbar` helpers the pinned package already exports                                               | Whether the halo stays the primitive or becomes one branch |
+| 8  | Multi-node resize (§8)     | Any upstream precedent (group or selection-box resize); otherwise how a second implementation transforms a multi-selection, and whether our one-delta-per-gesture rule extends to boxes                                                                            | Multi-resize, or a permanently documented single-node rule |
+| 9  | Handle geometry during a resize (§8) | How the wrappers keep edge endpoints correct while a box changes: when `getHandleBounds` re-runs, what `updateNodeInternals` / `useUpdateNodeInternals` exist for, and whether upstream is actually lag-free                                                   | Accept the one-frame lag, or a targeted remeasure on resize frames |
+| 10 | The culling scan (§6, §7)  | How the wrappers cull (`onlyRenderVisibleElements`, `getNodesInside`, `isEdgeVisible`) and what other libraries use for the same job; whether an index, a coarser cadence, or both is the right fix for `nodeSizeOf`'s O(measured) lookup at 10k               | The fix, with a measured before/after at 1k and 10k    |
+| 11 | Edge focus and the tab order (§2.10, §10 a11y) | `nodesFocusable`, `edgesFocusable`, `disableKeyboardA11y`, the `aria` labels upstream emits for edges, and how focus order is decided across both kinds of element                                                                                       | Extend our tab order to edges, and the description region |
+
+**Order.** 10 first (it is a measured number, independent of every other decision,
+and it bounds what 1 and 9 can cost); then 3 with 11 as one unit (an edge you can
+select but not focus is half a feature); then 1, because its answer may replace the
+code that 5, 6 and 9 would otherwise extend; then 2, 4, 5 and 6; then 7 and 8.
+
+**Definition of done.**
+
+- `docs/M6-RESEARCH.md` exists, one section per row above, each ending in a verdict
+  from the three-way choice and carrying its links and dates.
+- Every **ship** verdict is implemented with a proof in the M4 style (a Story test
+  for pure logic, a Playwright proof for the gesture and the paint).
+- Every **keep out** verdict is in `docs/M6-FINDINGS.md` with the reason and the
+  evidence that the reason still holds.
+- The gate is unchanged and re-run at the committing commit: 625 at parity with
+  React Flow on pan, 1k culled p95 < 33 ms with long frames inside the 2% bound.
+  If 10 changes the culling scan, its before/after is recorded at 1k and 10k.
+- `README.md` documents whatever shipped, and `docs/M4-FINDINGS.md` §8 is updated
+  to point at the verdicts rather than leaving the old list as the last word.
+- `pnpm typecheck`, `pnpm build`, `pnpm check`, `pnpm bench` green.
+
+**Not in M6.** No re-litigation of decisions that are not on the list above; no
+upstream stylesheet, component or attribution (§2.4); no new product scope — an
+idea that arrives during the research is written down as a candidate, not built.
 
 ---
 
