@@ -1499,6 +1499,17 @@ The whole point of this design is that the interesting logic is pure:
   by React Flow and by Flow, compared by path `d` strings and pixel screenshots —
   the fastest way to prove the geometry port is faithful.
 
+**The boundary rule (`docs/verification.md`).** Every visual bug this project has
+shipped was green at one layer and broken at the next: an edge with the right `d`
+that painted nothing, a transform attribute that was inert, a wrapper that grew while
+its content did not, a CSS rule that stretched a handle. The rule that came out of
+those four: *assert at the layer the user perceives, and name that layer in the
+test*. `docs/verification.md` lists the six boundaries between the Model and the eye
+(Model → DOM value → paint → content layout → siblings → served bundle), the bug each
+one produced here, and the assertion that crosses it, plus the five-question
+checklist a visual feature has to answer before it is called done. §6's split above
+still decides *where* a test goes; the boundary rule decides *what it asserts*.
+
 ---
 
 ## 7. Milestones
@@ -1609,6 +1620,10 @@ first deliverable is a document, not a feature.
    differently** (with the difference stated), or **keep out** (with the reason and
    what would change the answer), and then in code with a proof — or in
    `docs/M6-FINDINGS.md` as a documented gap.
+7. Every **ship** verdict is proved at the layer the user perceives
+   (`docs/verification.md`): pixels for anything drawn, the consumer's content for
+   anything resized, the neighbours for anything restyled, and a second consumer
+   page for anything that becomes a default.
 
 **The research questions.** Each row is one section of `docs/M6-RESEARCH.md`; § is
 the M4-FINDINGS section that left it open.

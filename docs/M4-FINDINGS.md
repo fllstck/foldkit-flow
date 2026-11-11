@@ -686,3 +686,10 @@ the one thing the milestone added that a user manipulates _by its size_ was
 asserted only on the wrapper. The rule "a DOM assertion is not a paint assertion"
 extends to: an assertion on the element the library owns is not an assertion on what
 the consumer sees.
+
+Both reports in this section, the M3 ones they rhyme with, and the CSS/handle
+mistake in between are collected as a standing rule in
+[`docs/verification.md`](verification.md): the six boundaries between the Model and
+the eye, the assertion that crosses each, and a five-question checklist for a visual
+feature. That file is the durable form of this section; this one stays as the record
+of what happened.

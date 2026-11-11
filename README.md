@@ -28,6 +28,10 @@ and the retracted measurements are in
 - **[docs/foldkit-constraints.md](docs/foldkit-constraints.md)** — what Foldkit
   requires of a third-party integration, read from `foldkit@0.170.0` and its
   examples.
+- **[docs/verification.md](docs/verification.md)** — the boundary rule: assert at
+  the layer the user perceives. Six boundaries between the Model and the eye, each
+  with the bug it produced here and the assertion that crosses it, plus a five
+  question checklist for a visual feature.
 - **[docs/M0-FINDINGS.md](docs/M0-FINDINGS.md)** — what M0 proved, the benchmark
   numbers, what needed workarounds, and proposed `docs/PLAN.md` diffs.
 - **[docs/M0-REVIEW.md](docs/M0-REVIEW.md)** — the independent M0 review.
@@ -98,7 +102,6 @@ suite for a change to the render path:
 
 ```sh
 pkill -f vite   # a preview left running owns port 4173 and the run fails on it
-
 cd packages/benchmark
 pnpm exec playwright test tests/chrome.spec.ts       # chrome + a11y proofs, ~9 s
 pnpm exec playwright test tests/connection.spec.ts   # 5 connection proofs, ~5 s
@@ -111,6 +114,12 @@ pnpm exec playwright test tests/bench.spec.ts        # every gate test, ~2.1 min
 
 Playwright starts the two preview servers itself (`reuseExistingServer`), so a
 targeted run costs a few seconds of server boot on top of the test.
+
+Run `pnpm build` (all three packages) first when the change was to the library's CSS
+or its public surface: the benchmark bundle inlines `@fllstck/foldkit-flow/style.css`
+at its **own** build time, so a stale benchmark build serves the previous stylesheet
+and makes fixed code look broken. That cost an hour at M4 (`docs/verification.md`,
+rule 4).
 
 `@enfect/oxlint`'s recommended Effect rules apply to `packages/*/src`; the
 incompatible rules and the reasons for each exception are documented in
