@@ -59,6 +59,30 @@ const render = (
 
 const plain: FlowEdge = { id: "e1", source: "a", target: "b" };
 
+describe("marker ids (M4-REVIEW 5)", () => {
+  test("different pane ids never share a marker id", () => {
+    // The substitution this replaces mapped both of these to `fflow-marker-a-b-…`,
+    // so two flows on one page could paint each other's arrowhead.
+    expect(markerIdOf("a/b", "Arrow")).not.toBe(markerIdOf("a-b", "Arrow"));
+    expect(markerIdOf("a b", "Arrow")).not.toBe(markerIdOf("a_b", "Arrow"));
+    expect(markerIdOf("a_2f_", "Arrow")).not.toBe(markerIdOf("a/", "Arrow"));
+  });
+
+  test("safe characters are kept, so the common id is still readable", () => {
+    expect(markerIdOf("main-flow", "ArrowClosed")).toBe(
+      "fflow-marker-main-flow-ArrowClosed",
+    );
+  });
+
+  test("the encoding is injective on the characters it escapes", () => {
+    const sample = ["a/b", "a-b", "a b", "a_b", "a%2Fb", "a//b", "a/b/c"];
+    const encoded = sample.map((value) =>
+      markerIdOf(value, "Arrow").replace(/-Arrow$/, ""),
+    );
+    expect(new Set(encoded).size).toBe(sample.length);
+  });
+});
+
 describe("edge markers (§7 M4)", () => {
   test("an edge with no marker pays for no defs block", async () => {
     const rendered = await render([plain]);

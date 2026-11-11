@@ -1,6 +1,6 @@
 import type { FlowEdge, FlowNode, Model, Rect } from "../model.js";
 import { intersects, nodeRect, nodeSizeOf } from "./bounds.js";
-import { hiddenIds } from "./hidden.js";
+import { hiddenIds, shownEdges } from "./hidden.js";
 import { positionIndex, positionOf } from "./positions.js";
 
 /** Negation that keeps a zero positive: `-0` would reach the DOM as `-0` in a
@@ -38,18 +38,6 @@ export const visibleRegion = (model: Model): Rect => {
     width: width * 3,
     height: height * 3,
   };
-};
-
-/**
- * The nodes `visibleNodes` would keep at any zoom: everything a collapsed subtree
- * does not take away (§7 M4). Separate from culling because `hidden` applies with
- * culling off — a collapsed node is not drawn in any viewport.
- */
-export const shownNodes = <NodeData>(
-  nodes: ReadonlyArray<FlowNode<NodeData>>,
-): ReadonlyArray<FlowNode<NodeData>> => {
-  const hidden = hiddenIds(nodes);
-  return nodes.filter((node) => !hidden.has(node.id));
 };
 
 /**
@@ -100,7 +88,9 @@ const edgeBox = (
 
 /** An edge is drawn when its endpoints' box meets the region, which keeps edges
  *  that cross the viewport with both nodes outside it. An edge with a collapsed
- *  end is not drawn at all: half an edge is not a smaller edge. */
+ *  end is not drawn at all — "half an edge is not a smaller edge" — and that rule
+ *  is `shownEdges`, shared with `selectAll` and the description rather than
+ *  repeated here (M4-REVIEW 3). */
 export const visibleEdges = <NodeData, EdgeData>(
   model: Model,
   edges: ReadonlyArray<FlowEdge<EdgeData>>,
@@ -109,11 +99,8 @@ export const visibleEdges = <NodeData, EdgeData>(
   const region = visibleRegion(model);
   const byId = new Map(nodes.map((node) => [node.id, node] as const));
   const positions = positionIndex(nodes);
-  const hidden = hiddenIds(nodes);
 
-  return edges.filter((edge) => {
-    if (hidden.has(edge.source) || hidden.has(edge.target)) return false;
-
+  return shownEdges(nodes, edges).filter((edge) => {
     const source = byId.get(edge.source);
     const target = byId.get(edge.target);
     if (source === undefined || target === undefined) return false;

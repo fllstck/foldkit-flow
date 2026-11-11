@@ -19,60 +19,65 @@ import type { FlowNode, Point } from "../model.js";
  * - A `parentId` that names no node in the graph resolves as absolute: the
  *   parent's data may be mid-edit, and a child that vanishes because its parent
  *   is missing is worse than one drawn at its own coordinates.
- * - A cycle in the parent chain stops at the node the walk re-enters. Long chains
- *   are fine; `maxParentDepth` bounds a pathological one.
+ * - A cycle in the parent chain stops at the node the walk re-enters: placement of
+ *   a cyclic graph is not meaningful, but the walk terminates.
+ * - **There is no depth limit.** The walk is bounded by the graph's own size, so a
+ *   deep container layout resolves exactly and the result does not depend on the
+ *   order the nodes appear in (M4-REVIEW 4).
  */
 export type PositionIndex = ReadonlyMap<string, Point>;
 
 /** Twelve levels of nesting is far beyond any container layout, and a chain
- *  longer than this is a cycle the visited set missed rather than a real graph. */
-export const maxParentDepth = 12;
-
 const offset = (origin: Point, position: Point): Point => ({
   x: origin.x + position.x,
   y: origin.y + position.y,
 });
 
-type Resolved = Readonly<{
-  resolved: Map<string, Point>;
-  visiting: Set<string>;
-}>;
 
 /**
- * One node's absolute position, memoized into `state`. Recursion is over the
- * parent chain and bounded twice — by `maxParentDepth` and by `visiting`, which
- * breaks a cycle by taking the re-entered node's own position.
+ * One walk up a node's parent chain, as a value rather than a loop: `path` is the
+ * chain discovered so far (nearest first), `current` is the node whose parent is
+ * about to be visited, and `done` freezes the walk once it has an answer.
+ *
+ * The ceiling is `nodes.length`, not a fixed depth. A chain cannot be longer than
+ * the graph, so this is a bound on the walk, not on valid nesting — a 40-level
+ * container layout resolves exactly, and an order that lists children before
+ * parents resolves exactly too, because `resolved` is checked at every step
+ * (M4-REVIEW 4).
  */
-const resolveNode = <NodeData>(
-  node: FlowNode<NodeData>,
-  byId: ReadonlyMap<string, FlowNode<NodeData>>,
-  depth: number,
-  state: Resolved,
-): Point => {
-  const known = state.resolved.get(node.id);
-  if (known !== undefined) return known;
+const offset = (origin: Point, position: Point): Point => ({
+  x: origin.x + position.x,
+  y: origin.y + position.y,
+});
 
+type Walk<NodeData> = Readonly<{
+  path: ReadonlyArray<FlowNode<NodeData>>;
+  current: FlowNode<NodeData> | undefined;
+  done: boolean;
+}>;
+
+const advance = <NodeData>(
+  byId: ReadonlyMap<string, FlowNode<NodeData>>,
+  resolved: Map<string, Point>,
+  walk: Walk<NodeData>,
+): Walk<NodeData> => {
+  if (walk.done || walk.current === undefined) return walk;
+
+  const node = walk.current;
   const parent =
     node.parentId === undefined ? undefined : byId.get(node.parentId);
-  if (
-    parent === undefined ||
-    depth >= maxParentDepth ||
-    state.visiting.has(node.id)
-  ) {
-    state.resolved.set(node.id, node.position);
-    return node.position;
+  if (parent === undefined || resolved.has(parent.id)) {
+    // The chain ends at a root (its own position is absolute) or at an ancestor
+    // an earlier walk already placed.
+    return { path: walk.path, current: parent, done: true };
+  }
+  if (walk.path.some((entry) => entry.id === parent.id)) {
+    // A cycle: stop where it closes. Placement of a cyclic graph is not
+    // meaningful, but it terminates and is deterministic from the walk's start.
+    return { path: [...walk.path, parent], current: undefined, done: true };
   }
 
-  const position = offset(
-    resolveNode(parent, byId, depth + 1, {
-      resolved: state.resolved,
-      visiting: new Set([...state.visiting, node.id]),
-    }),
-    node.position,
-  );
-
-  state.resolved.set(node.id, position);
-  return position;
+  return { path: [...walk.path, parent], current: parent, done: false };
 };
 
 const buildIndex = <NodeData>(
@@ -81,9 +86,35 @@ const buildIndex = <NodeData>(
   const byId = new Map(nodes.map((node) => [node.id, node] as const));
   const resolved: Map<string, Point> = new Map();
 
-  nodes.forEach((node) =>
-    resolveNode(node, byId, 0, { resolved, visiting: new Set() }),
-  );
+  nodes.forEach((start) => {
+    if (resolved.has(start.id)) return;
+
+    const initial: Walk<NodeData> = {
+      path: [start],
+      current: start,
+      done: false,
+    };
+    const walk = Arr.range(0, nodes.length).reduce(
+      (current) => advance(byId, resolved, current),
+      initial,
+    );
+
+    // The base is the resolved ancestor the chain reached, or the origin when the
+    // chain ended at a root: a root's absolute position is then its own position,
+    // and every node below it adds its offset on the way back down.
+    const base =
+      walk.current === undefined
+        ? { x: 0, y: 0 }
+        : (resolved.get(walk.current.id) ?? { x: 0, y: 0 });
+
+    // `path` is nearest-first; positions accumulate from the root down.
+    Arr.reverse([...walk.path]).reduce<Point>((origin, node) => {
+      if (resolved.has(node.id)) return origin;
+      const position = offset(origin, node.position);
+      resolved.set(node.id, position);
+      return position;
+    }, base);
+  });
 
   return resolved;
 };
@@ -131,7 +162,9 @@ export const ancestorIds = <NodeData>(
   byId: ReadonlyMap<string, FlowNode<NodeData>>,
 ): ReadonlyArray<string> => {
   const start: ReadonlyArray<string> = [node.id];
-  const chain = Arr.reduce(Arr.range(0, maxParentDepth - 1), start, (ids) => {
+  // `byId.size` is the ceiling: a chain cannot be longer than the graph, so this
+  // bounds the walk rather than valid nesting (M4-REVIEW 4).
+  return Arr.reduce(Arr.range(0, byId.size - 1), start, (ids) => {
     const last = ids[ids.length - 1];
     const parent = last === undefined ? undefined : byId.get(last);
     if (parent === undefined) return ids;
@@ -139,8 +172,6 @@ export const ancestorIds = <NodeData>(
     if (next === undefined || ids.includes(next.id)) return ids;
     return [...ids, next.id];
   });
-
-  return chain;
 };
 
 /**
@@ -150,8 +181,9 @@ export const ancestorIds = <NodeData>(
  * child being dragged itself — and a child must not also be in the *dragged* set,
  * or the delta would be applied twice.
  *
- * The fixed point is reached in at most `maxParentDepth` rounds, because a
- * descendant is at most that far from the node that was grabbed.
+ * The fixed point is reached in at most one round per node, because a descendant
+ * is at most `nodes.length` levels from the node that was grabbed — a bound on the
+ * iteration, not on valid nesting (M4-REVIEW 4).
  */
 export const withDescendants = <NodeData>(
   ids: ReadonlySet<string>,
@@ -163,7 +195,7 @@ export const withDescendants = <NodeData>(
 
   // One round per level of nesting, mutating the local set: a copy per added
   // node would be quadratic on the 10k subtree this exists for.
-  Arr.range(0, maxParentDepth - 1).forEach(() =>
+  Arr.range(0, nodes.length).forEach(() =>
     nodes.forEach((node) => {
       const parentId = node.parentId;
       if (

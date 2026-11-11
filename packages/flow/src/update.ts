@@ -12,7 +12,7 @@ import {
   oppositeHandleType,
 } from "./geometry/hitTest.js";
 import { screenToFlow, viewportCentredOn } from "./geometry/screen.js";
-import { hiddenIds } from "./geometry/hidden.js";
+import { hiddenIds, shownEdges, shownNodes } from "./geometry/hidden.js";
 import {
   ancestorIds,
   positionIndex,
@@ -878,11 +878,18 @@ export const zoomBy = (model: Model, factor: number): UpdateReturn =>
     zoom: model.viewport.zoom * factor,
   });
 
+/**
+ * Everything the user can see and act on: a collapsed subtree is not selected,
+ * because it is not drawn and `informGraphChanged` would prune it out of the
+ * selection immediately (M4-REVIEW 2). The edges follow the same rule as the
+ * canvas — both ends shown — so "select all, then delete" cannot report a node or
+ * an edge the canvas never offered.
+ */
 export const selectAll = (model: Model, context: Context): UpdateReturn =>
   withSelection(
     model,
-    context.nodes.map((node) => node.id),
-    context.edges.map((edge) => edge.id),
+    shownNodes(context.nodes).map((node) => node.id),
+    shownEdges(context.nodes, context.edges).map((edge) => edge.id),
   );
 
 export const clearSelection = (model: Model): UpdateReturn =>

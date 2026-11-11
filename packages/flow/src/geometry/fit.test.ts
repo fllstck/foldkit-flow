@@ -153,6 +153,25 @@ describe("fitViewport", () => {
     expect(fitted.y).toBeCloseTo(400 - 435 * fitted.zoom, 5);
   });
 
+  test("a child of a collapsed container is not fitted either (M4-REVIEW 1)", () => {
+    // The flag is on the container; the child has none. `node.hidden !== true`
+    // alone fitted the child, so a fit could zoom out to a node the canvas never
+    // draws.
+    const container = {
+      ...node("parent", 600, 600, { width: 200, height: 200 }),
+      hidden: true,
+    };
+    const child = {
+      ...node("child", 20, 20, { width: 50, height: 50 }),
+      parentId: "parent",
+    };
+    const near = node("a", 0, 0, { width: 100, height: 100 });
+
+    expect(fitViewport(square, [container, child, near])).toEqual(
+      fitViewport(square, [near]),
+    );
+  });
+
   test("a collapsed subtree is not fitted", () => {
     const hidden = {
       ...node("b", 5000, 5000, { width: 100, height: 100 }),

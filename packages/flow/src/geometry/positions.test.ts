@@ -87,8 +87,8 @@ describe("positionIndex (§7 M4)", () => {
   test("a deep chain resolves in one pass, not one walk per node", () => {
     // 200 levels: the memo means a node's ancestors are resolved once and
     // reused, so the whole graph is linear in nodes rather than quadratic in
-    // nesting. `maxParentDepth` guards a walk, not this path — the section
-    // below is what happens without the memo.
+    // nesting. There is no depth limit to hit — the walk is bounded by the
+    // graph's size (M4-REVIEW 4).
     const deep: Array<FlowNode<null>> = [node("n0", { x: 1, y: 1 })];
     for (let depth = 1; depth <= 200; depth += 1) {
       deep.push(node(`n${depth}`, { x: 1, y: 1 }, `n${depth - 1}`));
@@ -98,6 +98,31 @@ describe("positionIndex (§7 M4)", () => {
     const deepest = positionOf(deep[200] as FlowNode<null>, index);
     expect(deepest.x).toBe(201);
     expect(index.size).toBe(201);
+  });
+
+  test("a 40-level chain resolves exactly, whatever order the nodes arrive in", () => {
+    // The depth that used to be truncated at 12, and the order dependence that
+    // came with it: children listed before their parents must resolve to the same
+    // positions as parents first (M4-REVIEW 4).
+    const depth = 40;
+    const chain: Array<FlowNode<null>> = [];
+    for (let level = 0; level < depth; level += 1) {
+      chain.push(
+        level === 0
+          ? node("n0", { x: 100, y: 50 })
+          : node(`n${level}`, { x: 10, y: 10 }, `n${level - 1}`),
+      );
+    }
+
+    const deepest = chain[depth - 1] as FlowNode<null>;
+    const parentsFirst = positionOf(deepest, positionIndex(chain));
+    const childrenFirst = positionOf(
+      deepest,
+      positionIndex([...chain].reverse()),
+    );
+
+    expect(parentsFirst).toEqual({ x: 100 + 39 * 10, y: 50 + 39 * 10 });
+    expect(childrenFirst).toEqual(parentsFirst);
   });
 
   test("the same array reference resolves to the same index (the memo)", () => {

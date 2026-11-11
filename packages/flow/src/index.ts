@@ -81,7 +81,7 @@ export type {
 export { fitPadding, fitViewport } from "./geometry/fit.js";
 export type { FitOptions } from "./geometry/fit.js";
 export { nodeBounds, nodeRect, nodeSizeOf } from "./geometry/bounds.js";
-export { hiddenIds } from "./geometry/hidden.js";
+export { hiddenIds, shownEdges, shownNodes } from "./geometry/hidden.js";
 export {
   ancestorIds,
   positionIndex,
@@ -115,7 +115,6 @@ export type { ResizeOptions } from "./geometry/resize.js";
 export { dragDelta, flowToScreen, screenToFlow } from "./geometry/screen.js";
 export type { ScreenPoint } from "./geometry/screen.js";
 export {
-  shownNodes,
   viewportRect,
   visibleEdges,
   visibleNodes,

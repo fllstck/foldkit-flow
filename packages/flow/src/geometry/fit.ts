@@ -3,6 +3,7 @@ import { Array as Arr, Predicate } from "effect";
 import type { FlowNode, Model, Viewport } from "../model.js";
 import { getViewportForBounds } from "../runtime/adapter.js";
 import { boundsOfRects, nodeRect } from "./bounds.js";
+import { hiddenIds } from "./hidden.js";
 import { positionIndex } from "./positions.js";
 
 /** Fraction of the pane left empty on each side, upstream's own default. */
@@ -63,10 +64,14 @@ export const fitViewport = <NodeData>(
 
   // A collapsed subtree is not drawn, so it is not fitted: zooming out to
   // include a node the canvas refuses to show leaves the visible graph in a
-  // corner (§7 M4). A filter applies on top of that, not instead of it.
+  // corner (§7 M4). `hiddenIds` is the same rule the renderer, culling, minimap
+  // and description use — a node under a collapsed parent is hidden too, which is
+  // what `node.hidden !== true` alone missed (M4-REVIEW 1). A caller's filter
+  // applies on top of that, not instead of it.
+  const hidden = hiddenIds(nodes);
   const fitted = nodes.filter(
     (node) =>
-      node.hidden !== true && (opts.nodes === undefined || opts.nodes(node)),
+      !hidden.has(node.id) && (opts.nodes === undefined || opts.nodes(node)),
   );
   if (Arr.isReadonlyArrayEmpty(fitted)) return model.viewport;
 

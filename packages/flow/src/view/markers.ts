@@ -7,11 +7,28 @@ import * as classes from "./classes.js";
  *  chrome (§2.4): a `<marker>` is a visual identity choice, not a ported one. */
 export const markerKinds: ReadonlyArray<MarkerEnd> = ["Arrow", "ArrowClosed"];
 
-/** Ids must be unique in the document — two flows on one page must not share a
- *  marker — so they are derived from the pane id, reduced to the characters an
- *  id may contain. */
+/**
+ * Ids must be unique in the document — two flows on one page must not share a
+ * marker — so they are derived from the pane id.
+ *
+ * The encoding is **injective**, not a substitution: replacing unsafe characters
+ * with `-` maps `a/b` and `a-b` to the same id, and two flows with such ids would
+ * silently point at each other's marker (M4-REVIEW 5). Instead, every character
+ * outside `[A-Za-z0-9-]` is escaped as `_<code point in hex>_`, and `_` itself is
+ * outside that set, so an underscore in the id always introduces an escape and two
+ * different pane ids cannot collide.
+ */
+export const encodeIdPart = (value: string): string =>
+  Array.from(value)
+    .map((character) =>
+      /[A-Za-z0-9-]/.test(character)
+        ? character
+        : `_${(character.codePointAt(0) ?? 0).toString(16)}_`,
+    )
+    .join("");
+
 export const markerIdOf = (paneId: string, kind: MarkerEnd): string =>
-  `fflow-marker-${paneId.replace(/[^A-Za-z0-9_-]/g, "-")}-${kind}`;
+  `fflow-marker-${encodeIdPart(paneId)}-${kind}`;
 
 const markerGeometry: Record<MarkerEnd, string> = {
   // An open chevron: two strokes meeting at the tip.

@@ -2,8 +2,9 @@
 
 M4 is the graph features: parent/child sub-flows, `hidden` collapsing, node
 resizing, the snap grid, `fitView` options, edge markers and labels, and minimap
-click-to-centre. `docs/PLAN.md` was not edited; where the code differs from it,
-this file records the diff and why. v1.0 ships at this milestone.
+click-to-centre. Where the code differs from `docs/PLAN.md`, this file records the
+diff and why; §11 records the one edit the plan has since received (an M6 that
+researches the gaps M4 left). v1.0 ships at this milestone.
 
 Verification state at the commit that carries this file — the authoritative
 numbers; every earlier figure in this document is historical and marked as such.
@@ -12,8 +13,8 @@ numbers; every earlier figure in this document is historical and marked as such.
 | ---------------------------------------------- | --------------------------------------------------------------------- |
 | `pnpm typecheck`                               | flow → example → benchmark                                            |
 | `pnpm build`                                   | flow → example → benchmark                                            |
-| `pnpm check`                                   | typecheck, Enfect lint, Prettier, **259** Vitest tests green          |
-| `packages/flow` unit tests                     | 259 in 26 files (M3 had 194 in 20)                                    |
+| `pnpm check`                                   | typecheck, Enfect lint, Prettier, **268** Vitest tests green          |
+| `packages/flow` unit tests                     | 268 in 26 files (M3 had 194 in 20)                                    |
 | `packages/benchmark/tests/m4.spec.ts`          | 9 passed (M4 proofs 38–46)                                            |
 | `packages/benchmark/tests/hidden.spec.ts`      | 1 passed (the 10k exploration)                                        |
 | `packages/benchmark/tests/chrome.spec.ts`      | 17 passed (M3 proofs 22–37)                                           |
@@ -21,7 +22,7 @@ numbers; every earlier figure in this document is historical and marked as such.
 | `packages/benchmark/tests/interaction.spec.ts` | 9 passed (M1 proofs 8–16)                                             |
 | `packages/benchmark/tests/proofs.spec.ts`      | 4 passed (M0 proofs 2, 3, 3b, 4)                                      |
 | `packages/benchmark/tests/bench.spec.ts`       | 3 passed (625 comparison, 1k culled gate, 1k culled gate with chrome) |
-| whole Playwright suite                         | 48 tests = 44 proof tests + 3 gate tests + 1 exploration, in 3.3 min  |
+| whole Playwright suite                         | 48 tests = 44 proof tests + 3 gate tests + 1 exploration, in 3.6 min  |
 
 `pnpm check` still needs a build first when the public surface changed: the
 example and the benchmark typecheck against the library's `dist/*.d.ts`.
@@ -281,28 +282,27 @@ commit that carries this file (`results/benchmark.json`,
 
 | Leg                   | drag (median / p95 / longest) | pan (median / p95 / longest) | long frames |
 | --------------------- | ----------------------------- | ---------------------------- | ----------- |
-| 625, React Flow       | 0 (not verified, M1 §10)      | 16.7 / 16.8 / 33.3           | 0           |
-| 625, Svelte Flow      | 16.7 / 16.8 / 16.8            | 16.7 / 16.7 / 16.8           | 0           |
-| 625, Foldkit          | 16.7 / 16.7 / 16.8            | 16.7 / 16.8 / 33.4           | 0           |
-| 1k culled             | 16.7 / 16.7 / 16.8            | 16.7 / 16.8 / 50.1           | 1 (pan)     |
-| 1k culled + M3 chrome | 16.7 / 16.8 / 33.4            | 16.7 / 16.8 / 33.4           | 0           |
+| 625, React Flow       | 0 (not verified, M1 §10)      | 16.7 / 16.7 / 33.4           | 0           |
+| 625, Svelte Flow      | 16.7 / 16.7 / 33.4            | 16.7 / 16.8 / 16.8           | 0           |
+| 625, Foldkit          | 16.7 / 16.8 / 33.3            | 16.7 / 16.8 / 33.4           | 0           |
+| 1k culled             | 16.7 / 16.8 / 33.3            | 16.7 / 16.8 / 50.0           | 0           |
+| 1k culled + M3 chrome | 16.7 / 16.8 / 33.3            | 16.7 / 16.8 / 33.3           | 0           |
 
 Parity with React Flow on pan holds at 625 (median and p95 identical). Both 1k legs
-are inside the 33 ms p95 gate. One long frame appeared in the 1k bare leg on this
-run — 50.1 ms, 1 of 591 recorded pan frames, 0.17% — inside §4.5's "long frames
-bounded at 2% of recorded frames" and consistent with the machinery M3 §5.1
-describes; the run before recorded none there, with 50.0 as its longest, so this is
-the distribution rather than a regression.
+are inside the 33 ms p95 gate with zero long frames; the 50.0 ms pan outlier in the
+1k bare leg is a single frame at the recorder's 50 ms class boundary, which
+`longFrames` counts as _not_ long, exactly as §4.5's 2% bound defines it.
 
 The per-dispatch cost went up slightly and is recorded rather than hidden:
-`updatePerDispatchMs` is 0.0019 at both 1k legs and 0.0041 at 625 on this run
+`updatePerDispatchMs` is 0.0018–0.0020 at 1k and 0.0024 at 625 on this run
 (M3 recorded 0.0019–0.0027 across its legs; the 625 figure moves the most from run
 to run). The new per-frame work is `visibleIds`/`shiftById`/`positions`, which a
 render does now that a position can be relative.
 
-**The culling scan is the number to watch.** `cullScanMs` is 6.78 (1k bare) and
-6.21 (1k with chrome) and 2.81 at 625 (M3 recorded 2.55 and 5.72–5.81) — per
-scan, not per node. It is O(N) per scan times an O(measured) size
+**The culling scan is the number to watch.** `cullScanMs` is 6.67 (1k bare), 6.23 (1k with
+chrome) and 3.92 at 625 on this run, against 6.78 / 6.21 / 2.81 on the run before
+it and 5.72–5.81 / 2.55 at M3 — the scan is noisy at the ±1 ms level on this
+machine, and the level itself is the finding. Per scan, not per node. It is O(N) per scan times an O(measured) size
 lookup inside `nodeSizeOf`, so at 1k a scan costs about a third of a 16.7 ms frame.
 M4 does not fix it (the gate passes with zero long frames, and the fix is a
 measured change that deserves its own before/after); it is named here as the first
@@ -317,14 +317,14 @@ each, warm-up discarded (`results/hidden-10k.json`):
 | Metric                     | Value                     |
 | -------------------------- | ------------------------- |
 | rendered nodes             | 200 (of 10,000)           |
-| pan frames                 | 248                       |
-| pan median / p95 / longest | 16.7 / 16.7 / 33.4 ms     |
+| pan frames                 | 251                       |
+| pan median / p95 / longest | 16.7 / 16.8 / 16.8 ms     |
 | long frames (> 50 ms)      | 0                         |
-| cull scan per call         | 3.13 ms over 10,000 nodes |
+| cull scan per call         | 3.09 ms over 10,000 nodes |
 
 So the escape hatch works: a 10k graph whose bulk is collapsed pans at the frame
 rate, with 200 nodes in the DOM. The number that scales with the model rather than
-with the view is the culling scan (3.13 ms), and it is a scan of 10k _hidden_
+with the view is the culling scan (3.09 ms), and it is a scan of 10k _hidden_
 nodes
 paying a set lookup each — which is the cheap half of `visibleNodes`. An expanded
 10k graph would pay the rect test and the size lookup for all of them, which §6
@@ -338,7 +338,8 @@ number is recorded and nothing asserts a budget on it. M5 publishes it.
 - **Minimap drag-to-pan** (§2.9) and **edge selection by press** (§2.10).
 - **`nodeOrigin`**: nodes are top-left anchored. Nothing in M4 needs a centre
   anchor, and a second origin would have to be threaded through positions, rects,
-  edge anchors and the resizer's arithmetic.
+  edge anchors and the resizer's arithmetic. (M6 row 4 researches it; §12 changed
+  nothing here.)
 - **Resizing a parent does not re-place its children.** Children keep their
   relative positions, so resizing a container from its top-left carries them; the
   upstream behaviour (children compensate to stay visually still) is a
@@ -416,5 +417,99 @@ Two consequences for this document, both bookkeeping rather than findings:
   sources; the outcome — including "M4 was right" — belongs in
   `docs/M6-RESEARCH.md`, not here.
 
-No M4 number, decision or proof in this document changes as a result. The M4 gate
-figures in §6 and §7 were produced at `a080633`, before the M6 section existed.
+No M4 number, decision or proof in this document changes as a result. The gate
+figures in §6 and §7 were re-run after the review fixes in §12 and are the ones at
+the commit that carries this file.
+
+## 12. Response to `docs/M4-REVIEW.md`
+
+Five findings, all accepted. The first three were one bug wearing three hats: the
+collapsing rule was re-implemented at each call site instead of shared, so three of
+them disagreed with the renderer. The fourth and fifth were design errors in code I
+wrote to be defensive.
+
+### 12.1 HIGH — `fitViewport` fitted descendants of hidden nodes: fixed
+
+Correct. `fitViewport` tested `node.hidden !== true` — the node's own flag — while
+the renderer, culling, minimap and description all used `hiddenIds(nodes)`. A child
+under a collapsed container therefore contributed to the fit bounds, so a fit could
+zoom out to hold a node the canvas never draws.
+
+The filter is now `!hiddenIds(nodes).has(node.id)`, the same rule as everywhere
+else, with a caller's `nodes` filter applied on top. Test:
+`geometry/fit.test.ts` → "a child of a collapsed container is not fitted either
+(M4-REVIEW 1)", which fits a hidden container plus its child and asserts the result
+equals fitting the visible node alone.
+
+### 12.2 MEDIUM — `selectAll` selected hidden nodes: fixed
+
+Correct, and the same cause. `selectAll` now selects `shownNodes(nodes)` and
+`shownEdges(nodes, edges)`; the edges matter for the same reason (an edge with a
+collapsed end is not on the canvas, and `informGraphChanged` would prune both on the
+next graph change anyway). Test: `state.test.ts` → "selectAll selects only what is
+shown (M4-REVIEW 2)", with a collapsed container, its child, and two edges into the
+subtree.
+
+### 12.3 MEDIUM — the description counted edges into a collapsed subtree: fixed
+
+Correct. The renderer passed `shownNodes(input.nodes)` with the unfiltered
+`input.edges`, so the connection count and the per-node sentences could mention an
+edge that the canvas does not draw.
+
+`shownEdges` is now the one place that rule lives — `visibleEdges`, `selectAll` and
+the description all call it, so they cannot drift apart again. Test:
+`view/subflow.test.ts` → "the description describes what is shown, not the collapsed
+edges (M4-REVIEW 3)".
+
+**What that fix exposed.** `shownNodes` used to allocate a new array per call, which
+silently defeated two caches: the minimap memoizes on the node array's identity and
+the description on the graph's, so both were rebuilding every frame on a page with
+`minimap: true` and any hidden node. `shownNodes` and `shownEdges` are now memoized
+on the graph array (and, for edges, on the identity of the hidden set), so the
+identity is stable while the graph is. A test pins it: `geometry/hidden.test.ts` →
+"shownEdges keeps the identity of the array while the graph is unchanged". The 1k
+chrome gate is unchanged by it (16.7/16.8, 0 long frames, §6).
+
+### 12.4 MEDIUM — parent-chain behaviour was limited to 12 levels: fixed, not documented
+
+Accepted as a defect rather than a limit worth documenting. `maxParentDepth = 12`
+was used in three places, and in `positionIndex` it was worse than a cap: because a
+node's chain was resolved from whatever depth the node happened to start at, the
+result depended on the order of the `nodes` array — an ancestor-first list resolved
+a 40-level chain correctly, a children-first list truncated it.
+
+It is gone. The bound is now the graph's own size, which is the real ceiling (a
+chain cannot be longer than the graph), and the walk is an explicit, iterative one
+that unwinds from the resolved ancestor or the root, so every chain resolves to the
+same positions in any order. `ancestorIds` is bounded by `byId.size` and
+`withDescendants` by `nodes.length`, so `hidden` propagation and parent dragging
+follow the same rule. Cycles still terminate — they are invalid input, and the
+walk stops where the chain closes.
+
+Test: `geometry/positions.test.ts` → "a 40-level chain resolves exactly, whatever
+order the nodes arrive in", which resolves the deepest node both parents-first and
+children-first and asserts exact positions (`490, 440`) and equality. The 200-level
+test stays.
+
+### 12.5 LOW — sanitized marker ids could collide: fixed
+
+Correct, and the failure mode is worse than the finding's example: `a/b` and `a-b`
+both became `fflow-marker-a-b-…`, so two flows on one page would resolve
+`url(#…)` to each other's `<marker>` — the second flow's arrowheads would draw with
+the first flow's definition, and a page with one flow would silently swallow the
+other's defs.
+
+The encoding is now injective rather than lossy: characters outside `[A-Za-z0-9-]`
+escape to `_<code point in hex>_`, and `_` is itself outside that set, so an
+underscore always introduces an escape. Tests: `view/markers.test.ts` → "different
+pane ids never share a marker id", "safe characters are kept", and an injectivity
+check over seven near-collisions.
+
+### 12.6 On the validation note
+
+The `ERR_HTTP_RESPONSE_CODE_FAILURE` on `/large-hidden.html` is the preview-server
+collision `M1-FINDINGS` §11 documents: a preview left running owns 4173/4174 and
+`reuseExistingServer` then navigates into a server the run did not start. No test
+body ran, which is why the run looked partial. `pkill -f vite` before a suite run is
+the mitigation, and the full suite at this commit passed in one invocation:
+**48 tests in 3.6 min**, including `tests/hidden.spec.ts`.

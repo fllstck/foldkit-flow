@@ -2,8 +2,8 @@ import { describe, expect, test } from "vitest";
 
 import { init } from "../model.js";
 import type { FlowEdge, FlowNode, Model } from "../model.js";
-import { hiddenIds } from "./hidden.js";
-import { shownNodes, visibleEdges, visibleNodes } from "./visible.js";
+import { hiddenIds, shownEdges, shownNodes } from "./hidden.js";
+import { visibleEdges, visibleNodes } from "./visible.js";
 
 const node = (
   id: string,
@@ -82,6 +82,23 @@ describe("collapsing is reductive at every zoom", () => {
 
   test("shownNodes is the graph without collapsing and without culling", () => {
     expect(shownNodes(graph).map((entry) => entry.id)).toEqual(["a", "b", "e"]);
+  });
+
+  test("shownEdges keeps the identity of the array while the graph is unchanged", () => {
+    // The minimap and the description memoize on this array's reference: a fresh
+    // array per render would silently turn both caches into per-frame rebuilds.
+    expect(shownNodes(graph)).toBe(shownNodes(graph));
+    expect(shownEdges(graph, edges)).toBe(shownEdges(graph, edges));
+    // A new graph is a new array, so nothing stale survives it.
+    const renamed = graph.map((entry) => ({ ...entry }));
+    expect(shownNodes(renamed)).not.toBe(shownNodes(graph));
+  });
+
+  test("shownEdges drops every edge with a collapsed end", () => {
+    expect(shownEdges(graph, edges).map((edge) => edge.id)).toEqual([
+      "e-ab",
+      "e-ae",
+    ]);
   });
 
   test("an edge with a collapsed end is not drawn", () => {

@@ -732,6 +732,24 @@ describe("sub-flows", () => {
     );
   });
 
+  test("selectAll selects only what is shown (M4-REVIEW 2)", () => {
+    // A collapsed container, its child, and an edge into the subtree. Selecting
+    // them would put ids in the selection that the canvas never offered and that
+    // `informGraphChanged` would prune on the next graph change.
+    const hiddenParent = { ...parent, hidden: true };
+    const contextWithCollapse: Context = {
+      nodes: [hiddenParent, child, graphNode("loose", 0, 0)],
+      edges: [
+        { id: "e-in", source: "child", target: "loose" },
+        { id: "e-out", source: "loose", target: "child" },
+      ],
+    };
+    const result = selectAll(initial, contextWithCollapse);
+
+    expect(result.model.selectedNodeIds).toEqual(["loose"]);
+    expect(result.model.selectedEdgeIds).toEqual([]);
+  });
+
   test("a collapsed subtree's selection and measurement are pruned", () => {
     const collapsed = informGraphChanged(
       {

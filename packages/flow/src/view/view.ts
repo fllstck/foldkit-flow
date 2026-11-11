@@ -16,7 +16,7 @@ import type {
   HandleBoundsByNode,
 } from "../geometry/handles.js";
 import { oppositeHandleType } from "../geometry/hitTest.js";
-import { hiddenIds } from "../geometry/hidden.js";
+import { hiddenIds, shownEdges, shownNodes } from "../geometry/hidden.js";
 import { screenToFlow } from "../geometry/screen.js";
 import {
   positionIndex,
@@ -24,7 +24,6 @@ import {
   withDescendants,
 } from "../geometry/positions.js";
 import {
-  shownNodes,
   viewportRect,
   visibleEdges,
   visibleNodes,
@@ -971,7 +970,10 @@ export const createRenderer = <NodeData = unknown, EdgeData = unknown>(
               config.paneId,
               {
                 nodes: shownNodes(input.nodes),
-                edges: input.edges,
+                // The same rule as the canvas: an edge into a collapsed subtree
+                // is not described, so the description and the picture cannot
+                // disagree (M4-REVIEW 3).
+                edges: shownEdges(input.nodes, input.edges),
                 accessibleName: accessibleNameOf,
               },
               h,

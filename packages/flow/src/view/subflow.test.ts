@@ -140,6 +140,16 @@ describe("hidden collapsing (§7 M4)", () => {
     expect(rendered.html).not.toContain('data-edgeid="e-child"');
   });
 
+  test("the description describes what is shown, not the collapsed edges (M4-REVIEW 3)", async () => {
+    // The group is collapsed, so its child — and the edge out of it — are not on
+    // the canvas; the accessibility description must agree with the picture.
+    const rendered = await render(model, collapsed("parent"));
+    // `parent` and its child are gone, so only `outside` is left — and the edge
+    // that left the collapsed subtree is not counted.
+    expect(rendered.html).toContain("Flow graph: 1 nodes and 0 connections.");
+    expect(rendered.html).not.toContain("Child");
+  });
+
   test("collapsing is not culling: it applies with culling off", async () => {
     // This renderer is unculled, so the assertion above is about `hidden` alone.
     const rendered = await render(model, collapsed("child"));
