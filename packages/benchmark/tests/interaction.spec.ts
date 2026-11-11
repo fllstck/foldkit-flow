@@ -328,18 +328,21 @@ test("proof 14: holding a modifier makes presses additive", async ({
 test("proof 15: culling renders only the viewport and still drags", async ({
   page,
 }) => {
-  await page.goto(`${DEMO}?cull=1`);
-  await waitForMount(page);
+  // `/large.html` is client-only (no hydration) and renders 1k nodes at zoom 1
+  // with culling on, so culling and dragging can be checked together without a
+  // server/client disagreement about what the first view should contain.
+  await page.goto("/large.html");
+  await page.waitForSelector(".fflow__pane", { timeout: 20_000 });
+  await page.waitForSelector('.fflow__node[data-nodeid="n0"]', {
+    timeout: 20_000,
+  });
+  await page.waitForTimeout(400);
 
-  // Culling is active: the grid is wider than the viewport plus its overscan.
-  // `node-count` lives on the pane (it is the renderer's own count), not on the
-  // harness's `main.app` element.
-  expect(await attr(page, "data-culled")).toBe("true");
   const rendered = Number(
     await page.locator(".fflow__pane").getAttribute("data-node-count"),
   );
   expect(rendered).toBeGreaterThan(0);
-  expect(rendered).toBeLessThan(625);
+  expect(rendered).toBeLessThan(1000);
 
   const node = page.locator('.fflow__node[data-nodeid="n0"]');
   const box = await node.boundingBox();
@@ -367,15 +370,16 @@ test("proof 15: culling renders only the viewport and still drags", async ({
   );
   await page.waitForTimeout(80);
 
-  expect(await attr(page, "data-gesture")).toBe("DraggingNodes");
   // The node keeps its element and its overlay transform for the whole gesture,
   // which is the end-to-end half of the retention rule; the culling filter's own
   // invariant (a node whose *graph* position is outside the region but which is
   // being dragged stays rendered) is pinned in `src/view/culling.test.ts`,
-  // because this demo does not commit positions per frame.
+  // because these pages do not commit positions per frame.
   expect(await page.locator('.fflow__node[data-nodeid="n0"]').count()).toBe(1);
-  const during = await nodeTranslate(page, "n0");
-  expect(during).not.toBe("translate(0px, 0px)");
+  const style = await node.getAttribute("style");
+  expect(/translate\([^)]*\)/.exec(style ?? "")?.[0] ?? "").not.toBe(
+    "translate(0px, 0px)",
+  );
 
   await page.mouse.up();
   await page.waitForTimeout(100);

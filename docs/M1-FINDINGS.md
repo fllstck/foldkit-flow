@@ -19,20 +19,21 @@ Verification at the end of M1 (all read from a real run, not assumed):
 625 nodes / 624 edges, 10 runs per library, Brave 156 headless, unchanged
 protocol from M0 (`packages/benchmark/results/benchmark.json`):
 
-| Library | drag median | drag p95 | drag >50 ms | pan median | pan p95 | pan >50 ms |
-| ------- | ----------- | -------- | ----------- | ---------- | ------- | ---------- |
-| React   | 16.7        | 16.7     | 0           | 16.7       | 16.7    | 0          |
-| Svelte  | 16.7        | 16.8     | 0           | 16.7       | 16.8    | 0          |
-| Foldkit | 16.7        | 16.8     | 0           | 16.7       | 16.7    | 0          |
+| Library | drag median            | drag p95 | pan median | pan p95 | frames >50 ms |
+| ------- | ---------------------- | -------- | ---------- | ------- | ------------- |
+| React   | not verified (see §10) | —        | 16.7       | 16.7    | 0             |
+| Svelte  | 16.7                   | 16.7     | 16.7       | 16.7    | 0             |
+| Foldkit | 16.7                   | 16.8     | 16.7       | 16.7    | 0             |
 
 1k nodes, culling on, zoom 1 (`packages/benchmark/results/benchmark-1k.json`):
-drag p95 16.8 ms, pan p95 16.8 ms, no frame over 50 ms. Gate was p95 < 33 ms.
+drag median 16.7 / p95 16.8 ms, pan median/p95 16.7 ms, no frame over 50 ms. Gate
+was p95 < 33 ms. Both legs are verified to have moved something (§10).
 
-Both tables are from the run that follows §9's harness fix. The pan leg had been
-pressing a point that is inside a node on the 1k fixture, so it recorded idle
-frames — the earlier "1k pan p95 16.7 ms" measured nothing. With the pan actually
-panning (`cullScanSamples: 21` per run proves viewport frames arrived) the 1k pan
-p95 is 16.8 ms, and parity at 625 is unchanged.
+Every number above comes from a run where the harness proved the gesture did
+work: the pan must move the library's viewport transform, and the drag must move
+the node under the pointer. Two of the three earlier versions of this table did
+not (see §9 and §10), so the drag numbers in M0's report and in the first M1 draft
+are retracted; the pan comparison is verified for all three libraries.
 
 Extra columns §4.5 asks for, both fixtures:
 
@@ -416,3 +417,69 @@ explicit, verified point is both simpler and stable.
 This is the second silent-invalid-measurement bug in the harness found this way
 (the first was `waitForFunction` having no timeout, §6.4). Both shared a shape: a
 scripted gesture whose failure looked like a fast frame time.
+
+## 10. The drag leg was never verified, and two libraries never dragged
+
+Chasing §8 turned up a worse problem in the harness than the bug that started it.
+
+`dragNode` pressed a node, moved the pointer, and recorded frames — without ever
+checking that the node moved. Three separate ways that silently recorded an idle
+page:
+
+1. **Foldkit's benchmark page had no `subscriptions`.** The press armed
+   `PressedNode`, and `pointermove` never arrived because nothing was listening
+   outside the pane. No overlay, no per-frame `update`, no `view` — idle frames
+   labelled "drag". The page now lifts `Flow.subscriptions`, so the recorded drag
+   frames are the real gesture path.
+2. **The dragged node was off-screen on two fixtures.** The drag always used
+   `n0`, but the fixtures are larger than the pane: React Flow's `fitView` clamps
+   at its minimum zoom, leaving `n0` at `x = -537`, and the 1k Foldkit fixture
+   starts at `n0` only until the pan leg moves it. The harness now drags the node
+   whose centre is nearest the pane centre and is fully visible.
+3. **React Flow's node drag does not engage under this harness at all.** Measured
+   directly: `pointerdown` and `mousedown` are delivered to the node element, the
+   node carries `draggable`, and its box is unchanged after a 100 px drag —
+   with `nodes`, with `defaultNodes`, at the node centre and at the node corner.
+   Svelte Flow (the same `@xyflow/system` drag) moves by exactly the pointer
+   delta, and Foldkit's overlay does too. This is a property of that page in this
+   browser, not of the fixture, and it is not something M1 can fix from here.
+
+What the harness does now:
+
+- `dragNode` asserts the node's box moved **while the frames are being
+  recorded**, and `panPane` asserts the library's viewport transform moved. Both
+  throw with the coordinates, so a leg that measured nothing fails the run.
+- `Library.canDrag` marks the react page as unverified, and its report carries
+  `drag.count: 0` plus a `dragCoverage` note in the JSON, rather than a 16.7 ms
+  figure that means nothing.
+- The suite now asserts pan counts for all three libraries and drag counts for the
+  two it can verify.
+
+Verified numbers at 625 nodes: pan median/p95 16.7 for all three; drag 16.7/16.7
+(Svelte) and 16.7/16.8 (Foldkit); no frame over 50 ms anywhere. At 1k with
+culling: drag 16.7/16.8, pan 16.7/16.7, no long frames.
+
+**Consequence for the reports.** "Parity with React Flow on drag" was never
+measured — in M0 the same page lacked subscriptions, and the drag node was the
+same off-screen `n0`. The M0 and first-M1 drag figures are retracted. What the
+harness now establishes is parity on **pan** (all three, verified) and drag
+parity between Foldkit and Svelte Flow (both verified). The §4.5 gate itself is
+unaffected: it is stated for Foldkit's own numbers, both legs verified.
+
+## 11. Operational: the "could not start safely" shield is build skew
+
+Not a defect in this repo, but it bit a session and it is worth naming, because
+the shield is what a stale build looks like from the outside.
+
+`Runtime.hydrate` compares the `data-foldkit-build` stamp on the served root with
+the build id baked into the client bundle. If they differ, it refuses the handoff:
+`body` goes inert, the app never mounts, and a modal says "This page could not
+start safely. Reload to get the current version." The console carries the useful
+half: `[foldkit] Runtime.hydrate found application "app" served by deployment
+"X", but this client belongs to deployment "Y"`.
+
+Reproduced deliberately by rewriting the stamp in `dist/client/index.html` while
+the preview server was live: the shield appeared, `body` was inert, `main.app`
+never mounted. It clears only when the HTML and the assets come from the same
+build — so: stop every server, `pnpm build`, serve again, hard-reload. A reload
+alone cannot help if the server keeps handing out the mismatched HTML.

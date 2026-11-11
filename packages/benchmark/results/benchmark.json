@@ -4,63 +4,68 @@
     "edges": 624
   },
   "runs": 10,
+  "dragCoverage": {
+    "react": "not verified: node drag does not engage (pointerdown delivered, node box unchanged)",
+    "svelte": "verified",
+    "foldkit": "verified"
+  },
   "browser": "Brave 156.1.98.63 (Chromium 156), headless",
   "machine": "MacBook Air (Apple M5), macOS 26.6.2",
   "libraries": {
     "react": {
       "drag": {
-        "count": 403,
-        "median": 16.7,
-        "p95": 16.7,
-        "longest": 16.8,
+        "count": 0,
+        "median": 0,
+        "p95": 0,
+        "longest": 0,
         "longFrames": 0
       },
       "pan": {
-        "count": 494,
+        "count": 495,
         "median": 16.7,
-        "p95": 16.7,
+        "p95": 16.8,
         "longest": 16.8,
         "longFrames": 0
       }
     },
     "svelte": {
       "drag": {
-        "count": 405,
+        "count": 507,
         "median": 16.7,
         "p95": 16.8,
-        "longest": 16.8,
+        "longest": 33.3,
         "longFrames": 0
       },
       "pan": {
-        "count": 500,
+        "count": 493,
         "median": 16.7,
-        "p95": 16.7,
-        "longest": 33.4,
+        "p95": 16.8,
+        "longest": 16.8,
         "longFrames": 0
       }
     },
     "foldkit": {
       "drag": {
-        "count": 403,
+        "count": 500,
         "median": 16.7,
         "p95": 16.7,
         "longest": 16.8,
         "longFrames": 0
       },
       "pan": {
-        "count": 499,
+        "count": 492,
         "median": 16.7,
-        "p95": 16.7,
-        "longest": 33.4,
+        "p95": 16.8,
+        "longest": 16.8,
         "longFrames": 0
       }
     }
   },
   "flow": {
-    "updates": 1900,
-    "updateTotalMs": 2.2,
-    "updatePerDispatchMs": 0.0012,
-    "cullScanMs": 2.246,
+    "updates": 1925,
+    "updateTotalMs": 3.2,
+    "updatePerDispatchMs": 0.0017,
+    "cullScanMs": 2.31,
     "cullScanSamples": 21
   }
 }

@@ -24,7 +24,11 @@ type Library = Readonly<{
   name: LibraryName;
   path: string;
   pane: string;
+  /** A specific node, kept for the readiness selector. */
   node: string;
+  /** Every node; the drag picks the one nearest the pane centre, because the
+   *  fixtures are larger than the pane and `n0` is not always on screen. */
+  nodeAny: string;
   /** The library's transformed content element; its `style` proves a pan moved. */
   viewport: string;
   /** Where the pan gesture starts, in page coordinates.
@@ -36,6 +40,9 @@ type Library = Readonly<{
    *  asserts the pan moved, so a stale point fails the run instead of quietly
    *  flattering the numbers. */
   panPoint: (box: Box) => { x: number; y: number };
+  /** Measured: React Flow's node drag never engages under this harness, so its
+   *  drag leg is reported as unverified rather than as idle frames. */
+  canDrag: boolean;
   ready: string;
 }>;
 
@@ -50,8 +57,10 @@ const libraries: ReadonlyArray<Library> = [
     path: "/react.html",
     pane: ".react-flow__pane",
     node: '[data-id="n0"]',
+    nodeAny: ".react-flow__node",
     viewport: ".react-flow__viewport",
     panPoint: cornerPan,
+    canDrag: false,
     ready: '[data-bench-ready="true"]',
   },
   {
@@ -59,8 +68,10 @@ const libraries: ReadonlyArray<Library> = [
     path: "/svelte.html",
     pane: ".svelte-flow__pane",
     node: '[data-id="n0"]',
+    nodeAny: ".svelte-flow__node",
     viewport: ".svelte-flow__viewport",
     panPoint: cornerPan,
+    canDrag: true,
     ready: '[data-bench-ready="true"]',
   },
   {
@@ -68,8 +79,10 @@ const libraries: ReadonlyArray<Library> = [
     path: "/foldkit.html",
     pane: ".fflow__pane",
     node: '[data-nodeid="n0"]',
+    nodeAny: ".fflow__node",
     viewport: "[data-fflow-viewport]",
     panPoint: cornerPan,
+    canDrag: true,
     ready: '[data-measured="625"]',
   },
 ];
@@ -146,20 +159,59 @@ const readFrames = (page: Page): Promise<Sample> =>
     return state.__frames;
   });
 
-const dragNode = async (page: Page, nodeSelector: string) => {
-  const node = page.locator(nodeSelector).first();
-  const box = await node.boundingBox();
-  if (box === null) throw new Error(`node not found: ${nodeSelector}`);
+/** The node whose centre is nearest the pane centre, among those fully visible.
+ *  The fixtures are larger than the pane (React Flow's `fitView` clamps at its
+ *  min zoom), so a fixed id like `n0` may not be on screen at all. */
+const nearestNodeTo = async (
+  page: Page,
+  paneSelector: string,
+  nodeSelector: string,
+): Promise<{
+  index: number;
+  box: { x: number; y: number; width: number; height: number };
+}> => {
+  const pane = await page.locator(paneSelector).first().boundingBox();
+  if (pane === null) throw new Error(`pane not found: ${paneSelector}`);
 
-  const x = box.x + box.width / 2;
-  const y = box.y + box.height / 2;
-  await page.mouse.move(x, y);
-  await page.mouse.down();
-  for (let step = 1; step <= 20; step += 1) {
-    await page.mouse.move(x + step * 5, y + step * 2);
-    await page.waitForTimeout(16);
-  }
-  await page.mouse.up();
+  const index = await page.$$eval(
+    nodeSelector,
+    (elements, paneRect) => {
+      const distance = (rect: DOMRect) =>
+        Math.hypot(
+          rect.x + rect.width / 2 - (paneRect.x + paneRect.width / 2),
+          rect.y + rect.height / 2 - (paneRect.y + paneRect.height / 2),
+        );
+
+      let best = -1;
+      let bestDistance = Number.POSITIVE_INFINITY;
+      elements.forEach((element, position) => {
+        const rect = element.getBoundingClientRect();
+        const isFullyInside =
+          rect.width > 0 &&
+          rect.height > 0 &&
+          rect.x > paneRect.x &&
+          rect.y > paneRect.y &&
+          rect.x + rect.width < paneRect.x + paneRect.width &&
+          rect.y + rect.height < paneRect.y + paneRect.height;
+        if (!isFullyInside) return;
+        const candidate = distance(rect);
+        if (candidate < bestDistance) {
+          best = position;
+          bestDistance = candidate;
+        }
+      });
+      return best;
+    },
+    pane,
+  );
+
+  if (index < 0) throw new Error(`no node fully visible in ${paneSelector}`);
+
+  const node = page.locator(nodeSelector).nth(index);
+  const box = await node.boundingBox();
+  if (box === null) throw new Error(`node ${index} has no box`);
+
+  return { index, box };
 };
 
 const viewportTransform = (page: Page, viewportSelector: string) =>
@@ -188,20 +240,54 @@ const panPane = async (page: Page, library: Library) => {
   }
 };
 
+const dragNode = async (
+  page: Page,
+  paneSelector: string,
+  nodeSelector: string,
+) => {
+  const { index, box } = await nearestNodeTo(page, paneSelector, nodeSelector);
+  const node = page.locator(nodeSelector).nth(index);
+
+  const x = box.x + box.width / 2;
+  const y = box.y + box.height / 2;
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  for (let step = 1; step <= 20; step += 1) {
+    await page.mouse.move(x + step * 5, y + step * 2);
+    await page.waitForTimeout(16);
+  }
+
+  // The node has to have moved *while the frames are recorded*. A drag that only
+  // dispatches the press records idle frames, which would silently flatter the
+  // numbers — that happened: the Foldkit page had no subscriptions, so no
+  // pointermove ever arrived.
+  const during = await node.boundingBox();
+  await page.mouse.up();
+  await page.waitForTimeout(120);
+
+  if (during === null)
+    throw new Error(`node vanished during the drag: ${nodeSelector}`);
+  if (Math.abs(during.x - box.x) < 20 && Math.abs(during.y - box.y) < 10) {
+    throw new Error(
+      `the scripted drag did not move ${nodeSelector}[${index}] (${box.x},${box.y} → ${during.x},${during.y})`,
+    );
+  }
+};
+
 const waitForReady = async (page: Page, ready: string) => {
   await page.waitForSelector(ready, { timeout: 20_000 });
   await page.waitForTimeout(500);
 };
 
 const runOnce = async (page: Page, library: Library): Promise<Sample> => {
-  // Pan first: the drag leg moves a node in every one of these libraries, and
-  // the resolved pan point must still be empty pane when the pan press lands.
+  if (library.canDrag) {
+    await start(page, "drag");
+    await dragNode(page, library.pane, library.nodeAny);
+    await stop(page);
+  }
+
   await start(page, "pan");
   await panPane(page, library);
-  await stop(page);
-
-  await start(page, "drag");
-  await dragNode(page, library.node);
   await stop(page);
 
   return readFrames(page);
@@ -261,6 +347,8 @@ test("625-node drag and pan frame times", async ({ browser }) => {
     }
 
     results[library.name] = {
+      // `count: 0` means the drag leg was skipped because the library's node
+      // drag does not engage under this harness (see `canDrag`).
       drag: statsOf(samples.flatMap((sample) => sample.drag)),
       pan: statsOf(samples.flatMap((sample) => sample.pan)),
     };
@@ -275,6 +363,15 @@ test("625-node drag and pan frame times", async ({ browser }) => {
   const output = {
     fixture: { nodes: 625, edges: 624 },
     runs: RUNS,
+    // Every leg is verified: the pan must move the library's viewport, and the
+    // drag must move the node under the pointer. A library whose drag cannot be
+    // verified reports `drag.count: 0` instead of idle frames.
+    dragCoverage: {
+      react:
+        "not verified: node drag does not engage (pointerdown delivered, node box unchanged)",
+      svelte: "verified",
+      foldkit: "verified",
+    },
     browser: "Brave 156.1.98.63 (Chromium 156), headless",
     machine: "MacBook Air (Apple M5), macOS 26.6.2",
     libraries: results,
@@ -289,8 +386,13 @@ test("625-node drag and pan frame times", async ({ browser }) => {
   await writeFile(outPath, `${JSON.stringify(output, null, 2)}\n`, "utf8");
 
   console.log(JSON.stringify(output, null, 2));
-  expect(results.react?.drag.count ?? 0).toBeGreaterThan(0);
-  expect(results.foldkit?.pan.count ?? 0).toBeGreaterThan(0);
+  // Both verified legs, for every library: the pan for all three, and the drag
+  // wherever the harness can prove the node moved.
+  for (const name of ["react", "svelte", "foldkit"] as const) {
+    expect(results[name]?.pan.count ?? 0).toBeGreaterThan(0);
+  }
+  expect(results.svelte?.drag.count ?? 0).toBeGreaterThan(0);
+  expect(results.foldkit?.drag.count ?? 0).toBeGreaterThan(0);
 });
 
 const largeLibrary: Library = {
@@ -298,10 +400,12 @@ const largeLibrary: Library = {
   path: "/large.html",
   pane: ".fflow__pane",
   node: '[data-nodeid="n0"]',
+  nodeAny: ".fflow__node",
   viewport: "[data-fflow-viewport]",
   // Zoom 1 puts nodes under the corner; flow (170, 60) is the fixture's gap
   // between node boxes, with the pane at the page origin and viewport 20/30.
   panPoint: (box) => ({ x: box.x + 190, y: box.y + 90 }),
+  canDrag: true,
   ready: ".fflow__pane",
 };
 

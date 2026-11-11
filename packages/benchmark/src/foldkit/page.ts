@@ -1,5 +1,5 @@
-import { Schema } from "effect";
-import { Command, Runtime } from "foldkit";
+import { Option, Schema } from "effect";
+import { Command, Runtime, Subscription } from "foldkit";
 import type { Update } from "foldkit";
 import type { Html, HtmlBuilder } from "foldkit/html";
 import { defineMessageUnion } from "foldkit/message";
@@ -109,6 +109,14 @@ export const mountBenchPage = (config: BenchPageConfig): void => {
     h: HtmlBuilder<Message>,
   ): Html => h.div([h.Class("fflow__node-label")], [node.data.label]);
 
+  // Without these the drag leg only dispatches the press: no pointermove ever
+  // arrives, so the node never moves and the recorded "drag" frames are idle
+  // frames. The gesture path is part of what the harness measures.
+  const subscriptions = Subscription.lift(Flow.subscriptions)<Model, Message>({
+    read: (model) => Option.some(model.flow),
+    toParentMessage,
+  });
+
   const renderer = Flow.createRenderer<{ label: string }, unknown>({
     paneId: config.paneId,
     renderNode,
@@ -147,6 +155,7 @@ export const mountBenchPage = (config: BenchPageConfig): void => {
         init,
         update,
         view,
+        subscriptions,
         container,
       }),
     );
