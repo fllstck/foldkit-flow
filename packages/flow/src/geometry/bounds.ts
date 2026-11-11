@@ -36,7 +36,7 @@ const buildSizeIndex = (
   return index;
 };
 
-export const nodeSizeIndex = (
+const sizeIndexOf = (
   nodeSizes: ReadonlyArray<NodeSize>,
 ): ReadonlyMap<string, Size> => {
   const cached = sizeMemo.get(nodeSizes);
@@ -51,13 +51,13 @@ export const nodeSizeIndex = (
  * Measured size → the node's own size hint → the shared fallback.
  *
  * The signature is the public one (`README.md`, `Flow.nodeSizeOf`), so the
- * lookup behind it is an index rather than a scan: see `nodeSizeIndex`.
+ * lookup behind it is an index rather than a scan: see `sizeIndexOf`.
  */
 export const nodeSizeOf = (
   node: FlowNode<unknown>,
   nodeSizes: ReadonlyArray<NodeSize>,
 ): Size => {
-  const measured = nodeSizeIndex(nodeSizes).get(node.id);
+  const measured = sizeIndexOf(nodeSizes).get(node.id);
   if (measured !== undefined) return measured;
   if (node.size !== undefined) return node.size;
   return fallbackSize;

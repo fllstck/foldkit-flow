@@ -78,8 +78,11 @@ const update = (model: typeof Model.Type, message: typeof Message.Type) =>
 
 // Gesture Messages (document-level pointermove/up during a drag, delete, Escape)
 // only arrive if the flow's subscriptions are mounted.
-const subscriptions = Subscription.lift(Flow.subscriptions)({
-  read: (model: typeof Model.Type) => Option.some(model.flow),
+const subscriptions = Subscription.lift(Flow.subscriptions)<
+  typeof Model.Type,
+  typeof Message.Type
+>({
+  read: (model) => Option.some(model.flow),
   toParentMessage,
 });
 
@@ -105,6 +108,13 @@ const view = (model: typeof Model.Type, h: HtmlBuilder<typeof Message.Type>) =>
   renderer.view({ model: model.flow, nodes, edges, toParentMessage }, h);
 ```
 
+`Flow.update` also *reports* facts — `ConnectedHandles`, `MovedNodes`,
+`ResizedNodes`, `DeletedElements`, `ReconnectedEdge` — as one OutMessage per
+Message. They are what your app applies to its own graph, and the idiomatic way to
+fold them is `Update.foldChild({ update, read, write, toParentMessage,
+foldOutMessage })`; `src/example/app.ts` in this repository does exactly that, one
+`foldOutMessage` branch per fact.
+
 Then `Runtime.makeApplication({ Model, init, update, view, subscriptions,
 container })` — the same wiring any Foldkit app uses. The playground in
 `packages/example` is a working 630-node version of exactly this, with the
@@ -128,9 +138,11 @@ to act on all three:
 
 ## Documentation
 
-- **[The full contract](../..)**: the repository's `README.md` — the public API
-  surface, chrome, graph features (sub-flows, `hidden`, resizing, snap, `fitView`
-  options, markers, labels), accessibility, and the development commands.
+- **The full contract**: `README.md` at the root of this repository — the public
+  API surface, chrome, graph features (sub-flows, `hidden`, resizing, snap,
+  `fitView` options, markers, labels), accessibility, and the development
+  commands. It is not shipped inside this package; the path is named rather than
+  linked because npm has no repository root to link to.
 - **`docs/PLAN.md`**: the design — ownership split, runtime wiring, the hot path,
   the performance gate, milestones.
 - **`docs/BENCHMARKS.md`**: the measured numbers, the protocol, the machine and the
