@@ -81,6 +81,19 @@ export const Message = defineMessageUnion({
   MovedViewport: { viewport: Viewport, isGestureEnd: Schema.Boolean },
   CompletedSyncViewport: { viewport: Viewport },
   FailedSyncViewport: { reason: Schema.String },
+
+  // Chrome (§7 M3). `Controls` is library-owned markup inside the pane, so its
+  // buttons need library Messages instead of a helper the parent folds; `update`
+  // turns each one into the same `zoomBy`/`setViewport` helper a parent calls
+  // from its own update.
+  ClickedZoomIn: {},
+  ClickedZoomOut: {},
+  ClickedFitView: {},
+
+  // Arrow-key nudging. The delta is the whole fact: which key was pressed and
+  // which modifier was held are DOM details the keyboard subscription resolves,
+  // so `update` only applies a delta it is handed (§7 M3).
+  NudgedNode: { nodeId: Schema.String, delta: Point },
 });
 
 export type Message = typeof Message.Type;
@@ -114,3 +127,7 @@ export type CompletedSyncViewport = ReturnType<
   typeof Message.CompletedSyncViewport
 >;
 export type FailedSyncViewport = ReturnType<typeof Message.FailedSyncViewport>;
+export type ClickedZoomIn = ReturnType<typeof Message.ClickedZoomIn>;
+export type ClickedZoomOut = ReturnType<typeof Message.ClickedZoomOut>;
+export type ClickedFitView = ReturnType<typeof Message.ClickedFitView>;
+export type NudgedNode = ReturnType<typeof Message.NudgedNode>;

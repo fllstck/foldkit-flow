@@ -17,7 +17,11 @@ import type {
 } from "../geometry/handles.js";
 import { oppositeHandleType } from "../geometry/hitTest.js";
 import { screenToFlow } from "../geometry/screen.js";
-import { visibleEdges, visibleNodes } from "../geometry/visible.js";
+import {
+  viewportRect,
+  visibleEdges,
+  visibleNodes,
+} from "../geometry/visible.js";
 import { Message } from "../message.js";
 import { Gesture, zeroDelta } from "../model.js";
 import type {
@@ -32,15 +36,22 @@ import type {
 } from "../model.js";
 import {
   blocksDrag,
+  isChromeTarget,
   isEdgeEndpointTarget,
   isHandleTarget,
   isNodeTarget,
 } from "../runtime/domTarget.js";
 import { MountNode } from "../runtime/mountNode.js";
 import { MountPane, transformOf } from "../runtime/mountPane.js";
+import { backgroundView } from "./background.js";
+import type { BackgroundConfig } from "./background.js";
 import * as classes from "./classes.js";
+import { controlsView } from "./controls.js";
+import { descriptionView } from "./description.js";
+import { miniMapView } from "./minimap.js";
 import { createNodeCache } from "./nodeCache.js";
 import type { NodeCache } from "./nodeCache.js";
+import { createViewMemo } from "./viewMemo.js";
 
 /** A handle declaration a node renderer hands back through `tools.handle`. The
  *  element carries the exact markup the engine's geometry reads:
@@ -78,8 +89,22 @@ export type RendererConfig<NodeData, EdgeData> = Readonly<{
    *  hit-testable SVG elements per edge, and a parent that does not fold
    *  `OutMessage.ReconnectedEdge` has nothing to do with them. */
   reconnect?: boolean;
-  minZoom?: number;
-  maxZoom?: number;
+  /** The background pattern, drawn behind the viewport. Off by default: it is a
+   *  visual identity choice, not a behaviour, and the benchmark pages measure the
+   *  minimal DOM (§4.5). */
+  background?: BackgroundConfig;
+  /** Library-rendered zoom in/out/fit buttons. Off by default for the same
+   *  reason: chrome a parent does not want in its DOM is a cost it should not
+   *  pay (§7 M3). */
+  controls?: boolean;
+  /** The minimap. Off by default and memoized when on: the 1k gate measures the
+   *  frame distribution, and a per-frame rebuild of 1k rectangles would show up
+   *  in it (§7 M3). */
+  minimap?: boolean;
+  /** A node's accessible name, which a screen reader reads in the tab order and
+   *  the description region repeats. The flow cannot read `node.data` — the data
+   *  is the parent's — so without this hook a node is announced by its id. */
+  accessibleName?: (node: FlowNode<NodeData>) => string;
 }>;
 
 export type ViewInput<ParentMessage, NodeData, EdgeData> = Readonly<{
@@ -88,8 +113,11 @@ export type ViewInput<ParentMessage, NodeData, EdgeData> = Readonly<{
   edges: ReadonlyArray<FlowEdge<EdgeData>>;
   /** Must be referentially stable across renders: every node slot compares it. */
   toParentMessage: (message: Message) => ParentMessage;
+  /** Consumer chrome to render inside the pane, above the viewport — compose it
+   *  with `panel(...)`. The markup stays in the parent's boundary (the same one
+   *  `renderNode` runs in), so its controls dispatch parent Messages. */
+  panel?: Html;
 }>;
-
 export type Renderer<NodeData, EdgeData> = Readonly<{
   view: <ParentMessage>(
     input: ViewInput<ParentMessage, NodeData, EdgeData>,
@@ -133,6 +161,11 @@ export const createRenderer = <NodeData = unknown, EdgeData = unknown>(
     string,
     Option.Option<EdgeEndpoints>
   > = new Map();
+
+  // Chrome memos (§7 M3): the minimap's node rectangles and the description text
+  // depend on the graph, not on the viewport, so a viewport frame reuses them.
+  const minimapMemo = createViewMemo();
+  const descriptionMemo = createViewMemo();
 
   const handleHtml = (
     nodeId: string,
@@ -206,6 +239,11 @@ export const createRenderer = <NodeData = unknown, EdgeData = unknown>(
       },
       h,
     );
+
+  /** The one accessible name for a node, shared by the tab order and the
+   *  description region so they cannot disagree (§7 M3). */
+  const accessibleNameOf = (node: FlowNode<NodeData>): string =>
+    config.accessibleName === undefined ? node.id : config.accessibleName(node);
 
   const view = <ParentMessage>(
     input: ViewInput<ParentMessage, NodeData, EdgeData>,
@@ -484,6 +522,14 @@ export const createRenderer = <NodeData = unknown, EdgeData = unknown>(
                 .join(" "),
             ),
             h.DataAttribute("nodeid", node.id),
+            // Focusable and named (§7 M3): a node is a toggle button in the
+            // accessibility tree — pressing it selects it — so `aria-pressed`
+            // says what the selection ring says, and `aria-label` comes from the
+            // consumer's hook because `node.data` is theirs, not ours.
+            h.Tabindex(0),
+            h.Role("button"),
+            h.AriaLabel(accessibleNameOf(node)),
+            h.AriaPressed(isSelected ? "true" : "false"),
             h.Style({
               position: "absolute",
               top: "0",
@@ -619,7 +665,12 @@ export const createRenderer = <NodeData = unknown, EdgeData = unknown>(
               blocksDrag(target) ||
               isHandleTarget(target) ||
               isNodeTarget(target) ||
-              isEdgeEndpointTarget(target)
+              isEdgeEndpointTarget(target) ||
+              // Chrome is a press target inside the pane: the buttons keep their
+              // own Messages and the panel keeps the parent's, but none of them
+              // may clear the selection (§4.6). `NoPan` on the same elements
+              // keeps d3 from starting a pan from the same press.
+              isChromeTarget(target)
             ) {
               return Option.none();
             }
@@ -636,12 +687,20 @@ export const createRenderer = <NodeData = unknown, EdgeData = unknown>(
         ),
         h.OnMount(
           Mount.mapMessage(
-            MountPane({ paneId: config.paneId, viewport: model.viewport }),
+            MountPane({
+              paneId: config.paneId,
+              viewport: model.viewport,
+              minZoom: model.minZoom,
+              maxZoom: model.maxZoom,
+            }),
             input.toParentMessage,
           ),
         ),
       ],
       [
+        config.background === undefined
+          ? h.empty
+          : backgroundView(config.background, model.viewport, h),
         h.div(
           [
             h.Class(classes.Viewport),
@@ -657,6 +716,35 @@ export const createRenderer = <NodeData = unknown, EdgeData = unknown>(
           [edgesView, nodesView],
         ),
         connectionView,
+        config.controls === true
+          ? controlsView(input.toParentMessage, h)
+          : h.empty,
+        config.minimap === true
+          ? miniMapView(
+              {
+                model,
+                nodes: input.nodes,
+                nodeSizes: model.nodeSizes,
+                view: viewportRect(model),
+              },
+              minimapMemo,
+              h,
+            )
+          : h.empty,
+        input.panel ?? h.empty,
+        descriptionMemo.on(
+          [input.nodes, input.edges, accessibleNameOf, config.paneId],
+          () =>
+            descriptionView(
+              config.paneId,
+              {
+                nodes: input.nodes,
+                edges: input.edges,
+                accessibleName: accessibleNameOf,
+              },
+              h,
+            ),
+        ),
       ],
     );
   };

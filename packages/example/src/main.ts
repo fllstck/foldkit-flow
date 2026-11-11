@@ -189,6 +189,10 @@ const countMessage = (stats: Stats, message: Flow.Message): Stats =>
     }),
     CompletedSyncViewport: () => ({ ...stats, syncs: stats.syncs + 1 }),
     FailedSyncViewport: () => stats,
+    ClickedZoomIn: () => stats,
+    ClickedZoomOut: () => stats,
+    ClickedFitView: () => stats,
+    NudgedNode: () => stats,
   });
 
 const applyPositions = (
@@ -481,7 +485,29 @@ const renderer = Flow.createRenderer<{ label: string }, unknown>({
   renderNode,
   // The demo folds `ReconnectedEdge`, so it opts into the grab rings.
   reconnect: true,
+  // Chrome (§7 M3). The reason a screen reader gets a name instead of "div".
+  background: { variant: "dots" },
+  controls: true,
+  minimap: true,
+  accessibleName: (node) => node.data.label,
 });
+
+/** Consumer chrome inside the pane, composed with the library's own positioned
+ *  container. Its button dispatches a *parent* Message: the panel's markup is
+ *  built in the parent's boundary, which is the whole point of threading it
+ *  through `ViewInput.panel` rather than through the renderer's config. */
+const demoPanel = (h: HtmlBuilder<Message>) =>
+  Flow.panel(
+    { position: "TopLeft", label: "Graph actions" },
+    [
+      h.span([h.Class("panel-title")], ["Graph"]),
+      h.button(
+        [h.Id("panel-select-all"), h.OnClick(Message.ClickedSelectAll())],
+        ["Select all"],
+      ),
+    ],
+    h,
+  );
 
 const stat = (h: HtmlBuilder<Message>, key: string, value: number | string) =>
   h.span(
@@ -607,6 +633,9 @@ export const view = (model: Model, h: HtmlBuilder<Message>): Document => {
                     nodes: nodesOf(model),
                     edges: edgesOf(model),
                     toParentMessage,
+                    // Consumer chrome inside the pane (§7 M3): built in this
+                    // boundary, so its button dispatches a parent Message.
+                    panel: demoPanel(h),
                   },
                   h,
                 )

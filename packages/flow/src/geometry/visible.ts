@@ -1,19 +1,37 @@
 import type { FlowEdge, FlowNode, Model, Rect } from "../model.js";
 import { intersects, nodeRect, nodeSizeOf } from "./bounds.js";
 
+/** Negation that keeps a zero positive: `-0` would reach the DOM as `-0` in a
+ *  minimap rectangle or a `viewBox`. */
+const negate = (value: number): number => (value === 0 ? 0 : -value);
+
 /**
- * The flow-space region worth drawing: the pane's current viewport plus one
- * screen of overscan on every side, so a node entering the viewport during a
- * pan is already rendered when it becomes visible (§2.5.6).
+ * The pane's box in flow space, with no overscan: exactly what the user can see.
+ * This is what a minimap draws as its viewport rectangle, which is why it is a
+ * separate function from `visibleRegion` — culling's overscan is a rendering
+ * buffer, not a fact about the view (§4.5).
  */
-export const visibleRegion = (model: Model): Rect => {
+export const viewportRect = (model: Model): Rect => {
   const { viewport, pane } = model;
   const zoom = viewport.zoom;
-  const width = pane.width / zoom;
-  const height = pane.height / zoom;
   return {
-    left: -viewport.x / zoom - width,
-    top: -viewport.y / zoom - height,
+    left: negate(viewport.x / zoom),
+    top: negate(viewport.y / zoom),
+    width: pane.width / zoom,
+    height: pane.height / zoom,
+  };
+};
+/**
+ * The flow-space region worth drawing: the viewport plus one screen of overscan
+ * on every side, so a node entering the viewport during a pan is already
+ * rendered when it becomes visible (§2.5.6). Derived from `viewportRect` so the
+ * two cannot disagree about where the view is.
+ */
+export const visibleRegion = (model: Model): Rect => {
+  const { width, height, left, top } = viewportRect(model);
+  return {
+    left: left - width,
+    top: top - height,
     width: width * 3,
     height: height * 3,
   };

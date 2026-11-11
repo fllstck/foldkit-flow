@@ -94,6 +94,10 @@ export const mountBenchPage = (config: BenchPageConfig): void => {
           StartedReconnect: () => model.measured,
           CompletedSyncViewport: () => model.measured,
           FailedSyncViewport: () => model.measured,
+          ClickedZoomIn: () => model.measured,
+          ClickedZoomOut: () => model.measured,
+          ClickedFitView: () => model.measured,
+          NudgedNode: () => model.measured,
         });
 
         return {

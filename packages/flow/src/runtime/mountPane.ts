@@ -61,6 +61,8 @@ export const MountPane = Mount.defineStream("MountPane", {
       y: Schema.Number,
       zoom: Schema.Number,
     }),
+    minZoom: Schema.Number,
+    maxZoom: Schema.Number,
   },
   messages: [
     Message.MountedPane,
@@ -68,7 +70,14 @@ export const MountPane = Mount.defineStream("MountPane", {
     Message.MovedViewport,
     Message.ResizedPane,
   ],
-  execute: ({ element, paneId, viewport, viewStateChanges }) =>
+  execute: ({
+    element,
+    paneId,
+    minZoom,
+    maxZoom,
+    viewport,
+    viewStateChanges,
+  }) =>
     Stream.callback<MountPaneMessage>((queue) =>
       Effect.gen(function* () {
         // SAFETY: MountPane is only attached to the div this renderer builds.
@@ -97,8 +106,8 @@ export const MountPane = Mount.defineStream("MountPane", {
           Effect.sync(() =>
             createPanZoom({
               domNode: paneElement,
-              minZoom: 0.1,
-              maxZoom: 2,
+              minZoom,
+              maxZoom,
               viewport,
               translateExtent: infiniteExtent,
               onDraggingChange: () => {},

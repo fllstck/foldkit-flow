@@ -1099,3 +1099,121 @@ describe("viewport", () => {
     );
   });
 });
+
+describe("chrome", () => {
+  const mounted = { ...initial, paneId: Option.some("chrome-pane") };
+
+  /** Scene-free Command read: `SyncViewport` is the only Command these Messages
+   *  may emit, and its name is how `Command.define` identifies it. */
+  const syncOf = (result: ReturnType<typeof update>) =>
+    (result.commands ?? []).find(
+      (command) => (command as { name?: string }).name === "SyncViewport",
+    );
+
+  test("zoom in multiplies the zoom and syncs the engine", () => {
+    const result = update(mounted, Message.ClickedZoomIn(), context);
+
+    expect(result.model.viewport.zoom).toBeCloseTo(1.2, 5);
+    expect(syncOf(result)).toBeDefined();
+  });
+
+  test("zoom out divides it", () => {
+    const result = update(
+      { ...mounted, viewport: { x: 0, y: 0, zoom: 1.2 } },
+      Message.ClickedZoomOut(),
+      context,
+    );
+
+    expect(result.model.viewport.zoom).toBeCloseTo(1, 5);
+  });
+
+  test("zoom in stops at the Model's maxZoom, with no Command to run", () => {
+    // At the bound the press is a no-op: nothing is written, nothing is
+    // dispatched, and the engine is never asked to clamp on the Model's behalf.
+    const atMax = { ...mounted, viewport: { x: 0, y: 0, zoom: 2 } };
+    const result = update(atMax, Message.ClickedZoomIn(), context);
+
+    expect(result.model.viewport.zoom).toBe(2);
+    expect(result.commands ?? []).toHaveLength(0);
+  });
+
+  test("zoom out stops at the Model's minZoom", () => {
+    const atMin = { ...mounted, viewport: { x: 0, y: 0, zoom: 0.1 } };
+    const result = update(atMin, Message.ClickedZoomOut(), context);
+
+    expect(result.model.viewport.zoom).toBe(0.1);
+    expect(result.commands ?? []).toHaveLength(0);
+  });
+
+  test("custom bounds are the ones enforced", () => {
+    const custom = {
+      ...mounted,
+      minZoom: 0.5,
+      maxZoom: 1,
+      viewport: { x: 0, y: 0, zoom: 1 },
+    };
+    expect(
+      update(custom, Message.ClickedZoomIn(), context).model.viewport.zoom,
+    ).toBe(1);
+
+    const zoomedOut = update(custom, Message.ClickedZoomOut(), context);
+    expect(zoomedOut.model.viewport.zoom).toBeCloseTo(1 / 1.2, 5);
+
+    const atFloor = { ...custom, viewport: { x: 0, y: 0, zoom: 0.5 } };
+    expect(
+      update(atFloor, Message.ClickedZoomOut(), context).model.viewport.zoom,
+    ).toBe(0.5);
+  });
+
+  test("fit view moves the viewport to the fitted one", () => {
+    const result = update(mounted, Message.ClickedFitView(), context);
+
+    // The nodes span 0..300 × 0..140 (100×40 boxes), in a 1000×800 pane: the
+    // fitted zoom fills the height first and is clamped by maxZoom.
+    expect(result.model.viewport.zoom).toBeGreaterThan(1);
+    expect(syncOf(result)).toBeDefined();
+  });
+
+  test("fit view on an empty graph changes nothing", () => {
+    const result = update(mounted, Message.ClickedFitView(), {
+      nodes: [],
+      edges: [],
+    });
+
+    expect(result.model.viewport).toEqual(mounted.viewport);
+    expect(result.commands ?? []).toHaveLength(0);
+  });
+
+  test("an arrow-key nudge reports one MovedNodes for the focused node", () => {
+    story(
+      flow().update,
+      given(initial),
+      message(Message.NudgedNode({ nodeId: "n2", delta: { x: 1, y: 0 } })),
+      expectOutMessage(
+        OutMessage.MovedNodes({ nodes: [{ nodeId: "n2", x: 201, y: 100 }] }),
+      ),
+    );
+  });
+
+  test("a nudge for a node the parent no longer has is ignored", () => {
+    story(
+      flow().update,
+      given(initial),
+      message(Message.NudgedNode({ nodeId: "gone", delta: { x: 1, y: 0 } })),
+      expectNoOutMessage(),
+    );
+  });
+
+  test("a nudge cannot move an undraggable node", () => {
+    const frozen = {
+      nodes: [graphNode("n1", 0, 0, { draggable: false })],
+      edges: [],
+    };
+    story(
+      flow(frozen).update,
+      given(initial),
+      message(Message.NudgedNode({ nodeId: "n1", delta: { x: 1, y: 0 } })),
+      expectNoOutMessage(),
+    );
+  });
+});

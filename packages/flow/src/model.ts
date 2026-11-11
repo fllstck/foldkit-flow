@@ -151,6 +151,12 @@ export const Model = Schema.Struct({
   // pane's DOM root from it instead of hardcoding `document` (§2.5.8).
   paneId: Schema.Option(Schema.String),
   viewport: Viewport,
+  // Zoom bounds live in the Model because three places need the same numbers:
+  // `MountPane`'s args (the engine's `scaleExtent`), `setViewport`'s clamp, and
+  // `fitViewport`. `RendererConfig.minZoom`/`maxZoom` were declared and never
+  // read (§3.3), so they are gone rather than kept as a second source.
+  minZoom: Schema.Number,
+  maxZoom: Schema.Number,
   // Nodes and edges stay separate: one string array cannot say which kind an id
   // is, and `SelectedElements` / `DeletedElements` need that distinction.
   selectedNodeIds: Schema.Array(Schema.String),
@@ -167,17 +173,33 @@ export type Model = typeof Model.Type;
 
 export const defaultViewport: Viewport = { x: 0, y: 0, zoom: 1 };
 
+/** The engine's bounds unless the parent says otherwise (§4.1). */
+export const defaultMinZoom = 0.1;
+export const defaultMaxZoom = 2;
+
+export type ZoomLimits = Readonly<{ minZoom: number; maxZoom: number }>;
+
+/** The one clamp: `setViewport`, `zoomBy`, and `fitViewport` all pass through it,
+ *  and `XYPanZoom` enforces the same numbers from the same Model fields. */
+export const clampZoom = (zoom: number, model: Model): number =>
+  Math.min(Math.max(zoom, model.minZoom), model.maxZoom);
+
 /** Shared zero delta: non-dragged nodes pass this exact reference to the node
  *  cache, so a drag frame only invalidates the dragged subtrees (§4.5). */
 export const zeroDelta: Point = { x: 0, y: 0 };
 
 export type Init = Readonly<{ model: Model }>;
 
-export const init = (maybeViewport?: Viewport): Init => ({
+export const init = (
+  maybeViewport?: Viewport,
+  maybeZoomLimits?: Partial<ZoomLimits>,
+): Init => ({
   model: {
     pane: { width: 0, height: 0, left: 0, top: 0 },
     paneId: Option.none(),
     viewport: maybeViewport ?? defaultViewport,
+    minZoom: maybeZoomLimits?.minZoom ?? defaultMinZoom,
+    maxZoom: maybeZoomLimits?.maxZoom ?? defaultMaxZoom,
     selectedNodeIds: [],
     selectedEdgeIds: [],
     nodeSizes: [],

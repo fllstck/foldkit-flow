@@ -4,9 +4,9 @@ import { Dom, Subscription } from "foldkit";
 import { Message } from "../message.js";
 import { Gesture } from "../model.js";
 import type { Model } from "../model.js";
-import { isDeleteKeyAllowed } from "./domTarget.js";
 import { getPaneRoot } from "./host.js";
-
+import { nudgeDelta } from "./nudge.js";
+import { isDeleteKeyAllowed, nudgedNodeId } from "./domTarget.js";
 /** Handlers that fire on the pane's root. Declaring the map keeps the mapper's
  *  event parameter typed for both a `Document` and a `ShadowRoot`, which the
  *  native lib.dom maps do not do between them. */
@@ -230,7 +230,7 @@ export const subscriptions = Subscription.make<Model, Message>()((entry) => ({
             Option.match(getPaneRoot(hostId), {
               onNone: () => Stream.empty,
               onSome: (root) =>
-                Dom.streamFromEventFilterMap({
+                Dom.streamFromEventFilterMapPreventDefault({
                   target: (): PointerRoot => root,
                   type: "keydown",
                   filterMapEvent: (event) => {
@@ -240,9 +240,26 @@ export const subscriptions = Subscription.make<Model, Message>()((entry) => ({
                     if (event.key === "Delete" || event.key === "Backspace") {
                       return Option.some(Message.PressedDeleteKey());
                     }
-                    return event.key === "Escape"
-                      ? Option.some(Message.PressedEscape())
-                      : Option.none();
+                    if (event.key === "Escape") {
+                      return Option.some(Message.PressedEscape());
+                    }
+
+                    // Arrow keys nudge the focused node (§7 M3). Focus is a DOM
+                    // fact, so the target decides whether there is one; the
+                    // guard above keeps a keystroke typed into a node's own
+                    // input, or into a `.fflow__nokey` region, from moving the
+                    // graph. `PreventDefault` is what stops the arrow keys from
+                    // scrolling the page instead.
+                    const delta = nudgeDelta(event.key, event);
+                    const nodeId = nudgedNodeId(event.target);
+                    return Option.all([
+                      delta,
+                      Option.fromNullishOr(nodeId),
+                    ]).pipe(
+                      Option.map(([nudge, id]) =>
+                        Message.NudgedNode({ nodeId: id, delta: nudge }),
+                      ),
+                    );
                   },
                 }),
             }),

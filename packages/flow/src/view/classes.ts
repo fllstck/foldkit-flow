@@ -17,3 +17,19 @@ export const NoWheel = "fflow__nowheel";
 export const NoKey = "fflow__nokey";
 export const IsSelected = "fflow__node--selected";
 export const IsDragging = "fflow__node--dragging";
+
+// Chrome (§7 M3). Every piece of chrome is a press target inside the pane, so it
+// carries `NoPan` — `target.closest` exempts its children too, which is the M1 §8
+// lesson applied to buttons — and the attribute below, which is what the pane's
+// own pointer handler declines so a control press never clears the selection.
+export const ChromeAttribute = "fflow-chrome";
+export const Background = "fflow__background";
+export const Controls = "fflow__controls";
+export const ControlButton = "fflow__controls-button";
+export const MiniMap = "fflow__minimap";
+export const MiniMapSvg = "fflow__minimap-svg";
+export const MiniMapNode = "fflow__minimap-node";
+export const MiniMapNodes = "fflow__minimap-nodes";
+export const MiniMapViewport = "fflow__minimap-viewport";
+export const Panel = "fflow__panel";
+export const Description = "fflow__description";

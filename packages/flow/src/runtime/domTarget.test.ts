@@ -2,9 +2,11 @@ import { describe, expect, test } from "vitest";
 
 import {
   blocksDrag,
+  isChromeTarget,
   isDeleteKeyAllowed,
   isEdgeEndpointTarget,
   isEditableTarget,
+  nudgedNodeId,
 } from "./domTarget.js";
 
 /**
@@ -18,7 +20,6 @@ const fakeTarget = (matches: ReadonlyArray<string>): EventTarget =>
         ? { selector }
         : null,
   }) as unknown as EventTarget;
-
 const fakeEvent = (target: EventTarget | null): Event => ({ target }) as Event;
 
 describe("editable-target guard", () => {
@@ -70,5 +71,34 @@ describe("edge endpoint guard", () => {
     expect(isEdgeEndpointTarget(fakeTarget(["[data-edgeend]"]))).toBe(true);
     expect(isEdgeEndpointTarget(fakeTarget([]))).toBe(false);
     expect(isEdgeEndpointTarget(null)).toBe(false);
+  });
+});
+
+describe("chrome guard", () => {
+  test("a press on chrome is not a pane press", () => {
+    // One attribute covers controls, the minimap and consumer panels, so a panel
+    // built without `classes` is exempt too.
+    expect(isChromeTarget(fakeTarget(["[data-fflow-chrome]"]))).toBe(true);
+    expect(isChromeTarget(fakeTarget([]))).toBe(false);
+    expect(isChromeTarget(null)).toBe(false);
+  });
+});
+
+describe("nudged node", () => {
+  const nodeTarget = (nodeId: string): EventTarget =>
+    ({
+      closest: (selector: string) =>
+        selector.includes("data-nodeid")
+          ? { getAttribute: () => nodeId }
+          : null,
+    }) as unknown as EventTarget;
+
+  test("the focused node is the one the event target belongs to", () => {
+    expect(nudgedNodeId(nodeTarget("n1"))).toBe("n1");
+  });
+
+  test("a keystroke outside every node nudges nothing", () => {
+    expect(nudgedNodeId(fakeTarget([]))).toBe(null);
+    expect(nudgedNodeId(null)).toBe(null);
   });
 });

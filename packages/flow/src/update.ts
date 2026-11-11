@@ -9,8 +9,9 @@ import {
 import { hitTestHandle, oppositeHandleType } from "./geometry/hitTest.js";
 import { screenToFlow } from "./geometry/screen.js";
 import { visibleNodes } from "./geometry/visible.js";
+import { fitViewport } from "./geometry/fit.js";
 import { Message } from "./message.js";
-import { Gesture, zeroDelta } from "./model.js";
+import { Gesture, clampZoom, zeroDelta } from "./model.js";
 import type {
   Context,
   FlowEdge,
@@ -496,6 +497,32 @@ export const update = (
       model: { ...model, viewport },
     }),
     FailedSyncViewport: () => ({ model }),
+
+    // Chrome (§7 M3). Each button lands on the helper a parent would call, so
+    // there is one implementation of zoom and one of fit.
+    ClickedZoomIn: () => zoomBy(model, zoomStepFactor),
+    ClickedZoomOut: () => zoomBy(model, 1 / zoomStepFactor),
+    ClickedFitView: () => setViewport(model, fitViewport(model, context.nodes)),
+
+    NudgedNode: ({ nodeId, delta }) => {
+      const node = nodeById(context, nodeId);
+      // A nudge is a move, so it obeys the same graph-side guards a drag does:
+      // the node has to exist and to be draggable.
+      if (node === undefined || !isDraggable(context, nodeId)) return { model };
+
+      return {
+        model,
+        outMessage: OutMessage.MovedNodes({
+          nodes: [
+            {
+              nodeId,
+              x: node.position.x + delta.x,
+              y: node.position.y + delta.y,
+            },
+          ],
+        }),
+      };
+    },
   });
 
 /**
@@ -549,20 +576,40 @@ export const informGraphChanged = (
   };
 };
 
+/** One zoom-button press. 1.2 is a fraction the eye can follow and small enough
+ *  that the clamp is reached in a handful of presses. */
+export const zoomStepFactor = 1.2;
+
+const isSameViewport = (a: Model["viewport"], b: Model["viewport"]): boolean =>
+  a.x === b.x && a.y === b.y && a.zoom === b.zoom;
+
 /** Programmatic viewport change: the Model commits the target immediately and
- *  the Command makes the engine agree (§4.3). */
+ *  the Command makes the engine agree (§4.3).
+ *
+ *  Zoom is clamped to the Model's bounds before anything is written, so the
+ *  Model never holds a zoom the engine would refuse, and a press at the limit
+ *  changes and dispatches nothing — "the controls stop at the bounds" is then a
+ *  property of `update`, not a race with the engine's own clamp. */
 export const setViewport = (
   model: Model,
   viewport: Model["viewport"],
   duration: Option.Option<number> = Option.none(),
-): UpdateReturn => ({
-  model: { ...model, viewport },
-  commands: Arr.fromOption(
-    Option.map(model.paneId, (paneId) =>
-      SyncViewport({ paneId, viewport, duration }),
+): UpdateReturn => {
+  const next: Model["viewport"] = {
+    ...viewport,
+    zoom: clampZoom(viewport.zoom, model),
+  };
+  if (isSameViewport(model.viewport, next)) return { model };
+
+  return {
+    model: { ...model, viewport: next },
+    commands: Arr.fromOption(
+      Option.map(model.paneId, (paneId) =>
+        SyncViewport({ paneId, viewport: next, duration }),
+      ),
     ),
-  ),
-});
+  };
+};
 
 export const zoomBy = (model: Model, factor: number): UpdateReturn =>
   setViewport(model, {

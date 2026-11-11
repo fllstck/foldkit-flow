@@ -1,4 +1,13 @@
-export { init, Model, defaultViewport, zeroDelta } from "./model.js";
+export {
+  clampZoom,
+  defaultMaxZoom,
+  defaultMinZoom,
+  defaultViewport,
+  init,
+  Model,
+  zeroDelta,
+} from "./model.js";
+export type { ZoomLimits } from "./model.js";
 // `Gesture` is both the union's value (constructors and `guards`) and its type,
 // so a parent reading the gesture needs only this export.
 export { Gesture } from "./model.js";
@@ -41,7 +50,16 @@ export {
   setViewport,
   update,
   zoomBy,
+  zoomStepFactor,
 } from "./update.js";
+
+export { backgroundView } from "./view/background.js";
+export type { BackgroundConfig, BackgroundVariant } from "./view/background.js";
+export { panel } from "./view/panel.js";
+export type { PanelConfig, PanelPosition } from "./view/panel.js";
+export { describeGraph, descriptionId } from "./view/description.js";
+export { miniMapViewBox } from "./view/minimap.js";
+export { nudgeDelta, nudgeLargeStep, nudgeStep } from "./runtime/nudge.js";
 
 export { createRenderer } from "./view/view.js";
 export type {
@@ -59,6 +77,7 @@ export type {
   EdgePathKind,
 } from "./geometry/paths.js";
 
+export { fitPadding, fitViewport } from "./geometry/fit.js";
 export { nodeBounds, nodeRect, nodeSizeOf } from "./geometry/bounds.js";
 export {
   connectionOf,
@@ -79,6 +98,7 @@ export { hitTestHandle } from "./geometry/hitTest.js";
 export { dragDelta, flowToScreen, screenToFlow } from "./geometry/screen.js";
 export type { ScreenPoint } from "./geometry/screen.js";
 export {
+  viewportRect,
   visibleEdges,
   visibleNodes,
   visibleRegion,

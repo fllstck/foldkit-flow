@@ -15,6 +15,10 @@ const nodeSelector = `.${classes.Node}, [data-nodeid]`;
  *  pane handler has to decline them explicitly. Matched by attribute as well so
  *  the guard is testable in Scene (§M1-FINDINGS §2.2). */
 const edgeEndpointSelector = `.${classes.EdgeEndpoint}, [data-edgeend]`;
+/** Chrome — controls, minimap, consumer panels — is inside the pane, so a press
+ *  on it reaches the pane's own handler. Matched by the attribute rather than the
+ *  three classes so a consumer panel built without `classes` is still exempt. */
+const chromeSelector = `[data-${classes.ChromeAttribute}]`;
 
 const closestOrNull = (
   target: EventTarget | null,
@@ -36,7 +40,7 @@ const closestOrNull = (
 export const isEditableTarget = (target: EventTarget | null): boolean =>
   closestOrNull(target, editableSelector) !== null;
 
-/** Delete and Escape only reach the graph when this guard passes. */
+/** Delete, Escape, and arrow keys only reach the graph when this guard passes. */
 export const isDeleteKeyAllowed = (event: Event): boolean =>
   !isEditableTarget(event.target) &&
   closestOrNull(event.target, `.${classes.NoKey}`) === null;
@@ -55,3 +59,16 @@ export const isEdgeEndpointTarget = (target: EventTarget | null): boolean =>
  *  bubbles after it, so it has to decline to clear the selection. */
 export const isNodeTarget = (target: EventTarget | null): boolean =>
   closestOrNull(target, nodeSelector) !== null;
+
+/** A press on chrome belongs to the control, not to the pane (§7 M3). */
+export const isChromeTarget = (target: EventTarget | null): boolean =>
+  closestOrNull(target, chromeSelector) !== null;
+
+/**
+ * The node a keyboard event is about: the node wrapper that contains the focused
+ * element, or nothing when focus is elsewhere. This is why focus needs no Model
+ * state — the DOM answers "which node" at event time (§7 M3), and an arrow key
+ * pressed while a parent control has focus nudges nothing.
+ */
+export const nudgedNodeId = (target: EventTarget | null): string | null =>
+  closestOrNull(target, nodeSelector)?.getAttribute("data-nodeid") ?? null;
