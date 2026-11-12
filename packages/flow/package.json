@@ -27,7 +27,8 @@
     "build": "vite build && tsc -p tsconfig.build.json && cp style/flow.css dist/style.css",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "prepublishOnly": "pnpm typecheck && pnpm test && pnpm build"
   },
   "peerDependencies": {
     "effect": "~4.1.0",

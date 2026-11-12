@@ -535,15 +535,35 @@ scoped package defaults to restricted, and this one is MIT and meant to be found
 the `--access public` flag would do the same thing per publish, and the field means
 the flag can be forgotten without quietly publishing a private package.
 
-**Publishing itself needs npm credentials this session did not have** (`npm whoami`
-returned `401 Unauthorized`), so the release commit carries the version, the
-documentation and a verified `npm publish --dry-run` — 77 files, 134.1 kB tarball,
-`0.1.0`, `latest`, public access — with the publish command one step away:
+**The publish itself did not go through, for a credentials reason rather than a
+packaging one.** `~/.npmrc` carries an `//registry.npmjs.org/:_authToken` (dated
+October), but `npm whoami` answers `401 Unauthorized`, and the `PUT` to
+`@fllstck/foldkit-flow` came back `E404 Not Found` — npm's masked "no such package
+_or_ no permission" answer for a scoped name, which is what an expired token looks
+like when the scope has never had a release. Nothing was published: a failed publish
+writes nothing.
+
+The release commit therefore carries the version, the documentation, a verified
+`npm publish --dry-run` (77 files, 134.1 kB tarball, `0.1.0`, `latest`, public
+access) and a `prepublishOnly` guard, so the publish is one authenticated command:
 
 ```sh
 cd packages/flow
-npm publish --access public     # after `npm login`, or with NPM_TOKEN set
+npm login                       # or a fresh granular token with publish rights
+npm publish --access public
+npm view @fllstck/foldkit-flow version   # expect 0.1.0
 ```
+
+Two things to know before retrying:
+
+- **The `@fllstck` scope** has to exist and the authenticated account has to be able
+  to publish to it. A 404 on a scoped `PUT` is indistinguishable, from the client,
+  between "expired token", "wrong account" and "scope owned by someone else"; the
+  first is ruled out or confirmed by `npm whoami` answering at all.
+- **`prepublishOnly` is `pnpm typecheck && pnpm test && pnpm build`**, so a publish
+  can never ship a `dist` older than the source — the M4 build-skew lesson
+  (`verification.md` rule 4) applied to the one artifact nobody can inspect
+  afterwards.
 
 `repository` and `homepage` are deliberately absent from `package.json`: the repo has
 no remote configured, and a guessed URL is worse than none. They belong in the same
