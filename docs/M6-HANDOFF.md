@@ -191,6 +191,13 @@ at the verdicts; and all four commands green.
   is the only place the two libraries are compared on one input, and it costs 12 s.
 - **Does `1.0.0` go to npm before the M6 research lands?** The package is ready;
   publishing is the owner's call and nothing in the repo assumes it happened.
+- **Does the docs site get its first slice?** `docs/DOCS-PROPOSAL.md` maps
+  reactflow.dev's five sections onto what exists here and slices the work: examples
+  as `/examples/?example=…` pages in `packages/example` (cheap — the registry,
+  index and `?raw` source pattern all exist), a generated reference from the JSDoc
+  (needs two devDependencies, so it needs an explicit yes), and a regrouped README
+  last. It is documentation scope, not M6 research; the proposal names the three
+  decisions it needs.
 - **Does the changelog get generated before the first publish?** `M5-FINDINGS.md`
   §7.1 is the point: pick changesets, release-please or
   `conventional-changelog-cli` by how the version bump is decided, enforce
