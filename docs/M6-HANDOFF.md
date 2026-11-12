@@ -191,6 +191,12 @@ at the verdicts; and all four commands green.
   is the only place the two libraries are compared on one input, and it costs 12 s.
 - **Does `1.0.0` go to npm before the M6 research lands?** The package is ready;
   publishing is the owner's call and nothing in the repo assumes it happened.
+- **Does the changelog get generated before the first publish?** `M5-FINDINGS.md`
+  §7.1 is the point: pick changesets, release-please or
+  `conventional-changelog-cli` by how the version bump is decided, enforce
+  conventional messages with a hook in the same change, and put the file at
+  `packages/flow/CHANGELOG.md` (with a `files` entry). It is a release-process
+  item, not a feature: it changes no library behaviour and needs no proof.
 - **Does M6 add public surface, and if so does the version move?** A shipped
   `nodeOrigin` or an edge-selection API would make this 1.1.0 rather than 1.0.x;
   the reasoning belongs in `M6-FINDINGS.md`, not in a handoff.

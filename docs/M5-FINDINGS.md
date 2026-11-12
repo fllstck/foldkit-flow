@@ -222,6 +222,40 @@ plus the rest of `dist`, `LICENSE`, `package.json`, `README.md`,
 (a dependency) and `effect`/`foldkit`/`foldkit/*` (peers), so `exports` promises
 nothing it does not ship.
 
+### 7.1 Not done, and named so it is not lost: an automatic changelog
+
+M5 did not add a `CHANGELOG.md`, and it should not have been hand-written: the
+commit log is already the narrative (this file is the milestone record, not a
+release note). The point to carry is **derive the changelog from the commits, and
+decide the tool before the first publish**, because a `1.0.1` published without one
+has nothing to read.
+
+What the point needs, in the order that matters:
+
+1. **A tool choice.** The commits are conventional already — `feat(flow)`,
+   `fix(flow)`, `perf(flow)`, `refactor(flow)`, `test(benchmark)`, `docs` — so all
+   three obvious candidates work: **changesets** (fits a pnpm workspace and one
+   publishable package, keeps the changelog file in the repo), **release-please**
+   (fits conventional commits and drives the GitHub release and the version bump),
+   or `conventional-changelog-cli` in a `release` script (least machinery, no PR
+   flow). Pick by how the version bump should be decided, not by the changelog
+   output, which is the same for all three.
+2. **Enforcement, or the output is noise.** Nothing checks that a commit message
+   is conventional. Without a `commit-msg` hook (or a CI check) the generator
+   silently drops the commits it cannot parse, so the changelog would under-report
+   rather than fail — the failure mode this project keeps writing rules about.
+   Hook or check goes in the same change as the generator.
+3. **Where the file lives.** `packages/flow/CHANGELOG.md`, so npm renders it beside
+   the package README, with a `files` entry; a root `CHANGELOG.md` only if the repo
+   ever publishes more than one package.
+4. **What it must not become.** A second copy of the findings documents. The
+   changelog says what changed for a consumer and links the M-numbered findings
+   section for the reasoning; it does not restate the numbers, which live in
+   `BENCHMARKS.md` and are re-measured per milestone.
+5. **Kept out of the release decision.** Generating a changelog is not publishing,
+   and the two stay separate until the owner says otherwise (`M6-HANDOFF` open
+   question: publish before or after M6).
+
 **Publishing is the owner's call** and is not assumed anywhere: the handoff's open
 question — publish before or after M6 — is left open, and the README says "v1.0
 (M0–M4 shipped, M5 hardening)" rather than announcing a registry.
