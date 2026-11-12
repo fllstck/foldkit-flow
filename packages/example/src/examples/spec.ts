@@ -91,8 +91,17 @@ export type ExampleSpec = Readonly<{
   viewport: Readonly<{ x: number; y: number; zoom: number }> | "fit";
   padding?: number;
   renderer?: ExampleRenderer;
-  /** The example's own connection policy, in its own file. */
-  isValidConnection?: (connection: Connection) => boolean;
+  /**
+   * The example's own connection policy, in its own file. It receives the
+   * **current** parent graph, not the one the spec declared: an accepted
+   * connection changes what a cycle is, and a predicate that closes over the
+   * initial edge list goes stale the moment anything connects
+   * (`docs/TEST-STRATEGY-REVIEW.md` finding 3).
+   */
+  isValidConnection?: (
+    connection: Connection,
+    edges: ReadonlyArray<ExampleEdge>,
+  ) => boolean;
   /**
    * The example's own node markup. Omitted means the harness's card — a title, a
    * subtitle and a status dot — which is what most examples are about; supplying

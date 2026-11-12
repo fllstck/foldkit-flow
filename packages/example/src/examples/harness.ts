@@ -168,9 +168,14 @@ export const createExampleApp = (
       edges: model.graph.edges,
     };
     // The policy travels with the graph rather than living in the flow: a rejected
-    // release emits nothing, so this is the only place it can be decided.
+    // release emits nothing, so this is the only place it can be decided. It is
+    // handed the *current* edges — the ones the parent has folded in — because a
+    // predicate closed over the spec's initial list would answer about a graph that
+    // no longer exists.
     if (spec.isValidConnection !== undefined) {
-      context.isValidConnection = spec.isValidConnection;
+      const policy = spec.isValidConnection;
+      context.isValidConnection = (connection) =>
+        policy(connection, model.graph.edges);
     }
     return context;
   };

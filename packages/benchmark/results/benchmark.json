@@ -21,39 +21,39 @@
         "longFrames": 0
       },
       "pan": {
-        "count": 503,
-        "median": 16.7,
-        "p95": 16.8,
-        "longest": 33.4,
-        "longFrames": 0
-      }
-    },
-    "svelte": {
-      "drag": {
-        "count": 500,
-        "median": 16.7,
-        "p95": 16.8,
-        "longest": 33.3,
-        "longFrames": 0
-      },
-      "pan": {
-        "count": 495,
+        "count": 507,
         "median": 16.7,
         "p95": 16.7,
         "longest": 16.8,
         "longFrames": 0
       }
     },
-    "foldkit": {
+    "svelte": {
       "drag": {
-        "count": 498,
+        "count": 499,
         "median": 16.7,
         "p95": 16.8,
-        "longest": 33.3,
+        "longest": 33.4,
         "longFrames": 0
       },
       "pan": {
-        "count": 476,
+        "count": 495,
+        "median": 16.7,
+        "p95": 16.8,
+        "longest": 16.8,
+        "longFrames": 0
+      }
+    },
+    "foldkit": {
+      "drag": {
+        "count": 504,
+        "median": 16.7,
+        "p95": 16.7,
+        "longest": 16.8,
+        "longFrames": 0
+      },
+      "pan": {
+        "count": 479,
         "median": 16.7,
         "p95": 16.7,
         "longest": 16.8,
@@ -65,19 +65,19 @@
     "react": {
       "readyMs": {
         "count": 10,
-        "median": 37.8,
-        "p95": 42.7,
-        "longest": 42.7,
-        "longFrames": 0
+        "median": 22.9,
+        "p95": 51.2,
+        "longest": 51.2,
+        "longFrames": 1
       },
       "measuredMs": null
     },
     "svelte": {
       "readyMs": {
         "count": 10,
-        "median": 67,
-        "p95": 70.3,
-        "longest": 70.3,
+        "median": 66.9,
+        "p95": 68.7,
+        "longest": 68.7,
         "longFrames": 10
       },
       "measuredMs": null
@@ -85,23 +85,23 @@
     "foldkit": {
       "readyMs": {
         "count": 10,
-        "median": 35.2,
-        "p95": 39,
-        "longest": 39,
+        "median": 34.5,
+        "p95": 44.1,
+        "longest": 44.1,
         "longFrames": 0
       },
       "measuredMs": {
         "count": 10,
-        "median": 88.8,
-        "p95": 93.3,
-        "longest": 93.3,
+        "median": 89.4,
+        "p95": 97.4,
+        "longest": 97.4,
         "longFrames": 10
       }
     }
   },
   "flow": {
     "updates": 1925,
-    "updateTotalMs": 3.1,
+    "updateTotalMs": 3,
     "updatePerDispatchMs": 0.0016,
     "cullScanMs": 0.476,
     "cullScanSamples": 21

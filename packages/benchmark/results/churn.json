@@ -8,8 +8,8 @@
     "graphAtRest": 200
   },
   "loop": {
-    "firstMs": 11134,
-    "secondMs": 11231,
+    "firstMs": 11461,
+    "secondMs": 11517,
     "steps": {
       "afterFirst": 2000,
       "afterSecond": 2000
@@ -28,9 +28,9 @@
   },
   "heapMb": {
     "before": 6.36,
-    "afterFirst": 7.3,
+    "afterFirst": 7.29,
     "afterSecond": 7.39,
-    "growthAfterFirst": 0.94,
+    "growthAfterFirst": 0.93,
     "growthAfterSecond": 1.03
   },
   "browser": "Brave 156.1.98.63 (Chromium 156), headless",

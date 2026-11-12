@@ -511,6 +511,14 @@ test("1000-node culled drag and pan gate", async ({ browser }) => {
   // residual difference are in `docs/M2-FINDINGS.md` §4.
   expect(drag.p95).toBeLessThan(33);
   expect(pan.p95).toBeLessThan(33);
+  // The culling scan's cost is asserted *here* rather than as a wall-clock unit
+  // test: this is the machine, the build mode and the protocol the published
+  // number comes from, and a unit-test clock measures the runner's load
+  // (`docs/TEST-STRATEGY-REVIEW.md`, "Test that should move out of ordinary unit
+  // tests"). 3 ms is ~2.5x the 1.2 ms this leg measures and half the 6.0 ms the
+  // pre-M5 linear lookup cost at 1k, so it fails on a return to O(N × measured)
+  // and not on a slow afternoon.
+  expect(metrics.cullScanMs, "the culling scan per call at 1k").toBeLessThan(3);
   expect(drag.longFrames).toBeLessThanOrEqual(Math.ceil(drag.count * 0.02));
   expect(pan.longFrames).toBeLessThanOrEqual(Math.ceil(pan.count * 0.02));
 });
@@ -581,6 +589,14 @@ test("1000-node culled gate with M3 chrome on", async ({ browser }) => {
   expect(minimapRects).toBe(1000);
   expect(drag.p95).toBeLessThan(33);
   expect(pan.p95).toBeLessThan(33);
+  // The culling scan's cost is asserted *here* rather than as a wall-clock unit
+  // test: this is the machine, the build mode and the protocol the published
+  // number comes from, and a unit-test clock measures the runner's load
+  // (`docs/TEST-STRATEGY-REVIEW.md`, "Test that should move out of ordinary unit
+  // tests"). 3 ms is ~2.5x the 1.2 ms this leg measures and half the 6.0 ms the
+  // pre-M5 linear lookup cost at 1k, so it fails on a return to O(N × measured)
+  // and not on a slow afternoon.
+  expect(metrics.cullScanMs, "the culling scan per call at 1k").toBeLessThan(3);
   expect(drag.longFrames).toBeLessThanOrEqual(Math.ceil(drag.count * 0.02));
   expect(pan.longFrames).toBeLessThanOrEqual(Math.ceil(pan.count * 0.02));
 });

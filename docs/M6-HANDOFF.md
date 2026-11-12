@@ -38,8 +38,8 @@ settle) is not advisory.
 | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `packages/flow`    | **1.0.0**, publishable and unpublished: `LICENSE`, `THIRD-PARTY-NOTICES.md`, a package `README.md`, `files`/`exports` verified with `pnpm pack --dry-run`. Surface unchanged since M4; M5 added one internal index (`geometry/bounds.ts`) |
 | `packages/example` | **Two pages, one build**: `/` is the 630-node instrumented playground (unchanged — ten proofs read its fixture), `/example/` is the presentable release pipeline with its own source beside it                                                                     |
-| `packages/benchmark` | Gate legs (625 comparison, 1k culled, 1k + chrome), 10k collapsed, 10k **expanded**, the React Flow **gallery**, and the **pan-stall** diagnostic — 56 Playwright tests in 13 files, 4.8 min |
-| Tests              | **279** Vitest tests in 27 files; **52** Playwright tests (45 proofs, 3 gate legs, 3 explorations, 1 gallery)                                                                                    |
+| `packages/benchmark` | Gate legs (625 comparison, 1k culled, 1k + chrome), 10k collapsed, 10k **expanded**, the React Flow **gallery**, and the **pan-stall** diagnostic — 56 Playwright tests in 13 files, 4.9 min |
+| Tests              | **311** Vitest tests in 33 files (flow + example); **56** Playwright tests in 13 files (45 proofs, 3 gate legs, 4 explorations, 2 gallery, 2 example) |                                                                                    |
 | Docs               | `PLAN.md` (revision 7, unchanged by M5), **[`BENCHMARKS.md`](BENCHMARKS.md)** (the published numbers), [`M5-FINDINGS.md`](M5-FINDINGS.md), M0–M4 findings and reviews, `verification.md`, `IMPLICIT-STATE-AUDIT.md`, `xyflow-internals.md`, `foldkit-constraints.md`, `README.md` |
 | Evidence           | `packages/benchmark/results/`: `benchmark.json`, `benchmark-1k.json`, `benchmark-1k-chrome.json`, `hidden-10k.json`, `expanded-10k.json`, `gallery.json`, `pan-stall.json` — all tracked |
 
@@ -133,7 +133,7 @@ it, and an audit of all 56 browser proofs against the rungs below. Two rungs it
 added during M5 — Scene (`view/chrome.scene.test.ts`) and Mount stream
 (`runtime/mountPane.test.ts`) — exist because the pan-jump lived where neither
 Story nor Playwright could see it. Read it before adding a proof: a claim that
-needs no layout belongs two rungs lower, and the suite's 4.8 minutes are for the
+needs no layout belongs two rungs lower, and the suite's 4.9 minutes are for the
 layer only a browser can observe.
 
 ## Known traps and gotchas
@@ -187,7 +187,7 @@ pkill -f vite               # a stale preview owns 4173/4174
 pnpm typecheck              # first: vite build does not typecheck
 pnpm build                  # all three: the benchmark inlines the library CSS
 pnpm check                  # typecheck, Enfect lint, Prettier, unit tests
-pnpm bench                  # Playwright: every proof, every leg, ~4.8 min
+pnpm bench                  # Playwright: every proof, every leg, ~4.9 min
 ```
 
 M6 is done when `PLAN.md` §7's list holds — `docs/M6-RESEARCH.md` with one section

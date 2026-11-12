@@ -151,7 +151,7 @@ second tab. The trailing slash is required on a static host, for the same reason
 
 ### The fast loop
 
-The full browser suite is the frame gate and takes ~4.8 min (56 tests): 3
+The full browser suite is the frame gate and takes ~4.9 min (56 tests): 3
 libraries × 11 cold loads of the 625-node fixture, then 11 of the 1k fixture, then
 11 of the same fixture with M3's chrome on, plus the 10k explorations, the gallery
 and the pan-stall diagnostic — one worker at a time, because the measured quantity

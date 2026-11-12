@@ -141,43 +141,66 @@ describe("the measured-size index (M4-FINDINGS §6, §7)", () => {
     ).toEqual({ width: 151, height: 40 });
   });
 
-  test("a culling scan does not pay a linear lookup per node", () => {
-    // The scan used to `find` in `nodeSizes` once per node (twice more per edge),
-    // so a 10k scan was O(N × measured): 9.8 s for these twenty scans before the
-    // index (≈490 ms each, dev build), against 6.2–6.8 ms per 1k scan in the
-    // browser (M4-FINDINGS §6). Twenty scans over the same arrays — what a pan
-    // frame does — are ~20 ms now, so 400 ms is a 20x margin over the fix and far
-    // below the scan it replaced.
-    const count = 10_000;
+  /**
+   * The 10k fixture, with the *measurement array* wrapped so reads through it can
+   * be counted. Counting is what replaced a wall-clock threshold here: the old
+   * scan did a linear `find` per node, so it touched the array O(N²) times, and a
+   * read counter says that deterministically — no machine, no flakiness
+   * (`docs/TEST-STRATEGY-REVIEW.md`, "Test that should move out of ordinary unit
+   * tests"). The frame cost in a real browser is the gate's business now.
+   */
+  const countingSizes = (sizes: ReadonlyArray<NodeSize>) => {
+    const reads = { count: 0 };
+    const proxy = new Proxy(sizes as Array<NodeSize>, {
+      get: (target, property, receiver) => {
+        if (typeof property === "string" && /^\d+$/.test(property)) {
+          reads.count += 1;
+        }
+        return Reflect.get(target, property, receiver);
+      },
+    });
+    return { sizes: proxy as ReadonlyArray<NodeSize>, reads };
+  };
+
+  const readCountFor = (): { first: number; second: number } => {
     const large: ReadonlyArray<FlowNode> = Array.from(
-      { length: count },
+      { length: 10_000 },
       (_, index) =>
         node(`n${index}`, (index % 100) * 200, Math.floor(index / 100) * 100),
     );
-    const sizes: ReadonlyArray<NodeSize> = large.map((entry) => ({
-      nodeId: entry.id,
-      width: 100,
-      height: 40,
-    }));
-    const largeModel = {
+    const { sizes, reads } = countingSizes(
+      large.map((entry) => ({ nodeId: entry.id, width: 100, height: 40 })),
+    );
+    const model = {
       ...init({ x: 0, y: 0, zoom: 1 }).model,
       pane: { width: 900, height: 600, left: 0, top: 0 },
       nodeSizes: sizes,
     };
 
-    const startedAt = performance.now();
-    const visible = Array.from(
-      { length: 20 },
-      (_, step) =>
-        // A different viewport each time, so every scan really runs.
-        visibleNodes(
-          { ...largeModel, viewport: { x: step * 7, y: 0, zoom: 1 } },
-          large,
-        ).length,
-    );
+    visibleNodes(model, large);
+    const first = reads.count;
+    // A viewport change is what a pan frame is; the sizes array is unchanged, so
+    // the index must not be rebuilt.
+    visibleNodes({ ...model, viewport: { x: 7, y: 0, zoom: 1 } }, large);
+    return { first, second: reads.count - first };
+  };
 
-    expect(visible[0]).toBeGreaterThan(0);
-    expect(performance.now() - startedAt).toBeLessThan(400);
+  test("a culling scan reads each measurement once, not once per node", () => {
+    const { first } = readCountFor();
+
+    // One pass over the measurements (~10,000 reads), not one `find` per node
+    // (which is what this fixture measured as 9.8 seconds of wall clock before the
+    // index, and which this assertion now pins without any clock at all).
+    expect(first).toBeGreaterThan(9_000);
+    expect(first).toBeLessThan(20_000);
+  });
+
+  test("a viewport change reuses the index instead of re-reading the measurements", () => {
+    const { second } = readCountFor();
+
+    // Zero: the memo is keyed on the array's reference, and a pan changes the
+    // viewport, not the graph.
+    expect(second).toBe(0);
   });
 });
 

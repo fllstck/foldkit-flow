@@ -14,16 +14,16 @@
   "startup": {
     "readyMs": {
       "count": 10,
-      "median": 29.2,
-      "p95": 37,
-      "longest": 37,
+      "median": 31.9,
+      "p95": 40.3,
+      "longest": 40.3,
       "longFrames": 0
     },
     "measuredMs": {
       "count": 10,
-      "median": 115.8,
-      "p95": 123.8,
-      "longest": 123.8,
+      "median": 119.1,
+      "p95": 124.1,
+      "longest": 124.1,
       "longFrames": 10
     }
   },
@@ -32,12 +32,12 @@
   "drag": {
     "count": 497,
     "median": 16.7,
-    "p95": 16.7,
-    "longest": 33.3,
+    "p95": 16.8,
+    "longest": 16.8,
     "longFrames": 0
   },
   "pan": {
-    "count": 470,
+    "count": 480,
     "median": 16.7,
     "p95": 16.8,
     "longest": 16.8,
@@ -45,9 +45,9 @@
   },
   "flow": {
     "updates": 3078,
-    "updateTotalMs": 8,
-    "updatePerDispatchMs": 0.0026,
-    "cullScanMs": 0.652,
+    "updateTotalMs": 7.7,
+    "updatePerDispatchMs": 0.0025,
+    "cullScanMs": 0.694,
     "cullScanSamples": 21
   }
 }

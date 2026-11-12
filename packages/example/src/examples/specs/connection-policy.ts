@@ -27,7 +27,11 @@ const edges: ExampleSpec["edges"] = [
  * Can `from` reach `to` by following edges? One breadth-first pass with a visited
  * set, so a graph that is already cyclic (a mid-edit one can be) terminates.
  */
-const canReach = (from: string, to: string): boolean => {
+const canReach = (
+  edges: ReadonlyArray<ExampleSpec["edges"][number]>,
+  from: string,
+  to: string,
+): boolean => {
   const walk = (
     frontier: ReadonlyArray<string>,
     visited: ReadonlySet<string>,
@@ -78,14 +82,14 @@ const example: ExampleSpec = {
    * reader can see it. A new edge `source → target` closes one exactly when
    * `target` can already reach `source`; a self-loop closes one trivially.
    *
-   * It reads the graph as it stands, including an edge being reconnected — so a
-   * consumer whose graph can move an edge should feed the moving edge's id into
-   * its policy. Nothing here needs it: every reconnect this page allows keeps the
-   * graph acyclic.
+   * `currentEdges` is the parent's graph as it stands, handed in by the harness on
+   * every release — the parameter is the whole point: a policy closed over the
+   * *declared* edges would keep answering about the graph as it was drawn, so
+   * accepting `c → d` once would let `d → c` through afterwards.
    */
-  isValidConnection: (connection) =>
+  isValidConnection: (connection, currentEdges) =>
     connection.source !== connection.target &&
-    !canReach(connection.target, connection.source),
+    !canReach(currentEdges, connection.target, connection.source),
 };
 
 export default example;
