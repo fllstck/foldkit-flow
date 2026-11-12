@@ -222,6 +222,54 @@ project, not a patch.
   still carry the `shouldResize` keep-out as the last word; §3 above reverses it. The
   link belongs in both, when the code changes.
 
+## Second revision: the follow-up took the review
+
+`docs/M6-RESEARCH-FOLLOW-UP.md` was revised the same day against this file. Every
+substantive point above landed, and the record of _what_ landed belongs here rather than
+in a silent edit, so that the two documents do not disagree about which version of the
+argument is current.
+
+| Point in this review                                    | Where the revision puts it                                                                                                                                     |
+| ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Numbers from the earlier run (522 / 1 207)              | §1 now quotes the committed 523 / 1 201 and cites `M6-FINDINGS.md` §2 and `expanded.spec.ts`                                                                   |
+| The gate must be scoped to `cull: true`                 | §1 states it, and says `cull: false` must preserve today's behaviour                                                                                           |
+| "Measure, then render" is a blank frame; estimate first | §1's proposal is now three measured states with the estimate leading and the gate as the fallback, and its required proof is the 3 × 3 grid at 625, 1k and 10k |
+| The `data-measured >= 10 000` readiness signal breaks   | §1 says it is incompatible and must be redesigned                                                                                                              |
+| SSR/hydration must be measured, not assumed             | §1 says so and names what proof 4 does _not_ check                                                                                                             |
+| §2's missing paint-order and pane-handler obligations   | Both are in its required proof, and the second-tab-stop consequence is stated                                                                                  |
+| `canResize`, veto only, not upstream's `shouldResize`   | §3 is renamed, says it reverses the keep-out, and rules out both `XYResizer` and a returned box                                                                |
+| §4's nested-parent subtlety                             | §4 says the helper takes the parent's own before/after pair, never an absolute grandparent position, and covers direct children only                           |
+| §6's reason is state, not the grid analogy              | §6 gives the active-item/replay-safe argument and says the current behaviour is _conformant_                                                                   |
+| §7's declared-geometry option                           | §7 now cites `userNode.handles` and adds that a declaration is only correct when it agrees with the consumer's CSS                                             |
+| Stamps                                                  | The two React Flow citations now carry _last updated 2026-10-11_; the pages with no stamp keep "fetched"                                                       |
+
+Three things the revision leaves, all small enough to settle before any code:
+
+1. **Where the estimate comes from.** §1 offers "the pane element's initial box or a
+   documented `initialPane` renderer option". The first half is not available: the pane
+   element does not exist until the first `view` has been patched, and every Mount runs
+   after that — which is the same ordering the section itself relies on. Only a declared
+   rect can be read before the first render, so the option is the whole mechanism, and
+   it belongs on **`Flow.init`** (which is where `model.pane` is zeroed,
+   `model.ts:278`), not on `createRenderer`: the renderer does not own the Model, and
+   culling reads `model.pane`.
+2. **What a veto keeps.** §3 says a returning `false` "would reject that frame". It
+   should say _which_ box the gesture then holds — the last accepted one, not the start
+   box — or a consumer cannot express "this node may grow but not shrink below its
+   current size" without the gesture snapping back to where it began.
+3. **The cross-link.** Neither document points at the other. `M6-RESEARCH.md` §7 and
+   `M6-FINDINGS.md` §4 still carry the `shouldResize` keep-out as the last word; when
+   `canResize` ships, all four documents should agree, and until then the follow-up and
+   this review should at least point at each other.
+
+One correction to this review, not the follow-up: **the duplicated `docs/M6-RESEARCH-FOLLOW-UP.md`
+glob in `format` and `format:check` was mine.** The revision's working tree removes the
+copy; the duplication came from inserting the follow-up into a list that already had it.
+
+The recommended order below is unchanged by the revision. `canResize` is still first
+because it is the smallest, the most clearly correct, and the only item that closes a
+keep-out.
+
 ## Recommended order
 
 1. **`canResize` in `Flow.Context`** (§3). The smallest item, the most clearly correct

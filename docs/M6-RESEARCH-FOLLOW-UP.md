@@ -10,8 +10,8 @@ solution that fits Foldkit's model-first, snapshot-based architecture.
 The original M6 decisions remain valid. The online evidence identifies four
 practical, low-risk follow-ups:
 
-1. Gate the first node render on the pane measurement to address the 10k startup
-   cost.
+1. Test an estimated first viewport, with a pane-measurement gate as the fallback,
+   to address the 10k startup cost.
 2. Provide a consumer-owned HTML overlay primitive for interactive edge labels.
 3. Add a pure resize-policy callback rather than importing `XYResizer`'s live
    store contract.
@@ -25,16 +25,17 @@ consumer-owned DOM geometry.
 
 ### Evidence
 
-The M6 benchmark records approximately **522 ms to first view** and **1,207 ms
-to settle** on the expanded 10k fixture. The first render occurs before the
-pane has dimensions, so culling is disabled and all nodes mount before the
-first `ResizedPane`.
+The committed M6 benchmark records **523 ms to first view** and **1,201 ms to
+settle** on the expanded 10k fixture. The first render occurs before the pane
+has dimensions, so culling is disabled and all nodes mount before the first
+`ResizedPane` ([`expanded.spec.ts`](../packages/benchmark/tests/expanded.spec.ts),
+[`M6-FINDINGS.md`](M6-FINDINGS.md) §2).
 
-The current renderer explicitly enables culling only when the pane has a
-positive width and height (`view/view.ts`). The pane mount emits
+The current renderer explicitly enables culling only when `cull: true` and the
+pane has a positive width and height (`view/view.ts`). The pane mount emits
 `MountedPane`, then measures and emits `ResizedPane`
-(`runtime/mountPane.ts`). See [`M6-FINDINGS.md`](M6-FINDINGS.md) §7 for the
-measured baseline.
+(`runtime/mountPane.ts`). A startup change must therefore be scoped to
+`cull: true`; `cull: false` must preserve today's behavior.
 
 TanStack Virtual exposes two relevant patterns:
 
@@ -60,26 +61,37 @@ Sources:
 
 ### Proposed solution
 
-Add a pane-measurement gate:
+Measure three states before choosing the mechanism:
 
-1. Mount the pane and chrome.
-2. Until the first usable pane rectangle arrives, render no graph nodes or
-   render only an explicitly chosen placeholder.
-3. After `ResizedPane`, run normal culling and mount only the visible region.
+1. today's behavior;
+2. an estimate-first path using the pane element's initial box or a documented
+   `initialPane` renderer option;
+3. a pane-measurement gate that renders no graph nodes until `ResizedPane`.
 
-An optional future input could accept a consumer-provided initial pane
-rectangle, analogous to TanStack Virtual's `initialRect`. It must be clearly
-documented as an estimate and corrected by the first real measurement.
+The estimate is the leading candidate because it avoids a blank first frame and
+can be corrected by the first real measurement. The gate is the fallback if the
+estimate cannot prevent the 10k mount cost.
+
+The readiness signal must change with the implementation. The existing
+`tests/expanded.spec.ts` readiness condition waits for
+`data-measured >= 10,000`; that condition is incompatible with a culled startup
+that intentionally mounts only the visible region. SSR/hydration must also be
+measured explicitly: [`tests/proofs.spec.ts`](../packages/benchmark/tests/proofs.spec.ts)
+currently checks the hydrated transform, not whether a gated graph visibly pops
+in after hydration.
 
 ### Verdict
 
-**Strong candidate for the next milestone.** It directly targets the largest
-measured cost without adding a spatial index or changing graph geometry.
+**Strong candidate for the next milestone, but not yet an implementation choice.**
+It directly targets the largest measured cost without adding a spatial index or
+changing graph geometry.
 
 Required proof:
 
-- startup time and first meaningful paint at expanded 10k;
+- startup time, first meaningful paint, and settle time at 625, 1k, and expanded
+  10k for today's behavior, estimate-first, and gate;
 - rendered-node count before and after the first `ResizedPane`;
+- a redesigned expanded-fixture readiness signal;
 - no regression to SSR/empty-pane behavior;
 - the existing 625/1k frame gate.
 
@@ -93,7 +105,7 @@ positioned above the edge layer. Its documented interaction requirements are
 with a screen-space translation around the edge midpoint.
 
 Source: [React Flow: `EdgeLabelRenderer`](https://reactflow.dev/api-reference/components/edge-label-renderer),
-fetched 2026-11-12.
+last updated 2026-10-11.
 
 This agrees with M6's finding that interactive labels are not SVG text
 interactions. They are HTML controls layered above the graph, with explicit
@@ -127,9 +139,16 @@ existing SVG edge renderer and keeps control semantics in the consumer.
 Required proof:
 
 - label remains screen-size-stable while zooming;
+- overlay paints above edges and below nodes;
 - clicking a label does not pan or clear edge selection;
+- the pane handler declines the label press;
 - keyboard focus reaches the consumer control;
 - labels remain anchored during pan and resize.
+
+Because M6 edges are themselves focusable, the contract must also state that a
+focusable overlay control creates a second tab stop at the same visual location
+as the edge. The overlay is not nested in the edge's SVG subtree, so this is not
+an ARIA nesting violation, but it is a deliberate tab-order consequence.
 
 ## 3. Resize vetoes and per-node resize policy
 
@@ -152,10 +171,10 @@ adding more mutable renderer state.
 
 ### Proposed solution
 
-Add a pure, consumer-supplied policy to `Flow.Context`, for example:
+Add a pure, consumer-supplied veto named `canResize` to `Flow.Context`:
 
 ```ts
-type ResizePolicy<NodeData> = (input: {
+type CanResize<NodeData> = (input: {
   node: FlowNode<NodeData>;
   start: Rect;
   next: Rect;
@@ -173,9 +192,10 @@ channel.
 
 ### Verdict
 
-**Probably closeable, but only as a pure policy callback.** This would address
-the useful part of `shouldResize` while preserving the existing ownership
-boundary. It should be designed and tested separately from multi-node resize.
+**Closeable as a pure veto callback.** This addresses the useful part of
+`shouldResize` while preserving the existing ownership boundary. It reverses
+the original M6 `shouldResize` keep-out, but does not justify adopting
+`XYResizer` or allowing the callback to return a replacement box.
 
 ## 4. Parent-resize child compensation
 
@@ -201,11 +221,18 @@ The helper should return child-relative positions or position changes. It must
 not mutate the Model, emit an `OutMessage`, or silently assume that the parent
 will persist the result.
 
+The delta is the direct parent's change in the parent's own coordinate space.
+For nested containers, the helper must receive the before/after pair that the
+consumer persists for that parent; it must not recompute the delta from an
+absolute grandparent position. The helper compensates direct children only;
+grandchildren follow when their own parent is compensated.
+
 ### Verdict
 
 **Closeable as a convenience helper, not as automatic renderer behavior.**
 This makes the documented workaround reliable while preserving the consumer's
-authority over graph persistence.
+authority over graph persistence. It is lower priority than `canResize` because
+no current example consumer needs it.
 
 ## 5. Multi-node resize
 
@@ -259,9 +286,11 @@ define how edge activation and node editing interact with arrow keys.
 ### Verdict
 
 **Technically possible, but not ready to implement.** This is a keyboard-model
-and product decision, not a straightforward accessibility attribute change.
-M6's documented DOM tab order remains the safer behavior until a navigation
-model is chosen.
+and state-design decision, not a straightforward accessibility attribute
+change. A roving-tabindex implementation needs an active item that survives
+focus leaving and returning; that state must be replay-safe in Foldkit's Model
+or an explicitly managed host registry. M6's current behavior is conformant:
+the APG's default tab sequence is DOM order, which is what the library uses.
 
 ## 7. Handle geometry during resize
 
@@ -273,7 +302,7 @@ This confirms that handle geometry is a post-DOM-update measurement concern,
 not purely a box-geometry calculation.
 
 Source: [React Flow: `useUpdateNodeInternals`](https://reactflow.dev/api-reference/hooks/use-update-node-internals),
-fetched 2026-11-12.
+last updated 2026-10-11.
 
 MDN states that `ResizeObserver` notifications are delivered before paint, but
 also documents that cyclic or deferred notifications can span multiple paint
@@ -288,6 +317,11 @@ last modified 2025-11-07.
 **No general exact fix exists for arbitrary consumer DOM.** A synchronous
 per-pointer measurement would trade the one-frame lag for layout reads on every
 resize event. A pure re-derivation is only correct for known handle layouts.
+The pinned engine also accepts declared handle geometry (`userNode.handles`),
+and Foldkit's view-level handle specification already has the required shape.
+That makes a declared-geometry mode available, but it is only correct when the
+declaration agrees with the consumer's CSS.
+
 The viable future options are:
 
 - a consumer-declared handle geometry mode;
