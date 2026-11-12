@@ -141,9 +141,17 @@ libraries and into each "feature off" state — and the pages themselves are
 comparison). The index is built from `src/gallery/fixtures.ts`, so it cannot list a
 fixture that does not exist and cannot miss one that does.
 
+**Examples** live on the same server as the two pages above: `/examples/` is an
+index generated from `packages/example/src/examples/registry.ts`, and
+`/examples/<name>/` is one small flow — minimal, custom nodes, resizing, edge types,
+connection policy, collapsing a subtree, fit and zoom — with its own source beside
+it (`?raw`, so the file shown is the file that ran) and the shared wiring in a
+second tab. The trailing slash is required on a static host, for the same reason
+`/example/` is: the unslashed path falls back to `/`'s document.
+
 ### The fast loop
 
-The full browser suite is the frame gate and takes ~4.9 min (55 tests): 3
+The full browser suite is the frame gate and takes ~4.8 min (56 tests): 3
 libraries × 11 cold loads of the 625-node fixture, then 11 of the 1k fixture, then
 11 of the same fixture with M3's chrome on, plus the 10k explorations, the gallery
 and the pan-stall diagnostic — one worker at a time, because the measured quantity

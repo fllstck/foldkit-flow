@@ -52,14 +52,14 @@ commit that carries this file.
 
 | Leg                      | before    | after    |
 | ------------------------ | --------- | -------- |
-| 625                      | —         | 0.732 ms |
-| 1k culled                | 6.024     | 1.164 ms |
-| 1k culled + chrome       | 6.012     | 0.938 ms |
-| 10k collapsed (`hidden`) | —         | 3.244 ms |
-| 10k expanded             | 1 807.858 | 4.736 ms |
+| 625                      | —         | 0.476 ms |
+| 1k culled                | 6.024     | 0.794 ms |
+| 1k culled + chrome       | 6.012     | 0.652 ms |
+| 10k collapsed (`hidden`) | —         | 3.152 ms |
+| 10k expanded             | 1 807.858 | 5.316 ms |
 
 Two rows matter and one is deliberately unimpressive: the 10k **collapsed** page
-barely moves (3.47 at M4 → 3.24 here) because a hidden node short-circuits before
+barely moves (3.47 at M4 → 3.15 here) because a hidden node short-circuits before
 the size lookup, so the collapsed scan never paid the cost being removed. The
 10k output in the before column is not a typo: on the expanded page the old scan
 was **1.8 seconds per call**, which is why the before-run's pan p95 was 5 766 ms.
@@ -68,26 +68,25 @@ The unit suite went from 276 to 279 tests; nothing else in it moved.
 
 ## 3. The gate, at this commit
 
-`pnpm bench`: **55 tests in 4.9 min** (46 proofs + 3 gate legs + 4 explorations +
-2 gallery). The gate legs are unchanged from M4 and all green:
+`pnpm bench`: **56 tests in 4.8 min** (46 proofs + 3 gate legs + 4 explorations +
+2 gallery + the examples). The gate legs are unchanged from M4 and all green:
 
 | Leg                | drag                     | pan                      | long frames |
 | ------------------ | ------------------------ | ------------------------ | ----------- |
-| 625, React Flow    | not verified (M1 §10)    | 16.7 / 16.8 / 33.3 (496) | 0           |
-| 625, Svelte Flow   | 16.7 / 16.7 / 16.8 (502) | 16.7 / 16.7 / 16.8 (487) | 0           |
-| 625, Foldkit       | 16.7 / 16.7 / 16.8 (500) | 16.7 / 16.8 / 33.4 (480) | 0           |
-| 1k culled          | 16.7 / 16.7 / 33.2 (499) | 16.7 / 16.7 / 33.4 (486) | 0           |
-| 1k culled + chrome | 16.7 / 16.7 / 16.8 (495) | 16.7 / 16.7 / 33.4 (486) | 0           |
+| 625, React Flow    | not verified (M1 §10)    | 16.7 / 16.8 / 33.4 (503) | 0           |
+| 625, Svelte Flow   | 16.7 / 16.8 / 33.3 (500) | 16.7 / 16.7 / 16.8 (495) | 0           |
+| 625, Foldkit       | 16.7 / 16.8 / 33.3 (498) | 16.7 / 16.7 / 16.8 (476) | 0           |
+| 1k culled          | 16.7 / 16.7 / 16.8 (497) | 16.7 / 16.7 / 16.8 (470) | 0           |
+| 1k culled + chrome | 16.7 / 16.7 / 33.3 (497) | 16.7 / 16.8 / 16.8 (470) | 0           |
 
 This is the first milestone whose 625 comparison had **no** frame over 50 ms in any
-library, and the run above is the cleanest yet: Foldkit's 625 pan is
-16.7 / 16.8 / 33.4 against React Flow's 16.7 / 16.8 / 33.4 over a comparable number
-of frames, and the only frames above one interval in the whole comparison are single
-33.4 ms drops. That is the reason the counts are published beside the longest frame —
-a 50.0 ms frame sits exactly on the class boundary and counts as _not_ long (§4.5:
-**over** 50 ms).
+library, and the run above is the cleanest yet: over 1,500 recorded frames across the
+comparison the longest is 33.4 ms, a single dropped frame, and Foldkit's own pan leg
+has none at all. That is the reason the counts are published beside the longest
+frame — a 50.0 ms frame sits exactly on the class boundary and counts as _not_ long
+(§4.5: **over** 50 ms).
 
-The whole suite gets slower with M5's new browser files: 3.4 → 4.9 min. The gate
+The whole suite gets slower with M5's new browser files: 3.4 → 4.8 min. The gate
 legs themselves are untouched (the fast loop in `README.md` names each file), and
 the additions are two explorations, a diagnostic, a comparison and the churn page —
 none of them asserts a frame budget.
@@ -102,9 +101,9 @@ for it, and the startup columns existed only on the two 10k pages. Both are fill
 now, and neither is a gate:
 
 - **Startup, on every leg** (`src/startup.ts`, `startup` in each result JSON). Ten
-  recorded page loads per leg, on the page's own clock: 625 first paint is 25 ms
-  median for us against 32 for React Flow and 55 for Svelte Flow, and the
-  Foldkit-only column — every node measured — is 78 ms at 625 and 105 / 114 ms on
+  recorded page loads per leg, on the page's own clock: 625 first paint is 35 ms
+  median for us against 38 for React Flow and 67 for Svelte Flow, and the
+  Foldkit-only column — every node measured — is 89 ms at 625 and 112 / 116 ms on
   the two 1k legs. That column exists for us alone because it _is_ our contract;
   the other two libraries' internal measurement is not observable from outside, and
   the table says so instead of guessing.
@@ -141,17 +140,17 @@ nothing collapsed: `makeGraph(100, 100)`, identical node markup to the 625 and 1
 fixtures, at zoom 1. `tests/expanded.spec.ts` measures it; `BENCHMARKS.md` has the
 tables. The result that decides the M6 conversation:
 
-- **Frames are fine**: 260 pan frames at 16.7 / 16.7 / 16.8, zero over 50 ms, 280
+- **Frames are fine**: 263 pan frames at 16.7 / 16.8 / 33.4, zero over 50 ms, 280
   nodes and 300 edges rendered out of 10,000 and 9,900. Culling, not `hidden`, is
   what keeps the DOM small at zoom 1.
-- **Startup is not**: 544 ms to the first view and **1 280 ms to settle** (1.28–1.61 s
-  across five runs). The
+- **Startup is not**: 509 ms to the first view and **1 176 ms to settle** (1.18–1.61 s
+  across six runs). The
   first render happens before the pane has been measured, so `isCulling` is false
   for it: all 10,000 nodes are inserted and all 10,000 Mounts run (an observer
   pair each), and only then does the pane measurement turn culling on and cut the
   DOM back to 280.
-- **The scan is now the frame's headroom**: 4.74 ms of a 16.7 ms frame at an
-  expanded 10k (28 %), against 4 % at 625.
+- **The scan is now the frame's headroom**: 5.32 ms of a 16.7 ms frame at an
+  expanded 10k (32 %), against 3 % at 625.
 
 M5 did **not** fix the first-render behaviour. It is not on the M5 checklist, it
 would change the gate pages' first-render DOM (which the 10k collapsed exploration
@@ -218,8 +217,8 @@ everything on the M6 list.
 The one carried-forward unknown. `tests/stall.spec.ts` is the baseline method the
 handoff asked for: four arms on twelve fresh page loads of the 1k fixture — idle,
 first pan, second pan, and the gate's own drag→pan order — with each frame's
-offset from its own arm. 2,050 frames, **0 over 50 ms**, worst frame 33.3 ms — one
-dropped frame, in the drag→pan arm. `BENCHMARKS.md` §"The start-of-pan stall" has the table.
+offset from its own arm. 2,008 frames, **0 over 50 ms, and not one above 16.8 ms** —
+no dropped frame in any arm. `BENCHMARKS.md` §"The start-of-pan stall" has the table.
 
 What that means, stated as narrowly as it deserves:
 
@@ -438,7 +437,7 @@ pkill -f vite
 pnpm typecheck   # flow, benchmark, example — clean
 pnpm build       # all three
 pnpm check       # typecheck, lint, prettier, 279 Vitest tests in 27 files
-pnpm bench       # 52 Playwright tests in 4.6 min
+pnpm bench       # 56 Playwright tests in 4.8 min
 ```
 
 `pnpm pack --dry-run` inspected (§7). The four gate/exploration JSONs plus

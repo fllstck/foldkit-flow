@@ -21,23 +21,23 @@
         "longFrames": 0
       },
       "pan": {
-        "count": 496,
+        "count": 503,
         "median": 16.7,
         "p95": 16.8,
-        "longest": 33.3,
+        "longest": 33.4,
         "longFrames": 0
       }
     },
     "svelte": {
       "drag": {
-        "count": 502,
+        "count": 500,
         "median": 16.7,
-        "p95": 16.7,
-        "longest": 16.8,
+        "p95": 16.8,
+        "longest": 33.3,
         "longFrames": 0
       },
       "pan": {
-        "count": 487,
+        "count": 495,
         "median": 16.7,
         "p95": 16.7,
         "longest": 16.8,
@@ -46,17 +46,17 @@
     },
     "foldkit": {
       "drag": {
-        "count": 500,
+        "count": 498,
         "median": 16.7,
-        "p95": 16.7,
-        "longest": 16.8,
+        "p95": 16.8,
+        "longest": 33.3,
         "longFrames": 0
       },
       "pan": {
-        "count": 480,
+        "count": 476,
         "median": 16.7,
-        "p95": 16.8,
-        "longest": 33.4,
+        "p95": 16.7,
+        "longest": 16.8,
         "longFrames": 0
       }
     }
@@ -65,9 +65,9 @@
     "react": {
       "readyMs": {
         "count": 10,
-        "median": 32,
-        "p95": 42,
-        "longest": 42,
+        "median": 37.8,
+        "p95": 42.7,
+        "longest": 42.7,
         "longFrames": 0
       },
       "measuredMs": null
@@ -75,9 +75,9 @@
     "svelte": {
       "readyMs": {
         "count": 10,
-        "median": 54.8,
-        "p95": 60.2,
-        "longest": 60.2,
+        "median": 67,
+        "p95": 70.3,
+        "longest": 70.3,
         "longFrames": 10
       },
       "measuredMs": null
@@ -85,25 +85,25 @@
     "foldkit": {
       "readyMs": {
         "count": 10,
-        "median": 25.4,
-        "p95": 32.3,
-        "longest": 32.3,
+        "median": 35.2,
+        "p95": 39,
+        "longest": 39,
         "longFrames": 0
       },
       "measuredMs": {
         "count": 10,
-        "median": 77.8,
-        "p95": 84.5,
-        "longest": 84.5,
+        "median": 88.8,
+        "p95": 93.3,
+        "longest": 93.3,
         "longFrames": 10
       }
     }
   },
   "flow": {
     "updates": 1925,
-    "updateTotalMs": 5.7,
-    "updatePerDispatchMs": 0.003,
-    "cullScanMs": 0.732,
+    "updateTotalMs": 3.1,
+    "updatePerDispatchMs": 0.0016,
+    "cullScanMs": 0.476,
     "cullScanSamples": 21
   }
 }

@@ -37,6 +37,50 @@ equivalent here, just not shaped like docs.
 | UI            | `packages/flow/style/flow.css` (`fflow__` prefix) | Deliberately no component library (§2.4: our own visual identity) |
 | Showcase/Changelog | `docs/BENCHMARKS.md`, the M0–M5 findings, `CHANGELOG.md` (not yet — see `M5-FINDINGS` §7.1) | — |
 
+## Slice 1 — shipped (2026-11-12)
+
+`/examples/` and `/examples/<name>/` exist and are proved by
+`packages/benchmark/tests/examples.spec.ts`. Seven examples, one file each:
+
+| Route                  | Category    | What it is |
+| ---------------------- | ----------- | ---------- |
+| `minimal`              | Basics      | three nodes, two edges, no chrome |
+| `custom-nodes`         | Nodes       | the consumer's own markup through `renderNode` and `tools.handle` |
+| `resizing`             | Nodes       | `resize: true`, `ResizedNodes` persisted, the content-fills-box line |
+| `edge-types`           | Edges       | Bezier / Step / SmoothStep / Straight, a label and a marker |
+| `connection-policy`    | Interaction | `isValidConnection` refusing a cycle, derived from the example's own edges |
+| `collapse`             | Sub-flows   | `hidden` on a container's *children*; the frame stays, its contents go |
+| `fit-and-zoom`         | Viewport    | the fit folded from `ResizedPane`, and the mount-order contract behind it |
+
+What it cost, and what it turned out to be:
+
+- **One harness, N specs.** `packages/example/src/examples/harness.ts` is the
+  Foldkit app — Model, Messages, update, `foldOutMessage`, the panel, the source
+  pane — and `specs/*.ts` is data plus policy (the graph, renderer options,
+  `isValidConnection`, an optional `renderNode`). A spec is 30–60 lines. The page
+  shows the spec *and* the harness, because the reader needs the wiring once and
+  the difference every time.
+- **The source is the file.** Each spec is imported with `?raw`, so the pane on the
+  right is the module that produced the graph on the left. Same trick as
+  `/example/`, and the reason there is no snippet that can drift.
+- **One proof for the set, driven by the index.** `tests/examples.spec.ts` reads the
+  links the index offers, walks every one, and asserts each page mounts its flow,
+  names itself, and lists exactly three files. It also asserts the two behaviours a
+  reader would see but not report: collapse hides the children and not the frame,
+  and the fit page's zoom is not the initial 1:1.
+- **No router, no site generator.** `src/routes.ts` maps a pathname to one of four
+  pages, used by both the client entry and the server entry, and
+  `prerenderPathsFor(exampleSlugs)` gives the plugin ten paths to render. A new
+  example is one module and one line in `registry.ts`.
+- **The trailing slash is load-bearing.** The prerendered file is
+  `examples/<name>/index.html`, so `/examples/<name>` falls back to `/`'s document
+  on a static host and hydrates the playground into the example's markup — the
+  misfire looks fine and does nothing. The index's links carry the slash and the
+  proof asserts it (the same trap `/example` has, `M5-FINDINGS` §8).
+
+Not built yet: slices 2 (generated reference) and 3 (Learn, regrouped). The
+proposal below is unchanged for them.
+
 ## The sliced proposal
 
 Ordered by cost, each slice independently useful. The first is cheap *because* of

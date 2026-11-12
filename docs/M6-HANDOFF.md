@@ -38,7 +38,7 @@ settle) is not advisory.
 | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `packages/flow`    | **1.0.0**, publishable and unpublished: `LICENSE`, `THIRD-PARTY-NOTICES.md`, a package `README.md`, `files`/`exports` verified with `pnpm pack --dry-run`. Surface unchanged since M4; M5 added one internal index (`geometry/bounds.ts`) |
 | `packages/example` | **Two pages, one build**: `/` is the 630-node instrumented playground (unchanged — ten proofs read its fixture), `/example/` is the presentable release pipeline with its own source beside it                                                                     |
-| `packages/benchmark` | Gate legs (625 comparison, 1k culled, 1k + chrome), 10k collapsed, 10k **expanded**, the React Flow **gallery**, and the **pan-stall** diagnostic — 55 Playwright tests in 12 files, 4.9 min |
+| `packages/benchmark` | Gate legs (625 comparison, 1k culled, 1k + chrome), 10k collapsed, 10k **expanded**, the React Flow **gallery**, and the **pan-stall** diagnostic — 56 Playwright tests in 13 files, 4.8 min |
 | Tests              | **279** Vitest tests in 27 files; **52** Playwright tests (45 proofs, 3 gate legs, 3 explorations, 1 gallery)                                                                                    |
 | Docs               | `PLAN.md` (revision 7, unchanged by M5), **[`BENCHMARKS.md`](BENCHMARKS.md)** (the published numbers), [`M5-FINDINGS.md`](M5-FINDINGS.md), M0–M4 findings and reviews, `verification.md`, `IMPLICIT-STATE-AUDIT.md`, `xyflow-internals.md`, `foldkit-constraints.md`, `README.md` |
 | Evidence           | `packages/benchmark/results/`: `benchmark.json`, `benchmark-1k.json`, `benchmark-1k-chrome.json`, `hidden-10k.json`, `expanded-10k.json`, `gallery.json`, `pan-stall.json` — all tracked |
@@ -151,8 +151,16 @@ Everything in the M1–M5 handoffs' "known traps" still applies. Sharpened for M
 - **The demo's fixture is instrumentation.** Ten proofs read 630 nodes, 416
   edges, n0/n3/n4 geometry and the group's collapse counts. `/example/` is a
   second route precisely so that fixture does not move.
-- **`/example/` needs its trailing slash** under a static host; `/example` falls
-  back to the playground's HTML and hydrates the wrong application.
+- **`/example/` and `/examples/<name>/` need their trailing slash** under a static
+  host; the unslashed path falls back to the playground's HTML and hydrates the
+  wrong application. The links in the examples index carry it, and
+  `tests/examples.spec.ts` asserts they do.
+- **A gate test that hits its 600 s timeout is usually the machine, not the code.**
+  Twice during M5 a full run reported 12-minute gate legs and a 15 s
+  `waitForMount` failure; a stray CPU-bound process (a `tr` at 99 %) and two
+  overlapping suites were the cause, and the same tree then passed in 4.8 min with
+  nothing else running. Check `uptime` and for leftover browsers before reading a
+  timeout as a regression.
 - **A dynamic import in `packages/example` splits `foldkit`** and the second copy
   cannot see the render frame — both entries import both apps statically.
 - **The tree's formatting is Prettier's** for `packages/**`, `*.ts|json`,
@@ -168,7 +176,7 @@ pkill -f vite               # a stale preview owns 4173/4174
 pnpm typecheck              # first: vite build does not typecheck
 pnpm build                  # all three: the benchmark inlines the library CSS
 pnpm check                  # typecheck, Enfect lint, Prettier, unit tests
-pnpm bench                  # Playwright: every proof, every leg, ~4.9 min
+pnpm bench                  # Playwright: every proof, every leg, ~4.8 min
 ```
 
 M6 is done when `PLAN.md` §7's list holds — `docs/M6-RESEARCH.md` with one section

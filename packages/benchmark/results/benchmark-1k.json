@@ -8,40 +8,40 @@
   "startup": {
     "readyMs": {
       "count": 10,
-      "median": 24.6,
-      "p95": 29.6,
-      "longest": 29.6,
+      "median": 32.9,
+      "p95": 33.1,
+      "longest": 33.1,
       "longFrames": 0
     },
     "measuredMs": {
       "count": 10,
-      "median": 104.9,
-      "p95": 108.1,
-      "longest": 108.1,
+      "median": 112.2,
+      "p95": 118,
+      "longest": 118,
       "longFrames": 10
     }
   },
   "browser": "Brave 156.1.98.63 (Chromium 156), headless",
   "machine": "MacBook Air (Apple M5), macOS 26.6.2",
   "drag": {
-    "count": 499,
+    "count": 497,
     "median": 16.7,
     "p95": 16.7,
-    "longest": 33.2,
+    "longest": 16.8,
     "longFrames": 0
   },
   "pan": {
-    "count": 486,
+    "count": 470,
     "median": 16.7,
     "p95": 16.7,
-    "longest": 33.4,
+    "longest": 16.8,
     "longFrames": 0
   },
   "flow": {
     "updates": 3078,
-    "updateTotalMs": 7.3,
-    "updatePerDispatchMs": 0.0024,
-    "cullScanMs": 1.164,
+    "updateTotalMs": 8.7,
+    "updatePerDispatchMs": 0.0028,
+    "cullScanMs": 0.794,
     "cullScanSamples": 21
   }
 }

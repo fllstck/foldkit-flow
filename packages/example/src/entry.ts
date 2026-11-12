@@ -1,7 +1,11 @@
 import { Runtime } from "foldkit";
 
 import * as example from "./example/app";
+import { createExampleApp } from "./examples/harness";
+import * as examplesIndex from "./examples/indexApp";
+import { exampleBySlug } from "./examples/registry";
 import * as demo from "./main";
+import { routeFor } from "./routes";
 import "./styles.css";
 
 /**
@@ -18,8 +22,34 @@ import "./styles.css";
  * document, and `Runtime.hydrate` finds its root by `data-foldkit-app`.
  */
 const container = document.getElementById("root");
+const route = routeFor(window.location.pathname);
 
-if (window.location.pathname.startsWith("/example")) {
+if (route.kind === "examples-index") {
+  Runtime.hydrate(
+    Runtime.makeApplication({
+      Model: examplesIndex.Model,
+      init: examplesIndex.init,
+      update: examplesIndex.update,
+      view: examplesIndex.view,
+      container,
+    }),
+  );
+} else if (route.kind === "examples-example") {
+  const entry = exampleBySlug(route.slug);
+  if (entry !== undefined) {
+    const app = createExampleApp(entry.spec, entry.sources);
+    Runtime.hydrate(
+      Runtime.makeApplication({
+        Model: app.Model,
+        init: app.init,
+        update: app.update,
+        view: app.view,
+        subscriptions: app.subscriptions,
+        container,
+      }),
+    );
+  }
+} else if (route.kind === "pipeline") {
   Runtime.hydrate(
     Runtime.makeApplication({
       Model: example.Model,

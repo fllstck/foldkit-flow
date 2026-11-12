@@ -1,0 +1,270 @@
+/* The example pages (M5, slice 1). Their own stylesheet, so the playground's
+   fixture and the proofs that read it keep exactly the CSS they were measured
+   with. */
+
+.ex2-page {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+}
+
+.ex2-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 20px;
+  padding: 18px 24px 12px;
+  border-bottom: 1px solid #1c212b;
+}
+
+.ex2-heading {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.ex2-category {
+  padding: 2px 8px;
+  border: 1px solid #2a3140;
+  border-radius: 999px;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #9aa3b2;
+}
+
+.ex2-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.ex2-description {
+  margin: 0;
+  max-width: 78ch;
+  font-size: 13px;
+  color: #9aa3b2;
+}
+
+.ex2-nav {
+  margin-left: auto;
+  font-size: 12px;
+}
+
+.ex2-link {
+  color: #6ea8ff;
+  text-decoration: none;
+  border-bottom: 1px solid #2b4f86;
+}
+
+.ex2-split {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 38%);
+}
+
+.ex2-stage {
+  position: relative;
+  min-height: 0;
+  border-right: 1px solid #1c212b;
+}
+
+.ex2-source {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: auto;
+  background: #0d1015;
+}
+
+.ex2-file {
+  border-bottom: 1px solid #1c212b;
+}
+
+.ex2-file-label {
+  padding: 8px 16px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #7b8494;
+  cursor: pointer;
+}
+
+.ex2-file[open] > .ex2-file-label {
+  color: #b9c2d0;
+}
+
+.ex2-code {
+  margin: 0;
+  padding: 0 16px 14px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: #b9c2d0;
+  tab-size: 2;
+  white-space: pre-wrap;
+}
+
+/* The harness's default node: a status dot, a title and a detail line. */
+.ex2-node {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 14px;
+  border: 1px solid #2a3140;
+  border-radius: 10px;
+  background: linear-gradient(#171c26, #12161e);
+  font-size: 13px;
+}
+
+/* `data-boxed` is the flow's statement that it is drawing the box. Filling it is
+   the consumer's line — and the example shows exactly this one. */
+.fflow__node[data-boxed] > .ex2-node,
+.fflow__node[data-boxed] > .ex2-card {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+}
+
+.ex2-node-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ex2-node-title,
+.ex2-card-title {
+  font-weight: 600;
+}
+
+.ex2-node-subtitle,
+.ex2-card-detail {
+  font-size: 11px;
+  color: #8d97a8;
+}
+
+.ex2-node-status {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #4c8dff;
+}
+
+.ex2-node-status.running {
+  background: #f0b429;
+}
+
+.ex2-node-status.failing {
+  background: #ef5a5a;
+}
+
+/* The custom-nodes example's own markup. */
+.ex2-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid #35507a;
+  border-radius: 12px;
+  background: linear-gradient(#16202f, #111825);
+  font-size: 13px;
+}
+
+.ex2-card-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ex2-pill {
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #0b0d11;
+  background: #4c8dff;
+}
+
+.ex2-pill.running {
+  background: #f0b429;
+}
+
+.ex2-pill.failing {
+  background: #ef5a5a;
+}
+
+.ex2-panel-fact {
+  font-size: 11px;
+  color: #9aa3b2;
+  max-width: 30ch;
+}
+
+.ex2-panel-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.ex2-button {
+  padding: 4px 10px;
+  border: 1px solid #2a3140;
+  border-radius: 6px;
+  background: #171c26;
+  color: #e6e8ee;
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.ex2-button:hover {
+  border-color: #4c8dff;
+}
+
+/* The index. */
+.ex2-index {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 32px 24px 64px;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.ex2-index h1 {
+  margin: 0 0 8px;
+  font-size: 22px;
+}
+
+.ex2-index-lede {
+  margin: 0 0 24px;
+  color: #b9c2d0;
+}
+
+.ex2-index h2 {
+  margin: 28px 0 8px;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #7b8494;
+}
+
+.ex2-index-item {
+  display: flex;
+  gap: 14px;
+  padding: 10px 0;
+  border-bottom: 1px solid #1c212b;
+}
+
+.ex2-index-item a {
+  color: #6ea8ff;
+  text-decoration: none;
+  border-bottom: 1px solid #2b4f86;
+  white-space: nowrap;
+}
+
+.ex2-index-item p {
+  margin: 0;
+  font-size: 12px;
+  color: #8d97a8;
+}
