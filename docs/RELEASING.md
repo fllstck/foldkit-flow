@@ -73,8 +73,18 @@ needed the owner to finish the publish by hand.
 
 ## After
 
-10. Push the branch and the tags (`git push origin main --follow-tags`) when the
-    owner says so: publishing is irreversible, pushing is visible.
+10. Push the branch and the tags when the owner says so: publishing is
+    irreversible, pushing is visible.
+
+    ```sh
+    git push origin main --follow-tags   # or: git push origin main v0.1.2
+    ```
+
+    **A plain `git push` leaves the tags behind.** That happened with `0.1.1`: the
+    branch was in sync and `git ls-remote --tags` was still empty, so the changelog's
+    compare links returned 404 until the tags were pushed separately. Check with
+    `git ls-remote --tags origin` after pushing, and what you want to see is the
+    peeled line (`…^{}`) naming the release commit, not a tag object.
 11. Nothing published can be edited. A wrong README, a missing `repository` field or
     a typo in a code sample is fixed by the *next* version — which is exactly why
     `0.1.1` exists one day after `0.1.0`.
