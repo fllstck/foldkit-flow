@@ -31,7 +31,7 @@ contract a consumer has to act on is three sentences (`docs/PLAN.md` §2.5.3):
    coalesced to one measurement per animation frame.
 2. If **external CSS** changes layout without producing either event (a class on an
    ancestor, a theme swap, a CSS-variable change), call
-   `Flow.remeasure(paneId, nodeIds)`.
+   `Flow.Remeasure(paneId, nodeIds)`.
 3. Until you do, hit-testing is still correct — every connection gesture starts with
    a `MeasureHandles` checkpoint — but **edge endpoints may point at the old handle
    position**.

@@ -611,3 +611,59 @@ link and in-page anchor in `README.md`, `CONTRIBUTING.md`, `docs/CONTRACT.md` an
 `packages/flow/README.md` was checked by script (all resolve), the three code
 comments and one findings sentence that cited README sections now cite
 `docs/CONTRACT.md`, and `pnpm check` is green.
+
+## 15. Response to `docs/README-REVIEW.md`
+
+Two findings, both real, and the second one had been in the tree since M3.
+
+### 15.1 HIGH — the quick start promised a fold it did not show: fixed
+
+Correct. The prose said "you … answer its OutMessages by editing _your_ graph", and
+the snippet above it passed module-level `nodes`/`edges` constants and folded
+nothing — so a reader who copied it got a canvas where a drag springs back, a
+connection draws nothing and a resize is forgotten. The snippet compiles (verified by
+extracting it and type-checking it, which is how the review's own follow-up can be
+satisfied cheaply), which is exactly why it was believable.
+
+Fixed by making the page say what it does, in the order a reader builds it:
+
+- **Step 1 — render it** keeps the snippet, now introduced with what it is (draws,
+  pans, zooms, selects, starts gestures) and what it is not (keeps nothing, and why).
+- **Step 2 — keep the facts** explains the OutMessage-per-Message contract, names all
+  seven facts, and points at `foldFlow` in
+  `packages/example/src/examples/harness.ts` — the file seven pages run and
+  `tests/examples.spec.ts` walks — instead of pasting a second version of it.
+
+That is the review's second option, and deliberately: a full seven-branch
+`Update.foldChild` with the node and edge Schemas is ~110 lines, which would have
+taken the front door from 168 to 280 for code that the harness already carries,
+already type-checks and already proves. Both READMEs got the same treatment so they
+do not disagree.
+
+I also made the claim the snippet _does_ support checkable: the quick start is
+extracted from the README and type-checked in the example package (both the
+repository's and the package's), so the next casing or signature drift fails a build
+rather than sitting in prose.
+
+### 15.2 MEDIUM — `Flow.remeasure` is not the exported name: fixed, in three places
+
+Correct: the export is `Flow.Remeasure` (a Command constructor, uppercase). The
+review named the two READMEs; the same typo was also in `docs/CONTRACT.md`'s
+measurement-contract sentence — the document the review correctly credits with using
+the right spelling in its _code block_, while its prose two lines above had the same
+mistake. All three are fixed.
+
+Worth stating for the record: `0.1.0`'s published README still carries the typo,
+because npm does not let a published version be edited. The fix ships with the next
+release; the registry page for 0.1.0 will be wrong about one identifier until then.
+
+### 15.3 The follow-up: type-checking snippets
+
+Accepted as the _method_ rather than as machinery, for now. The two quick starts are
+checked by extracting each README's largest `ts` block into the example package and
+running `tsc`, and the extraction is what caught that the snippet's `Update` import
+was unused once the fold moved out. A committed script would be better than a
+procedure: extracting fenced blocks into a scratch file and type-checking them is
+~40 lines, and it belongs with the docs-site work
+([`DOCS-PROPOSAL.md`](DOCS-PROPOSAL.md)) where examples are already pages. Recorded
+as the thing to build before the front door grows another snippet.

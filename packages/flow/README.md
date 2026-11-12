@@ -37,6 +37,12 @@ import "@fllstck/foldkit-flow/style.css";
 A flow is a submodel of yours: you fold its Messages, run the Commands it returns,
 and answer its OutMessages by editing *your* graph.
 
+**What the snippet below does:** it compiles, draws the graph, and handles
+pan/zoom, selection and the start of every gesture. **What it does not do** is keep
+anything — `nodes` and `edges` are constants and the facts the flow reports are
+dropped, so a drag springs back and a connection draws nothing. Persisting them is
+step 2, after the snippet.
+
 ```ts
 import { Option, Schema } from "effect";
 import { Command, Subscription, Update } from "foldkit";
@@ -111,12 +117,17 @@ const view = (model: typeof Model.Type, h: HtmlBuilder<typeof Message.Type>) =>
   renderer.view({ model: model.flow, nodes, edges, toParentMessage }, h);
 ```
 
-`Flow.update` also *reports* facts — `ConnectedHandles`, `MovedNodes`,
-`ResizedNodes`, `DeletedElements`, `ReconnectedEdge` — as one OutMessage per
-Message. They are what your app applies to its own graph, and the idiomatic way to
-fold them is `Update.foldChild({ update, read, write, toParentMessage,
-foldOutMessage })`; `src/example/app.ts` in this repository does exactly that, one
-`foldOutMessage` branch per fact.
+**Step 2 — keep the facts.** `Flow.update` reports one OutMessage per Message —
+`MovedNodes`, `ConnectedHandles`, `ReconnectedEdge`, `DeletedElements`,
+`ResizedNodes`, `SelectedElements`, `ChangedViewport` — and `Update.foldChild`'s
+`foldOutMessage` is where they become your graph: one branch per fact, each
+returning the next Model. `Flow.OutMessage.match` is exhaustive, so the compiler
+lists them for you.
+
+The typed version of all seven is `foldFlow` in `packages/example/src/examples/harness.ts`
+in this repository — the file seven example pages run and a browser test walks — and
+`docs/CONTRACT.md` says what each fact means. Copy that shape rather than a second
+one pasted here.
 
 Then `Runtime.makeApplication({ Model, init, update, view, subscriptions,
 container })` — the same wiring any Foldkit app uses. The playground in
@@ -134,7 +145,7 @@ to act on all three:
    coalesced to one measurement per animation frame.
 2. If **external CSS** changes layout without producing either event (a class on an
    ancestor, a theme swap, a CSS-variable change), call
-   `Flow.remeasure(paneId, nodeIds)`.
+   `Flow.Remeasure(paneId, nodeIds)`.
 3. Until you do, hit-testing is still correct — every connection gesture starts
    with a `MeasureHandles` checkpoint — but **edge endpoints may point at the old
    handle position**.
