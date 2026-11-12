@@ -14,6 +14,7 @@ export default defineConfig({
         "large-chrome": "large-chrome.html",
         shadow: "shadow.html",
         subflow: "subflow.html",
+        m6: "m6.html",
         "large-hidden": "large-hidden.html",
         "large-expanded": "large-expanded.html",
         churn: "churn.html",

@@ -27,6 +27,9 @@ export type BenchPageConfig = Readonly<{
   snapGrid?: { x: number; y: number };
   fitView?: { maxZoom?: number; padding?: number; duration?: number };
   minimap?: boolean;
+  /** M6: edges are press targets and tab stops. Off for every page that
+   *  predates it, so no earlier proof's DOM moves. */
+  edgeSelection?: boolean;
 }>;
 
 /**
@@ -117,6 +120,11 @@ export const mountBenchPage = (config: BenchPageConfig): void => {
           ActivatedNode: () => model.measured,
           StartedResize: () => model.measured,
           ClickedMiniMap: () => model.measured,
+          // M6. A minimap press is a viewport move and an edge press is a
+          // selection: neither is a node measurement, and neither is counted.
+          StartedMiniMapPan: () => model.measured,
+          PressedEdge: () => model.measured,
+          ActivatedEdge: () => model.measured,
         });
 
         // Every node measured: the "full mount" number §4.5 asks for beside the
@@ -167,6 +175,7 @@ export const mountBenchPage = (config: BenchPageConfig): void => {
     rendererConfig.minimap = true;
   }
   if (config.resize === true) rendererConfig.resize = true;
+  if (config.edgeSelection === true) rendererConfig.edgeSelection = true;
   if (config.snapGrid !== undefined) rendererConfig.snapGrid = config.snapGrid;
   if (config.fitView !== undefined) rendererConfig.fitView = config.fitView;
 
@@ -186,6 +195,14 @@ export const mountBenchPage = (config: BenchPageConfig): void => {
         // collapses — the two numbers the 10k exploration compares.
         h.DataAttribute("nodes", String(config.graph.nodes.length)),
         h.DataAttribute("hidden", String(hiddenCount)),
+        // M6: the same three facts the demo publishes, so a proof can ask what
+        // the flow thinks without reading the library's internals out of the DOM.
+        h.DataAttribute("gesture", model.flow.gesture._tag),
+        h.DataAttribute("selected-edges", model.flow.selectedEdgeIds.join(",")),
+        h.DataAttribute(
+          "viewport",
+          `${model.flow.viewport.x},${model.flow.viewport.y},${model.flow.viewport.zoom}`,
+        ),
       ],
       [
         renderer.view(
