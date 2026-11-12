@@ -6,11 +6,11 @@
     "edges": 300,
     "collapsed": 0,
     "measuredNodes": 10000,
-    "timeToFirstViewMs": 523,
-    "timeToSettledMs": 1201.3
+    "timeToFirstViewMs": 543.4,
+    "timeToSettledMs": 1225.5
   },
   "pan": {
-    "count": 277,
+    "count": 301,
     "median": 16.7,
     "p95": 16.8,
     "longest": 33.4,
@@ -18,8 +18,8 @@
   },
   "flow": {
     "updates": 30025,
-    "updateTotalMs": 377.1,
-    "cullScanMs": 5.422,
+    "updateTotalMs": 391.3,
+    "cullScanMs": 6.122,
     "cullScanSamples": 21
   },
   "browser": "Brave 156.1.98.63 (Chromium 156), headless",
