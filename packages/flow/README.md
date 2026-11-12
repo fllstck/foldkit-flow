@@ -6,7 +6,7 @@ straight edge paths, pan/zoom, handle measurement, `fitView`) comes from
 [`@xyflow/system`](https://github.com/xyflow/xyflow); the graph itself is rendered
 by Foldkit's own `view`, and the node and edge data stay owned by your app.
 
-**Status: `0.1.1`.** It covers M0–M5: the interaction core,
+**Status: `0.2.0`.** It covers M0–M5: the interaction core,
 measurement, chrome and accessibility, sub-flows, resizing, snap, edge types and the
 performance work. The Model/Message/OutMessage shapes, the measurement contract and
 the `fflow__` class prefix are the parts meant to hold still; `1.0.0` follows once the

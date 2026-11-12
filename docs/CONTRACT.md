@@ -6,7 +6,7 @@ install it, the shortest path to a working flow), and the design reasoning lives
 [`PLAN.md`](PLAN.md) with the evidence in [`BENCHMARKS.md`](BENCHMARKS.md) and the
 milestone records.
 
-Published surface: `@fllstck/foldkit-flow` `0.1.1`, ESM, peers `foldkit@0.170.0`
+Published surface: `@fllstck/foldkit-flow` `0.2.0`, ESM, peers `foldkit@0.170.0`
 and `effect@~4.1.0`.
 
 ## Contents

@@ -10,10 +10,19 @@ carries a surface meant to hold still and a version that says what it is.
 
 ## [Unreleased]
 
+Nothing yet.
+
+## [0.2.0] — 2026-11-12
+
+M6 and M7 together: six opt-in behaviours on top of `0.1.1`, and no change to
+anything existing. The runtime changed — M6 adds edge selection, minimap drag-pan
+and the aspect lock, M7 adds `canResize`, `compensateChildPositions` and
+`edgeOverlay` — so the gate, the 10k explorations and the startup figures were
+re-run rather than carried over. At release: 346 Vitest tests, 65 Playwright proofs.
+
 M6 — the deliberate gaps, researched first (`docs/M6-RESEARCH.md` is the decision,
 `docs/M6-FINDINGS.md` the record). Three opt-in behaviours, no change to anything
-existing; the surface is meant to be `0.2.0`, and the version bump belongs to the
-release.
+existing.
 
 ### Added
 
@@ -169,6 +178,7 @@ flat graph, and a fit folded before the pane was registered that left the engine
 the old viewport. Each has a proof now; see
 `docs/M5-FINDINGS.md` §8.2 and the M3/M4 documents it points at.
 
-[unreleased]: https://github.com/fllstck/foldkit-flow/compare/v0.1.1...HEAD
+[unreleased]: https://github.com/fllstck/foldkit-flow/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/fllstck/foldkit-flow/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/fllstck/foldkit-flow/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/fllstck/foldkit-flow/releases/tag/v0.1.0

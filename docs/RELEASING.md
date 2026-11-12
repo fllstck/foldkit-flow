@@ -31,10 +31,10 @@ needed the owner to finish the publish by hand.
    whether the runtime changed. Paths in that file name repository files rather than
    linking them, because a tarball has no tree around it.
 5. Update the places that state the version: `README.md` (status line),
-   `packages/flow/README.md`, `docs/CONTRACT.md`'s "published surface",
-   `docs/M6-HANDOFF.md`'s state table. Where a measured table carries a version
-   label, leave the label on the version that was _measured_ and footnote the
-   difference.
+   `packages/flow/README.md`, `docs/CONTRACT.md`'s "published surface", the latest
+   handoff's state table and the current findings document. Where a measured table
+   carries a version label, leave the label on the version that was _measured_ and
+   footnote the difference.
 6. Commit, then **tag the commit that a publish can be reproduced from**:
 
    ```sh

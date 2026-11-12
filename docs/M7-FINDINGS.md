@@ -181,24 +181,24 @@ comparisons against one clip and the label point can be read off the painted pat
 
 | Leg               | Foldkit                  | React Flow               | `cullScanMs` |
 | ----------------- | ------------------------ | ------------------------ | ------------ |
-| 625 pan           | 16.7 / 16.8 / 16.8 (474) | 16.7 / 16.7 / 16.8 (505) | 0.434        |
-| 1k culled pan     | 16.7 / 16.8 / 16.8 (474) | —                        | 0.662        |
-| 1k + chrome pan   | 16.7 / 16.7 / 16.8 (474) | —                        | 0.612        |
-| 10k collapsed pan | 16.7 / 16.7 / 33.3 (251) | —                        | 3.252        |
-| 10k expanded pan  | 16.7 / 16.8 / 33.4 (301) | —                        | 6.122        |
+| 625 pan           | 16.7 / 16.8 / 16.8 (479) | 16.7 / 16.7 / 33.2 (507) | 0.410        |
+| 1k culled pan     | 16.7 / 16.7 / 16.8 (471) | —                        | 0.652        |
+| 1k + chrome pan   | 16.7 / 16.7 / 16.8 (473) | —                        | 0.638        |
+| 10k collapsed pan | 16.7 / 16.7 / 33.3 (253) | —                        | 3.392        |
+| 10k expanded pan  | 16.7 / 16.8 / 33.4 (268) | —                        | 5.150        |
 
 **The gate holds, and M7 cannot move it.** No M7 ship is on a gate page: `/m7.html`
 and `/examples/resizing/` are their own pages, the resize policy is an absent-by-default
 `Context` field, the compensation helper is not called by any library code path, and
-the overlay is one opt-in layer. Zero long frames in every pan leg (1 974 frames across
+the overlay is one opt-in layer. Zero long frames in every pan leg (1 944 frames across
 the five legs above); the 2 % bound is never approached.
 
 The 10k explorations keep their character: 280 of 10,000 nodes rendered at expanded 10k,
-with **543.4 ms to first view and 1 225.5 ms to settle**, and 200 of 10,000 at collapsed
-10k. Those two figures are 4 % and 2 % above M6's (523 / 1 201), as is the expanded
-`cullScanMs` (6.122 against 5.422); no M7 change touches startup, the culling scan or the
-node cache, so these are run-to-run variation on the same machine, and they stay outside
-the gate.
+with **537.5 ms to first view and 1 192.9 ms to settle**, and 200 of 10,000 at collapsed
+10k. The startup pair sits either side of M6's (523 / 1 201) — 3 % slower to first view,
+under 1 % faster to settle — and the expanded `cullScanMs` is 5.150 against M6's 5.422.
+No M7 change touches startup, the culling scan or the node cache, so these are
+run-to-run variation on the same machine, and they stay outside the gate.
 
 ## 5. Deviations, and what a review should look at first
 
@@ -249,4 +249,6 @@ pnpm bench       # 65 Playwright tests, 5.1 min
 ```
 
 All four are green, the gate is unchanged, and no browser run was started before the
-build that a browser serves. No npm publish and no push happened as part of M7.
+build that a browser serves. `0.2.0` is prepared at this commit: the version bumped,
+the changelog dated, and the tag on the release commit. No npm publish and no push
+happened as part of M7 or the release preparation.

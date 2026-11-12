@@ -8,8 +8,8 @@
     "graphAtRest": 200
   },
   "loop": {
-    "firstMs": 11461,
-    "secondMs": 11547,
+    "firstMs": 11451,
+    "secondMs": 11532,
     "steps": {
       "afterFirst": 2000,
       "afterSecond": 2000
@@ -27,11 +27,11 @@
     "afterSecond": 200
   },
   "heapMb": {
-    "before": 6.39,
-    "afterFirst": 7.34,
-    "afterSecond": 7.44,
-    "growthAfterFirst": 0.95,
-    "growthAfterSecond": 1.05
+    "before": 6.38,
+    "afterFirst": 7.31,
+    "afterSecond": 7.41,
+    "growthAfterFirst": 0.93,
+    "growthAfterSecond": 1.03
   },
   "browser": "Brave 156.1.98.63 (Chromium 156), headless",
   "machine": "MacBook Air (Apple M5), macOS 26.6.2"

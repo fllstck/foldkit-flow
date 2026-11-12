@@ -2,7 +2,7 @@
 
 A flow / node-graph canvas for [Foldkit](https://foldkit.dev): one Model, pure `update`, every effect at a named seam.
 
-Published as **`0.1.1`**. It covers the whole M0–M5 surface:
+Published as **`0.2.0`**. It covers the whole M0–M5 surface:
 pan/zoom, drag, select, delete, connect and reconnect, node resizing, sub-flows,
 collapsing, snap, edge types, markers and labels, a minimap, own chrome and an
 accessibility layer.

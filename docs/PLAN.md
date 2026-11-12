@@ -1666,6 +1666,43 @@ code that 5, 6 and 9 would otherwise extend; then 2, 4, 5 and 6; then 7 and 8.
 upstream stylesheet, component or attribution (§2.4); no new product scope — an
 idea that arrives during the research is written down as a candidate, not built.
 
+**M7 — the closable keep-outs.** M6's research left seven rows out of scope
+(`docs/M6-FINDINGS.md` §4). Three of them are closable without changing the
+architecture that rejected the rest, and M7 takes them in the order their readiness
+allows: the two pure functions first, then a design before it is code.
+
+| # | Item | Shape | The M6 verdict it edits |
+| - | ---- | ----- | ----------------------- |
+| 1 | A resize veto | `Flow.Context.canResize`, asked `{ node, start, next, modifier }` per pointer event; `false` keeps the last accepted box | `shouldResize` (§7) |
+| 2 | Parent-resize compensation | `Flow.compensateChildPositions` returns the direct children's relative positions; the consumer persists them | parent-resize child compensation (§6) |
+| 3 | Edge controls | `RendererConfig.edgeOverlay`: an HTML layer inside the viewport, between the edges svg and the nodes div, `translate(x, y) scale(1/zoom)` | interactive edge labels (§8) |
+
+**Method.** Research first, as M6: `docs/M6-RESEARCH-FOLLOW-UP.md` proposes,
+`docs/M6-RESEARCH-FOLLOW-UP-REVIEW.md` costs, and the overlay is a design note in
+`docs/M7-FINDINGS.md` before it is code. Each ship is proved on the rung that can see
+its claim (`docs/TEST-STRATEGY.md`) — rung 1 for the arithmetic, rung 2 for the
+state-machine branch, rung 3 for the layer's wiring and guard, rung 5 for the screen —
+and each edits the M6 verdict it closes, because a verdict changes when the code does.
+
+**The overlay's five questions** (`docs/verification.md`), since it is the first
+feature since M4 that has to answer all of them: what paints over what (pixels, two
+states), a press neither pans nor clears the selection, screen-size-stable while
+zooming and anchored while panning, keyboard focus reaches the consumer's control,
+and it works on a second consumer page.
+
+**Definition of done.** The code and the proof are in the same commit; `CONTRACT.md`
+and both READMEs say what a consumer can now do; `CHANGELOG.md` carries the entry;
+the keep-out is edited in `M6-RESEARCH.md` and `M6-FINDINGS.md` §4 with a link to the
+record; the gate is unchanged and re-run at the committing commit; and
+`docs/M7-FINDINGS.md` holds the numbers, the deviations and what a review should look
+at first.
+
+**Not in M7.** Declared handle geometry (keep-out 9 stays partial until a consumer
+declares handles that agree with their CSS), the 10k startup design (its own
+milestone: a 3 × 3 measurement grid, a redesigned readiness signal, an SSR story and
+a declared rect on `Flow.init`), multi-node resize, `nodeOrigin`, the culling index,
+`XYResizer`, and `1.0.0` (usage, not milestones — `docs/M5-FINDINGS.md` §13).
+
 ---
 
 ## 8. Risks and their mitigation
