@@ -49,5 +49,23 @@
   },
   "publishConfig": {
     "access": "public"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fllstck/foldkit-flow.git",
+    "directory": "packages/flow"
+  },
+  "homepage": "https://github.com/fllstck/foldkit-flow#readme",
+  "bugs": {
+    "url": "https://github.com/fllstck/foldkit-flow/issues"
+  },
+  "author": "Kay Is (https://kay.is)",
+  "keywords": [
+    "foldkit",
+    "flow",
+    "node-graph",
+    "diagram",
+    "canvas",
+    "xyflow"
+  ]
 }

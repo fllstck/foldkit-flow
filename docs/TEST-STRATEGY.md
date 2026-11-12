@@ -136,9 +136,12 @@ there and half the 6.0 ms the linear lookup cost.
   missing parents and closure already; a generator would add cases, not a class.
 - **An axe pass** (8): valuable, and it needs a dependency install; noted for M6
   rather than smuggled into a test-only change.
-- **A package-consumption smoke test** (9): `pnpm pack --dry-run` is inspected by
-  hand at each milestone (`M5-FINDINGS` §7); packing into a temp dir and importing
-  it is the better version and belongs with the publish task.
+- **A package-consumption smoke test** (9): **done with the first release.**
+  `0.1.0` was fetched back from the registry, its tarball checked for every entry
+  `files`/`exports` promises, installed into an empty project with its two peers,
+  imported (79 exports), and `fitViewport` called through the published bundle
+  (`M5-FINDINGS` §13). It lives in the release checklist rather than in the suite,
+  because it needs the registry.
 
 ### Second pass
 

@@ -528,43 +528,48 @@ What that changes in the tree: the version in `packages/flow/package.json`, the
 status line in both READMEs (which now says the surface is _meant_ to hold still and
 that `1.0.0` waits for use, rather than claiming stability as a fact), the layer
 label in `BENCHMARKS.md`'s gate table, and the M6 handoff's state table and its
-"does 1.0.0 go to npm" question — answered: not yet.
+"does 1.0.0 go to npm" question — answered: it went out as `0.1.0`.
 
 One publish-readiness addition came with it: `publishConfig.access: "public"`. A
 scoped package defaults to restricted, and this one is MIT and meant to be found;
 the `--access public` flag would do the same thing per publish, and the field means
 the flag can be forgotten without quietly publishing a private package.
 
-**The publish itself did not go through, for a credentials reason rather than a
-packaging one.** `~/.npmrc` carries an `//registry.npmjs.org/:_authToken` (dated
-October), but `npm whoami` answers `401 Unauthorized`, and the `PUT` to
+**The first attempt did not go through, for a credentials reason rather than a
+packaging one.** `~/.npmrc` carried an `//registry.npmjs.org/:_authToken` (dated
+October) that answered `401 Unauthorized`, and the `PUT` to
 `@fllstck/foldkit-flow` came back `E404 Not Found` — npm's masked "no such package
-_or_ no permission" answer for a scoped name, which is what an expired token looks
-like when the scope has never had a release. Nothing was published: a failed publish
-writes nothing.
+_or_ no permission" answer for a scoped name. Nothing was written to the registry by
+that attempt; a failed publish writes nothing.
 
-The release commit therefore carries the version, the documentation, a verified
-`npm publish --dry-run` (77 files, 134.1 kB tarball, `0.1.0`, `latest`, public
-access) and a `prepublishOnly` guard, so the publish is one authenticated command:
+**The owner published `0.1.0` after authenticating, and the release was verified
+from the outside** rather than assumed:
 
-```sh
-cd packages/flow
-npm login                       # or a fresh granular token with publish rights
-npm publish --access public
-npm view @fllstck/foldkit-flow version   # expect 0.1.0
-```
+| Check                                                | Result                                                                                                                                                                                                      |
+| ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm view @fllstck/foldkit-flow version dist-tags`   | `0.1.0`, `latest`                                                                                                                                                                                           |
+| tarball fetched back with `npm pack`, entries listed | `dist/index.js`, `dist/index.d.ts`, `dist/style.css`, `LICENSE`, `README.md`, `THIRD-PARTY-NOTICES.md` — every entry `files`/`exports` promises                                                             |
+| import specifiers in the **published** bundle        | `@xyflow/system`, `effect`, `foldkit`, `foldkit/html`, `foldkit/message`, `foldkit/schema` — the declared dependency and the declared peers, nothing else                                                   |
+| installed into an empty project with its two peers   | 22 packages, 2 s; `import("@fllstck/foldkit-flow")` gives **79 exports**                                                                                                                                    |
+| a real call through the published code               | `fitViewport(model, nodes, { padding: 0.1 })` → `{"x":300,"y":260,"zoom":2}`, clamped to the Model's `maxZoom`                                                                                              |
+| `@fllstck/foldkit-flow/style.css`                    | resolves through `exports` to `dist/style.css` (11.6 kB). It cannot be _imported_ by bare Node — `ERR_UNKNOWN_FILE_EXTENSION` — because a CSS file is for a bundler, which is how the README says to use it |
 
-Two things to know before retrying:
+That is also the review's deferred item 9 (a package-consumption smoke test) done,
+and it belongs in the release checklist rather than in the suite: it needs the
+registry.
 
-- **The `@fllstck` scope** has to exist and the authenticated account has to be able
-  to publish to it. A 404 on a scoped `PUT` is indistinguishable, from the client,
-  between "expired token", "wrong account" and "scope owned by someone else"; the
-  first is ruled out or confirmed by `npm whoami` answering at all.
-- **`prepublishOnly` is `pnpm typecheck && pnpm test && pnpm build`**, so a publish
-  can never ship a `dist` older than the source — the M4 build-skew lesson
+Two properties of the published package worth stating, because a consumer will meet
+them:
+
+- **It is ESM-only.** `exports["."]` offers `types` and `import` and no `require`, so
+  `require("@fllstck/foldkit-flow")` fails with `ERR_PACKAGE_PATH_NOT_EXPORTED` and
+  `import` works. That follows `"type": "module"` and the Foldkit apps this targets.
+- **The `prepublishOnly` guard is `pnpm typecheck && pnpm test && pnpm build`**, so
+  a publish cannot ship a `dist` older than the source — the M4 build-skew lesson
   (`verification.md` rule 4) applied to the one artifact nobody can inspect
   afterwards.
 
-`repository` and `homepage` are deliberately absent from `package.json`: the repo has
-no remote configured, and a guessed URL is worse than none. They belong in the same
-commit as the remote, whenever it exists.
+`repository`, `homepage`, `bugs`, `author` and `keywords` were added **after** `0.1.0`
+went out, when a git remote finally existed: the published 0.1.0 manifest has none of
+them, and the next release carries them. A guessed URL before that would have been
+worse than no URL.

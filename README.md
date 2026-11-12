@@ -4,11 +4,11 @@ A flow / node-graph canvas for [Foldkit](https://foldkit.dev), in the spirit of
 React Flow and Svelte Flow — but Foldkit-native: one Model, pure `update`, every
 effect at a named seam.
 
-**Status: M5 complete — hardened and versioned `0.1.0`; M6 next.** M5 is the
+**Status: M5 complete — hardened and published as `0.1.0`; M6 next.** M5 is the
 hardening milestone (`docs/PLAN.md` §7): the culling scan is indexed, the numbers are
 measured and published, the fixture gallery compares our geometry to React Flow's on
-one input, `packages/flow` is versioned **`0.1.0`** for its first release — deliberately
-not `1.0.0`, which waits until the library has had some real use — and
+one input, `packages/flow` is published as **`0.1.0`** — the first release,
+deliberately not `1.0.0`, which waits until the library has had some real use — and
 `packages/example` serves a presentable example page beside the instrumented playground. **The published numbers are in
 [docs/BENCHMARKS.md](docs/BENCHMARKS.md)**: 625 nodes at parity with React Flow on
 pan (16.7/16.8 both, zero long frames), 1k culled inside the 33 ms p95 gate bare and
