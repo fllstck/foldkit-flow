@@ -483,22 +483,41 @@ export const update = (
       }
 
       if (Gesture.guards.Resizing(gesture)) {
+        const proposed = resizeRect(gesture.start, gesture.control, point, {
+          ...Option.match(gesture.snapGrid, {
+            onNone: () => ({}),
+            onSome: (grid) => ({ snapGrid: grid }),
+          }),
+          // The modifier that adds to a selection also holds a resize's aspect
+          // ratio (§7 M6): read per pointer event, so pressing or releasing it
+          // mid-gesture changes the box on the next frame — the live behaviour
+          // tldraw has, without a second Model field.
+          keepAspectRatio: model.isAdditiveModifier,
+        });
+
+        // The parent's veto (§7 M7), asked on the *proposed* box before it becomes
+        // the gesture's own. A rejected frame leaves `current` where it was — the
+        // last accepted box, not the start box — so a consumer can express "grow,
+        // but never shrink past this" without the box snapping back. A node the
+        // parent removed mid-gesture rejects by absence, and `informGraphChanged`
+        // drops the gesture on the next dispatch anyway.
+        const node = nodeById(context, gesture.nodeId);
+        const isAccepted =
+          context.canResize === undefined ||
+          (node !== undefined &&
+            context.canResize({
+              node,
+              start: gesture.start,
+              next: proposed,
+              modifier: model.isAdditiveModifier,
+            }));
+
         return {
           model: {
             ...model,
             gesture: Gesture.Resizing({
               ...gesture,
-              current: resizeRect(gesture.start, gesture.control, point, {
-                ...Option.match(gesture.snapGrid, {
-                  onNone: () => ({}),
-                  onSome: (grid) => ({ snapGrid: grid }),
-                }),
-                // The modifier that adds to a selection also holds a resize's
-                // aspect ratio (§7 M6): read per pointer event, so pressing or
-                // releasing it mid-gesture changes the box on the next frame —
-                // the live behaviour tldraw has, without a second Model field.
-                keepAspectRatio: model.isAdditiveModifier,
-              }),
+              current: isAccepted ? proposed : gesture.current,
             }),
           },
         };

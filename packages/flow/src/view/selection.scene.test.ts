@@ -109,6 +109,64 @@ const resolveMounts = () => [
   ),
 ];
 
+describe("the flow-anchored overlay layer (§7 M7)", () => {
+  const overlayRenderer = createRenderer<{ label: string }, unknown>({
+    paneId,
+    renderNode,
+    edgeSelection: true,
+    accessibleName: (node) => node.data.label,
+    // A consumer control on the edge: the library anchors it, the consumer's
+    // markup decides what it is.
+    edgeOverlay: (_edge, h) =>
+      h.button([h.Class("edge-action")], ["Edit edge"]),
+  });
+
+  const overlayView = (
+    model: ReturnType<typeof modelOf>,
+    h: HtmlBuilder<Message>,
+  ): Html => overlayRenderer.view({ model, nodes, edges, toParentMessage }, h);
+
+  test("one item per edge, anchored with the inverse zoom", () => {
+    scene(
+      { update: sceneUpdate, view: overlayView },
+      given(modelOf({ viewport: { x: 0, y: 0, zoom: 2 } })),
+      ...resolveMounts(),
+      expect(selector("[data-fflow-overlay]")).toHaveAttr(
+        "class",
+        "fflow__overlay fflow__nopan",
+      ),
+      expect(selector(".fflow__overlays")).toExist(),
+    );
+    // What the transform *is* — the edge's label point in flow space and the
+    // `1 / zoom` that keeps the control its own size — is rung 5's claim, not
+    // this one: it is geometry, and jsdom has no layout (`docs/TEST-STRATEGY.md`).
+    // `tests/m7.spec.ts` proof 52 measures it at two zooms.
+  });
+
+  test("a press on the overlay is the consumer's, not the pane's", () => {
+    scene(
+      { update: sceneUpdate, view: overlayView },
+      given(modelOf({ selectedEdgeIds: ["e1"] })),
+      ...resolveMounts(),
+      // The layer ignores the pointer; an item that opts back in keeps its press,
+      // and the pane declines it — otherwise every press on a control would clear
+      // the selection and start a pan.
+      pointerDown(".edge-action"),
+      Scene.expectIgnored(),
+      expectNoOutMessage(),
+    );
+  });
+
+  test("no config, no layer: the DOM cost is opt-in", () => {
+    scene(
+      { update: sceneUpdate, view },
+      given(modelOf()),
+      ...resolveMounts(),
+      expect(selector(".fflow__overlays")).not.toExist(),
+    );
+  });
+});
+
 describe("an edge is a press target (§7 M6)", () => {
   test("pressing the edge's hit path selects the edge", () => {
     scene(

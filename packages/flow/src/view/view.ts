@@ -49,6 +49,7 @@ import {
   isEdgeTarget,
   isHandleTarget,
   isNodeTarget,
+  isOverlayTarget,
 } from "../runtime/domTarget.js";
 import { MountNode } from "../runtime/mountNode.js";
 import {
@@ -103,6 +104,21 @@ export type RendererConfig<NodeData, EdgeData> = Readonly<{
     h: HtmlBuilder<any>,
   ) => Html;
   renderEdgeLabel?: (edge: FlowEdge<EdgeData>, h: HtmlBuilder<any>) => Html;
+  /** HTML anchored on an edge's label point (§7 M7). The library owns the anchor
+   *  and the inverse-zoom transform, so the content keeps its screen size at every
+   *  zoom; the consumer owns the markup and the messages in it.
+   *
+   *  It is a **layer**, not a wider `<text>`: it sits inside the transform,
+   *  between the edges svg and the nodes div, so it paints above the edges and
+   *  below the nodes. The layer and its items ignore the pointer, so an item that
+   *  is decorative cannot swallow a press meant for a node or an edge underneath;
+   *  a consumer that wants a control sets `pointer-events: auto` on their own
+   *  element, and the pane declines the press by `data-fflow-overlay` (so it
+   *  neither pans nor clears the selection).
+   *
+   *  Absent means no layer and no DOM cost. Do not reach for this to render text:
+   *  `renderEdgeLabel` is the SVG label and stays the cheap path. */
+  edgeOverlay?: (edge: FlowEdge<EdgeData>, h: HtmlBuilder<any>) => Html;
   /** Host-registry key (§2.5, §4.3). */
   paneId: string;
   /** The grid a drag or a resize snaps to, in flow units (§7 M4). It lives here
@@ -820,6 +836,59 @@ export const createRenderer = <NodeData = unknown, EdgeData = unknown>(
       ],
     );
 
+    /** The inverse-zoom transform for one anchored item: a flow-space translate,
+     *  the scale that cancels the viewport's own, and the centring of the item's
+     *  own (unmeasured) box. `transform-origin: 0 0` in `flow.css` is what makes
+     *  the centring exact under the scale — with the default centre origin the
+     *  item drifts with the zoom, which proof 52 measures. */
+    const overlayTransform = (anchor: Point): string =>
+      `translate(${anchor.x}px, ${anchor.y}px) scale(${1 / model.viewport.zoom}) translate(-50%, -50%)`;
+
+    const overlaysView = h.div(
+      [h.Class(classes.Overlays), h.Attribute("aria-hidden", "false")],
+      edges.flatMap((edge) => {
+        const maybeEndpoints =
+          endpointsByEdgeId.get(edge.id) ?? Option.none<EdgeEndpoints>();
+        if (Option.isNone(maybeEndpoints)) return [];
+        const base = maybeEndpoints.value;
+        const anchors: EdgeEndpoints = {
+          source: shiftForDrag(base.source, edge.source),
+          target: shiftForDrag(base.target, edge.target),
+        };
+        const geometry = edgePath(
+          edge.type ?? "Bezier",
+          pathInput(anchors.source, anchors.target),
+        );
+
+        return [
+          h.keyed("div")(
+            edge.id,
+            [
+              h.Class(`${classes.Overlay} ${classes.NoPan}`),
+              h.DataAttribute(classes.OverlayAttribute, ""),
+              h.Style({
+                position: "absolute",
+                left: "0",
+                top: "0",
+                transformOrigin: "0 0",
+                transform: overlayTransform({
+                  x: geometry.labelX,
+                  y: geometry.labelY,
+                }),
+                pointerEvents: "none",
+                willChange: "transform",
+              }),
+            ],
+            [
+              config.edgeOverlay === undefined
+                ? h.empty
+                : config.edgeOverlay(edge, h),
+            ],
+          ),
+        ];
+      }),
+    );
+
     const toFlowPoint = (clientX: number, clientY: number): Point =>
       screenToFlow(model, { screenX: clientX, screenY: clientY });
 
@@ -1024,6 +1093,9 @@ export const createRenderer = <NodeData = unknown, EdgeData = unknown>(
               // (§7 M6). The reconnect ring is matched by `isEdgeTarget` too.
               isEdgeTarget(target) ||
               isEdgeEndpointTarget(target) ||
+              // A flow-anchored overlay is the consumer's control: it keeps its
+              // own press, so the pane neither clears the selection nor pans.
+              isOverlayTarget(target) ||
               // Chrome is a press target inside the pane: the buttons keep their
               // own Messages and the panel keeps the parent's, but none of them
               // may clear the selection (§4.6). `NoPan` on the same elements
@@ -1071,7 +1143,11 @@ export const createRenderer = <NodeData = unknown, EdgeData = unknown>(
               transform: transformOf(model.viewport),
             }),
           ],
-          [edgesView, nodesView],
+          [
+            edgesView,
+            config.edgeOverlay === undefined ? h.empty : overlaysView,
+            nodesView,
+          ],
         ),
         connectionView,
         config.controls === true

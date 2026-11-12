@@ -216,6 +216,17 @@ export type Connection = Readonly<{
   targetHandle: string | null;
 }>;
 
+/** What a resize policy is asked, per pointer event (§7 M7). `start` is the box
+ *  the gesture began with, `next` the box this event proposes, and `modifier` is
+ *  the Model's additive modifier — the same flag that holds the aspect ratio, so a
+ *  policy can tell a plain resize from a proportional one. */
+export type ResizeAttempt<NodeData = unknown> = Readonly<{
+  node: FlowNode<NodeData>;
+  start: Rect;
+  next: Rect;
+  modifier: boolean;
+}>;
+
 /** The graph arrives per dispatch; the flow Model never stores it (§2.5.1). */
 export type Context<NodeData = unknown, EdgeData = unknown> = Readonly<{
   nodes: ReadonlyArray<FlowNode<NodeData>>;
@@ -224,6 +235,14 @@ export type Context<NodeData = unknown, EdgeData = unknown> = Readonly<{
    *  M2). Evaluated in `update` at release, against the graph the parent owns;
    *  absent means "accept everything". */
   isValidConnection?: (connection: Connection) => boolean;
+  /** Rejects one resize frame (§7 M7). Asked per pointer event with the box the
+   *  gesture began at and the box this event proposes; `false` keeps the **last
+   *  accepted** box, so a gesture can leave a forbidden box without snapping back
+   *  to where it started. A **veto only**: it cannot return a replacement box,
+   *  because a predicate that can rewrite the box owns the gesture. Absent means
+   *  "accept every frame"; a gesture the policy rejects from the first frame
+   *  reports nothing on release, since its box never changed. */
+  canResize?: (attempt: ResizeAttempt<NodeData>) => boolean;
 }>;
 export const Model = Schema.Struct({
   pane: Rect,

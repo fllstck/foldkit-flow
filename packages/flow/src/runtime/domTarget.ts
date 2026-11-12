@@ -70,6 +70,13 @@ export const isNodeTarget = (target: EventTarget | null): boolean =>
 export const isEdgeTarget = (target: EventTarget | null): boolean =>
   closestOrNull(target, edgeSelector) !== null;
 
+/** A press on a flow-anchored overlay item belongs to the consumer's markup, not
+ *  to the pane (§7 M7): without this the pane handler would clear the selection
+ *  and d3 would start a pan from the same press. Matched by attribute so a
+ *  consumer-built item is exempt without knowing a class name. */
+export const isOverlayTarget = (target: EventTarget | null): boolean =>
+  closestOrNull(target, `[data-${classes.OverlayAttribute}]`) !== null;
+
 /** A press on chrome belongs to the control, not to the pane (§7 M3). */
 export const isChromeTarget = (target: EventTarget | null): boolean =>
   closestOrNull(target, chromeSelector) !== null;

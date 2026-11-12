@@ -691,6 +691,201 @@ describe("resize", () => {
   });
 });
 
+describe("resize policy (§7 M7)", () => {
+  /** A flow whose context carries a resize policy. */
+  const policed = (
+    canResize: NonNullable<Context["canResize"]>,
+    givenContext: Context = context,
+  ) => ({
+    update: (current: typeof initial, input: Message) =>
+      update(current, input, { ...givenContext, canResize }),
+  });
+
+  const resizedTo = (current: ReturnType<typeof init>["model"]) => {
+    if (!Gesture.guards.Resizing(current.gesture)) throw new Error("no resize");
+    return current.gesture.current;
+  };
+
+  test("a rejected frame keeps the last accepted box, not the start box", () => {
+    // The policy allows widths up to 120. A frame at 110 is accepted, one at 160
+    // is rejected and leaves 110 in place — the last accepted box, not the start
+    // box — and a later frame inside the limit follows again.
+    story(
+      policed(({ next }) => next.width <= 120).update,
+      given(initial),
+      message(
+        Message.StartedResize({
+          nodeId: "n1",
+          control: "bottom-right",
+          pointer: mouse,
+        }),
+      ),
+      message(
+        Message.MovedPointer({ screenX: 110, screenY: 90, pointerId: 1 }),
+      ),
+      model((current) => {
+        expect(resizedTo(current)).toEqual({
+          left: 0,
+          top: 0,
+          width: 110,
+          height: 90,
+        });
+      }),
+      // …and a frame past the limit leaves that accepted box alone.
+      message(
+        Message.MovedPointer({ screenX: 160, screenY: 90, pointerId: 1 }),
+      ),
+      model((current) => {
+        expect(resizedTo(current)).toEqual({
+          left: 0,
+          top: 0,
+          width: 110,
+          height: 90,
+        });
+      }),
+      // Back inside the limit, it follows again — the gesture never snapped back.
+      message(
+        Message.MovedPointer({ screenX: 118, screenY: 70, pointerId: 1 }),
+      ),
+      model((current) => {
+        expect(resizedTo(current)).toEqual({
+          left: 0,
+          top: 0,
+          width: 118,
+          height: 70,
+        });
+      }),
+      message(Message.ReleasedPointer({ pointerId: 1 })),
+      expectOutMessage(
+        OutMessage.ResizedNodes({
+          nodes: [{ nodeId: "n1", x: 0, y: 0, width: 118, height: 70 }],
+        }),
+      ),
+    );
+  });
+
+  test("a policy that rejects every frame reports nothing on release", () => {
+    story(
+      policed(() => false).update,
+      given(initial),
+      message(
+        Message.StartedResize({
+          nodeId: "n1",
+          control: "bottom-right",
+          pointer: mouse,
+        }),
+      ),
+      message(
+        Message.MovedPointer({ screenX: 130, screenY: 90, pointerId: 1 }),
+      ),
+      message(Message.ReleasedPointer({ pointerId: 1 })),
+      // The box never moved, so the release is the unchanged path: no fact, and
+      // no `nodeSizes` entry pretending a measurement happened.
+      expectNoOutMessage(),
+      model((current) => {
+        expect(isIdle(current.gesture)).toBe(true);
+        expect(current.nodeSizes).toEqual([]);
+      }),
+    );
+  });
+
+  test("the policy is asked with the start box, the proposal and the modifier", () => {
+    const asked: Array<{
+      start: unknown;
+      next: unknown;
+      modifier: boolean;
+      nodeId: string;
+    }> = [];
+    const spyContext: Context = {
+      ...context,
+      canResize: (attempt) => {
+        asked.push({
+          start: attempt.start,
+          next: attempt.next,
+          modifier: attempt.modifier,
+          nodeId: attempt.node.id,
+        });
+        return true;
+      },
+    };
+
+    const storyUpdate = (current: typeof initial, input: Message) =>
+      update(current, input, spyContext);
+
+    story(
+      storyUpdate,
+      given(initial),
+      message(
+        Message.StartedResize({
+          nodeId: "n1",
+          control: "bottom-right",
+          pointer: mouse,
+        }),
+      ),
+      // `StartedResize` is not gated: a gesture starts, its frames decide.
+      model(() => {
+        expect(asked).toEqual([]);
+      }),
+      message(
+        Message.MovedPointer({ screenX: 130, screenY: 90, pointerId: 1 }),
+      ),
+      model(() => {
+        expect(asked).toEqual([
+          {
+            start: { left: 0, top: 0, width: 100, height: 40 },
+            next: { left: 0, top: 0, width: 130, height: 90 },
+            modifier: false,
+            nodeId: "n1",
+          },
+        ]);
+      }),
+      message(Message.ChangedModifierState({ isAdditive: true })),
+      message(
+        Message.MovedPointer({ screenX: 130, screenY: 90, pointerId: 1 }),
+      ),
+      model(() => {
+        // The modifier is live, and the proposal it sees is the proportional box
+        // the same flag produces: 130 wide, 52 tall at a ratio of 2.5.
+        expect(asked[1]?.modifier).toBe(true);
+        expect(asked[1]?.next).toEqual({
+          left: 0,
+          top: 0,
+          width: 225,
+          height: 90,
+        });
+      }),
+    );
+  });
+
+  test("a policy is not asked for a drag or a connection", () => {
+    const spyContext: Context = {
+      ...context,
+      canResize: () => {
+        throw new Error(
+          "canResize was asked about a gesture that is not a resize",
+        );
+      },
+    };
+    const storyUpdate = (current: typeof initial, input: Message) =>
+      update(current, input, spyContext);
+
+    story(
+      storyUpdate,
+      given(initial),
+      message(
+        Message.PressedNode({
+          nodeId: "n1",
+          point: { x: 10, y: 10 },
+          isAdditive: false,
+          pointer: mouse,
+        }),
+      ),
+      message(Message.MovedPointer({ screenX: 30, screenY: 20, pointerId: 1 })),
+      message(Message.ReleasedPointer({ pointerId: 1 })),
+    );
+  });
+});
+
 describe("snap grid", () => {
   const grid = { x: 20, y: 20 };
 

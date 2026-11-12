@@ -16,6 +16,15 @@ export const MarkerPath = "fflow__marker-path";
 export const MarkerOf = (kind: string): string =>
   `fflow__marker--${kind.replace(/([a-z])([A-Z])/g, "$1-$2").toLowerCase()}`;
 export const EdgeLabel = "fflow__edge-label";
+/** The flow-anchored HTML layer (§7 M7): one absolutely positioned wrapper per
+ *  anchored item, inside `.fflow__viewport` so it pans and zooms with the graph,
+ *  and between the edges svg and the nodes div so it paints above the edges and
+ *  below the nodes. The layer itself ignores the pointer; only the consumer's own
+ *  markup inside an item opts back in (`pointer-events: auto` in their CSS). */
+export const Overlays = "fflow__overlays";
+export const Overlay = "fflow__overlay";
+/** What the pane's pointer handler declines, like `fflow-chrome` for chrome. */
+export const OverlayAttribute = "fflow-overlay";
 export const Nodes = "fflow__nodes";
 export const Node = "fflow__node";
 export const NodeLabel = "fflow__node-label";

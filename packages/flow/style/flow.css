@@ -287,6 +287,34 @@
 /* A label is legible over the edge it sits on without a measured box: the halo
    is the pane's own background painted as a stroke *under* the glyphs
    (`paint-order`), not a `<rect>` whose size would have to be measured. */
+/* The flow-anchored HTML layer (§7 M7). It sits inside `.fflow__viewport`, between
+   the edges svg and the nodes div, so it pans and zooms with the graph and paints
+   above the edges and below the nodes — the node wrappers are positioned, so the
+   browser's own order (not a z-index) decides between them.
+
+   The layer ignores the pointer on purpose: it is a full-size box over the graph,
+   and an item that is only decoration must not swallow a press meant for a node
+   or an edge underneath. A consumer that wants a control sets `pointer-events:
+   auto` on their own element; the pane declines the press by `data-fflow-overlay`,
+   so it neither pans nor clears the selection. */
+.fflow__overlays {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.fflow__overlay {
+  position: absolute;
+  left: 0;
+  top: 0;
+  /* The transform is `translate(x, y) scale(1 / zoom) translate(-50%, -50%)`. The
+     origin has to be the item's top-left corner, or the scale pivots about the
+     item's centre and the anchor drifts with the zoom (proof 52 measures this). */
+  transform-origin: 0 0;
+  pointer-events: none;
+  will-change: transform;
+}
+
 .fflow__edge-label {
   fill: var(--fflow-pane-foreground);
   font-size: 11px;

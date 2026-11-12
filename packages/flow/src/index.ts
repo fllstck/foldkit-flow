@@ -25,6 +25,7 @@ export type {
   Point,
   Pointer,
   Rect,
+  ResizeAttempt,
   Size,
   Viewport,
 } from "./model.js";
@@ -81,6 +82,12 @@ export type {
 export { fitPadding, fitViewport } from "./geometry/fit.js";
 export type { FitOptions } from "./geometry/fit.js";
 export { nodeBounds, nodeRect, nodeSizeOf } from "./geometry/bounds.js";
+export { compensateChildPositions } from "./geometry/compensate.js";
+export type {
+  CompensateInput,
+  CompensatedChild,
+  CompensationChild,
+} from "./geometry/compensate.js";
 export { hiddenIds, shownEdges, shownNodes } from "./geometry/hidden.js";
 export {
   ancestorIds,
