@@ -27,6 +27,12 @@ export type ResizeOptions = Readonly<{
    *  the box is derived, so the edge that follows the pointer lands on a multiple
    *  whenever the node started on one — the same rule a snapped drag uses. */
   snapGrid?: SnapGrid;
+  /** Hold the box's **start** aspect ratio, whichever axis the pointer moves.
+   *
+   *  `update` sets it from `model.isAdditiveModifier` — the modifier is the shape
+   *  this library can offer, since `RendererConfig.resize` is one boolean for the
+   *  pane and upstream's per-control prop has no place here (`M6-RESEARCH.md` §7). */
+  keepAspectRatio?: boolean;
 }>;
 
 type Edges = Readonly<{
@@ -77,10 +83,65 @@ export const resizeRect = (
     ? Math.max(snapped.y, top + minHeight)
     : bottom;
 
-  return {
+  const box: Rect = {
     left,
     top,
     width: nextRight - left,
     height: nextBottom - top,
+  };
+
+  return options?.keepAspectRatio === true
+    ? withStartAspect(start, edges, box, minWidth, minHeight)
+    : box;
+};
+
+/**
+ * The box a resize produces with the start ratio held (§7 M6).
+ *
+ * The axis the pointer moved **further, proportionally**, decides the scale and the
+ * other axis is derived from it: a corner dragged mostly sideways follows x, one
+ * dragged mostly downwards follows y, and a diagonal drag resolves the way a person
+ * would round it. The edges the control does not move are then placed from the
+ * start box, so the anchor stays where the pointer grabbed it, and the minimum size
+ * is applied to both axes at once — a proportional box cannot honour one minimum
+ * without the ratio.
+ */
+const withStartAspect = (
+  start: Rect,
+  edges: Edges,
+  box: Rect,
+  minWidth: number,
+  minHeight: number,
+): Rect => {
+  if (start.width === 0 || start.height === 0) return box;
+
+  const ratio = start.width / start.height;
+  const scaleX = box.width / start.width;
+  const scaleY = box.height / start.height;
+  const scale = Math.abs(scaleX - 1) >= Math.abs(scaleY - 1) ? scaleX : scaleY;
+
+  let width = start.width * scale;
+  let height = start.height * scale;
+  if (width < minWidth) {
+    width = minWidth;
+    height = width / ratio;
+  }
+  if (height < minHeight) {
+    height = minHeight;
+    width = height * ratio;
+  }
+  // A minimum can push the derived axis under the other one; raise both together
+  // so the box never comes back smaller than a handle.
+  if (width < minWidth || height < minHeight) {
+    const grow = Math.max(minWidth / width, minHeight / height);
+    width *= grow;
+    height *= grow;
+  }
+
+  return {
+    left: edges.left ? start.left + start.width - width : start.left,
+    top: edges.top ? start.top + start.height - height : start.top,
+    width,
+    height,
   };
 };

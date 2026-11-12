@@ -103,8 +103,18 @@ export const Message = defineMessageUnion({
   ClickedZoomIn: {},
   ClickedZoomOut: {},
   // A press inside the minimap, already converted to flow space by the handler
-  // that owns the element's screen matrix (§7 M4).
+  // that owns the element's screen matrix (§7 M4). It is also the press that arms
+  // `MiniMapPanning` (§7 M6): the pan starts from the point it centres on.
   ClickedMiniMap: { point: Point },
+  // The same press, carrying what the drag needs so that no frame of the gesture
+  // reads the DOM: the flow point under the cursor, the pointer's screen position
+  // and the minimap's scale (flow units per screen pixel).
+  StartedMiniMapPan: {
+    point: Point,
+    screen: Point,
+    scale: Schema.Number,
+    pointer: Pointer,
+  },
   // The fit button carries the renderer's fit options, because `update` has the
   // graph but not the config, and a fit is the one gesture whose defaults are a
   // presentation choice (padding, a per-fit clamp, a duration).
@@ -124,6 +134,17 @@ export const Message = defineMessageUnion({
   // `PressedNode` for a keyboard user: it selects and toggles, and arms no drag
   // because there is no pointer (§7 M3).
   ActivatedNode: { nodeId: Schema.String, isAdditive: Schema.Boolean },
+
+  // An edge is a press target of its own when the renderer opts in
+  // (`edgeSelection: true`, §7 M6), which is why it has the same pair of
+  // selection Messages a node has: a pointer press and a keyboard activation.
+  // An edge press is a selection, not a gesture: it arms nothing, so it carries no
+  // owning pointer (a node press does, because a drag needs one).
+  PressedEdge: {
+    edgeId: Schema.String,
+    isAdditive: Schema.Boolean,
+  },
+  ActivatedEdge: { edgeId: Schema.String, isAdditive: Schema.Boolean },
 });
 
 export type Message = typeof Message.Type;
@@ -161,5 +182,8 @@ export type ClickedZoomIn = ReturnType<typeof Message.ClickedZoomIn>;
 export type ClickedZoomOut = ReturnType<typeof Message.ClickedZoomOut>;
 export type ClickedFitView = ReturnType<typeof Message.ClickedFitView>;
 export type ClickedMiniMap = ReturnType<typeof Message.ClickedMiniMap>;
+export type StartedMiniMapPan = ReturnType<typeof Message.StartedMiniMapPan>;
 export type NudgedNode = ReturnType<typeof Message.NudgedNode>;
 export type ActivatedNode = ReturnType<typeof Message.ActivatedNode>;
+export type PressedEdge = ReturnType<typeof Message.PressedEdge>;
+export type ActivatedEdge = ReturnType<typeof Message.ActivatedEdge>;

@@ -621,6 +621,51 @@ describe("resize", () => {
     );
   });
 
+  test("the additive modifier holds the box's ratio, live (§7 M6)", () => {
+    // n1 is 100×40, ratio 2.5. Without the modifier the pointer draws the box;
+    // with it, the axis the pointer moved further proportionally decides and the
+    // other is derived. `isAdditiveModifier` is the Model's own modifier state, so
+    // this is also the proof that the lock needs no new Message field.
+    const boxOf = (m: ReturnType<typeof init>["model"]) => {
+      if (!Gesture.guards.Resizing(m.gesture)) throw new Error("no resize");
+      return m.gesture.current;
+    };
+
+    story(
+      flow().update,
+      given(initial),
+      started(),
+      message(
+        Message.MovedPointer({ screenX: 130, screenY: 90, pointerId: 1 }),
+      ),
+      model((m) => {
+        expect(boxOf(m)).toEqual({ left: 0, top: 0, width: 130, height: 90 });
+      }),
+      // Holding the modifier mid-gesture changes the next frame's box.
+      message(Message.ChangedModifierState({ isAdditive: true })),
+      message(
+        Message.MovedPointer({ screenX: 130, screenY: 90, pointerId: 1 }),
+      ),
+      model((m) => {
+        const box = boxOf(m);
+        expect(box.width / box.height).toBeCloseTo(2.5, 10);
+        // The pointer grew the height 40 → 90 (scale 2.25) and the width only
+        // 100 → 130 (scale 1.3), so the height decides and the width follows it
+        // to 225: a proportional box cannot honour the pointer on both axes, and
+        // the axis it moved further proportionally is the one the user meant.
+        expect(box).toEqual({ left: 0, top: 0, width: 225, height: 90 });
+      }),
+      // Releasing it gives the free box back, still mid-gesture.
+      message(Message.ChangedModifierState({ isAdditive: false })),
+      message(
+        Message.MovedPointer({ screenX: 130, screenY: 90, pointerId: 1 }),
+      ),
+      model((m) => {
+        expect(boxOf(m)).toEqual({ left: 0, top: 0, width: 130, height: 90 });
+      }),
+    );
+  });
+
   test("a resize snaps to the grid it was started with", () => {
     story(
       flow().update,
@@ -1814,5 +1859,225 @@ describe("keyboard activation", () => {
       message(Message.ActivatedNode({ nodeId: "n1", isAdditive: false })),
       expectNoOutMessage(),
     );
+  });
+});
+
+describe("edge selection (§7 M6)", () => {
+  test("a press selects the edge and clears the node selection", () => {
+    story(
+      flow().update,
+      given({ ...initial, selectedNodeIds: ["n1"] }),
+      message(Message.PressedEdge({ edgeId: "e1", isAdditive: false })),
+      expectOutMessage(
+        OutMessage.SelectedElements({ nodeIds: [], edgeIds: ["e1"] }),
+      ),
+      model((current) => {
+        // A press on an edge is a selection, not a gesture: nothing is armed, so
+        // the next pointermove has no owner to report to.
+        expect(isIdle(current.gesture)).toBe(true);
+      }),
+    );
+  });
+
+  test("a modifier adds the edge instead of replacing the selection", () => {
+    story(
+      flow().update,
+      given({
+        ...initial,
+        selectedNodeIds: ["n1"],
+        selectedEdgeIds: ["e0"],
+      }),
+      message(Message.PressedEdge({ edgeId: "e1", isAdditive: true })),
+      expectOutMessage(
+        OutMessage.SelectedElements({
+          nodeIds: ["n1"],
+          edgeIds: ["e0", "e1"],
+        }),
+      ),
+    );
+  });
+
+  test("pressing the selected edge again without a modifier keeps it", () => {
+    story(
+      flow().update,
+      given({ ...initial, selectedEdgeIds: ["e1"] }),
+      message(Message.PressedEdge({ edgeId: "e1", isAdditive: false })),
+      expectNoOutMessage(),
+    );
+  });
+
+  test("an edge the parent no longer has is ignored", () => {
+    story(
+      flow().update,
+      given({ ...initial, selectedEdgeIds: [] }),
+      message(Message.PressedEdge({ edgeId: "gone", isAdditive: false })),
+      expectNoOutMessage(),
+    );
+  });
+
+  test("Enter on the focused edge selects it, and arms nothing", () => {
+    story(
+      flow().update,
+      given(initial),
+      message(Message.ActivatedEdge({ edgeId: "e1", isAdditive: false })),
+      expectOutMessage(
+        OutMessage.SelectedElements({ nodeIds: [], edgeIds: ["e1"] }),
+      ),
+      model((current) => {
+        expect(isIdle(current.gesture)).toBe(true);
+      }),
+    );
+  });
+
+  test("the delete key reports the selected edge, exactly as before", () => {
+    // The selection used to be reachable only through `selectAll`; now that a
+    // press can set it, the delete path is the same one and has to keep working.
+    story(
+      flow().update,
+      given({ ...initial, selectedEdgeIds: ["e1"] }),
+      message(Message.PressedDeleteKey()),
+      expectOutMessage(
+        OutMessage.DeletedElements({ nodeIds: [], edgeIds: ["e1"] }),
+      ),
+    );
+  });
+});
+
+describe("minimap drag (§7 M6)", () => {
+  /** The press the minimap's own handler produces: the flow point under the
+   *  cursor, the pointer's screen position, and the mapping's scale (flow units
+   *  per screen pixel). A 200×150 minimap over a graph 2000 flow units wide is
+   *  `scale = 10`. */
+  const pressed = {
+    point: { x: 500, y: 300 },
+    screen: { x: 400, y: 250 },
+    scale: 10,
+    pointer: mouse,
+  };
+
+  test("the press centres the view and arms the gesture", () => {
+    story(
+      flow().update,
+      given(initial),
+      message(Message.StartedMiniMapPan(pressed)),
+      // The pane is 1000×800 at zoom 1, so centring on flow (500, 300) is
+      // translate(0, 100) — the same answer `ClickedMiniMap` gives.
+      model((current) => {
+        expect(current.viewport).toEqual({ x: 0, y: 100, zoom: 1 });
+        if (!Gesture.guards.MiniMapPanning(current.gesture)) {
+          throw new Error("no minimap pan");
+        }
+        expect(current.gesture.anchorFlow).toEqual({ x: 500, y: 300 });
+        expect(current.gesture.scale).toBe(10);
+      }),
+    );
+  });
+
+  test("the drag moves the centre by the pointer delta times the scale", () => {
+    story(
+      flow().update,
+      given(initial),
+      message(Message.StartedMiniMapPan(pressed)),
+      // 10 screen pixels right and 5 down is 100 and 50 flow units: the view
+      // centres further right and further down, so the transform moves left/up.
+      message(
+        Message.MovedPointer({ screenX: 410, screenY: 255, pointerId: 1 }),
+      ),
+      model((current) => {
+        expect(current.viewport).toEqual({ x: -100, y: 50, zoom: 1 });
+      }),
+    );
+  });
+
+  test("the pan is absolute from the press, so a rounded drag does not drift", () => {
+    // Three moves and one jump to the same point must leave the same viewport:
+    // accumulating deltas would also pass this, but only if every step is exact —
+    // this pins that the answer comes from the anchor.
+    story(
+      flow().update,
+      given(initial),
+      message(Message.StartedMiniMapPan(pressed)),
+      message(
+        Message.MovedPointer({ screenX: 405, screenY: 250, pointerId: 1 }),
+      ),
+      message(
+        Message.MovedPointer({ screenX: 400, screenY: 260, pointerId: 1 }),
+      ),
+      message(
+        Message.MovedPointer({ screenX: 410, screenY: 255, pointerId: 1 }),
+      ),
+      model((current) => {
+        expect(current.viewport).toEqual({ x: -100, y: 50, zoom: 1 });
+      }),
+    );
+  });
+
+  test("the drag emits no OutMessage: every frame is a committed viewport", () => {
+    // Unlike a pane pan, which reports once per gesture through `MovedViewport`,
+    // a minimap drag *is* a programmatic viewport change — the Model holds each
+    // frame and `SyncViewport` tells the engine. Nothing for the parent to fold.
+    story(
+      flow().update,
+      given(initial),
+      message(Message.StartedMiniMapPan(pressed)),
+      message(
+        Message.MovedPointer({ screenX: 410, screenY: 255, pointerId: 1 }),
+      ),
+      expectNoOutMessage(),
+    );
+  });
+
+  test("a release ends the gesture and keeps the viewport", () => {
+    story(
+      flow().update,
+      given(initial),
+      message(Message.StartedMiniMapPan(pressed)),
+      message(
+        Message.MovedPointer({ screenX: 410, screenY: 255, pointerId: 1 }),
+      ),
+      message(Message.ReleasedPointer({ pointerId: 1 })),
+      model((current) => {
+        expect(isIdle(current.gesture)).toBe(true);
+        expect(current.viewport).toEqual({ x: -100, y: 50, zoom: 1 });
+      }),
+    );
+  });
+
+  test("a foreign pointer cannot drag the minimap", () => {
+    story(
+      flow().update,
+      given(initial),
+      message(Message.StartedMiniMapPan(pressed)),
+      message(
+        Message.MovedPointer({ screenX: 999, screenY: 999, pointerId: 7 }),
+      ),
+      model((current) => {
+        expect(current.viewport).toEqual({ x: 0, y: 100, zoom: 1 });
+      }),
+    );
+  });
+
+  test("the press goes through `setViewport`, so it emits its sync", () => {
+    // The drag reuses the one programmatic-move helper, which means the engine is
+    // told: without the Command the Model would hold the new viewport and the
+    // engine would keep the old one (`M5-FINDINGS` §8.2's divergence).
+    const result = update(
+      { ...initial, paneId: Option.some("m6-pane") },
+      Message.StartedMiniMapPan(pressed),
+      context,
+    );
+    const names = (result.commands ?? []).map(
+      (command) => (command as { name?: string }).name,
+    );
+    expect(names).toContain("SyncViewport");
+
+    // With no pane id there is nothing to sync to, and the Model still moves.
+    const orphaned = update(
+      initial,
+      Message.StartedMiniMapPan(pressed),
+      context,
+    );
+    expect(orphaned.commands ?? []).toEqual([]);
+    expect(orphaned.model.viewport).toEqual({ x: 0, y: 100, zoom: 1 });
   });
 });

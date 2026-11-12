@@ -4,7 +4,11 @@ import { Dom, Subscription } from "foldkit";
 import { Message } from "../message.js";
 import { Gesture } from "../model.js";
 import type { Model } from "../model.js";
-import { focusedNodeId, isDeleteKeyAllowed } from "./domTarget.js";
+import {
+  focusedEdgeId,
+  focusedNodeId,
+  isDeleteKeyAllowed,
+} from "./domTarget.js";
 import { getPaneRoot } from "./host.js";
 import { nudgeDelta } from "./nudge.js";
 
@@ -252,23 +256,40 @@ export const subscriptions = Subscription.make<Model, Message>()((entry) => ({
                     // input, or into a `.fflow__nokey` region, from moving or
                     // activating anything.
                     const nodeId = focusedNodeId(event.target);
-                    if (nodeId === null) return Option.none();
+                    if (nodeId !== null) {
+                      // Arrow keys nudge; `PreventDefault` is what stops them
+                      // from scrolling the page instead (§7 M3).
+                      const delta = nudgeDelta(event.key, event);
+                      if (Option.isSome(delta)) {
+                        return Option.some(
+                          Message.NudgedNode({ nodeId, delta: delta.value }),
+                        );
+                      }
 
-                    // Arrow keys nudge; `PreventDefault` is what stops them from
-                    // scrolling the page instead (§7 M3).
-                    const delta = nudgeDelta(event.key, event);
-                    if (Option.isSome(delta)) {
-                      return Option.some(
-                        Message.NudgedNode({ nodeId, delta: delta.value }),
-                      );
+                      // Enter and Space activate the node, which is what its
+                      // `role="button"` and `aria-pressed` promise a keyboard
+                      // user.
+                      return event.key === "Enter" || event.key === " "
+                        ? Option.some(
+                            Message.ActivatedNode({
+                              nodeId,
+                              isAdditive: isAdditiveOf(event),
+                            }),
+                          )
+                        : Option.none();
                     }
 
-                    // Enter and Space activate the node, which is what its
-                    // `role="button"` and `aria-pressed` promise a keyboard user.
+                    // An edge is a focusable control too when the renderer asks
+                    // for it (§7 M6). Only Enter and Space apply: an edge has no
+                    // position of its own to nudge, so an arrow key on one is not
+                    // a fact about anything.
+                    const edgeId = focusedEdgeId(event.target);
+                    if (edgeId === null) return Option.none();
+
                     return event.key === "Enter" || event.key === " "
                       ? Option.some(
-                          Message.ActivatedNode({
-                            nodeId,
+                          Message.ActivatedEdge({
+                            edgeId,
                             isAdditive: isAdditiveOf(event),
                           }),
                         )

@@ -3,6 +3,12 @@ export const Viewport = "fflow__viewport";
 export const Edges = "fflow__edges";
 export const Edge = "fflow__edge";
 export const EdgePath = "fflow__edge-path";
+/** The invisible, wider copy of an edge's path that a press lands on when the
+ *  renderer draws edges as selectable (§7 M6). It carries no `data-edgeid`: the
+ *  proofs count edges with `[data-edgeid]`, and a second element with that
+ *  attribute would silently double the count (`docs/M6-FINDINGS.md` §5). */
+export const EdgeInteraction = "fflow__edge-interaction";
+export const IsSelectedEdge = "fflow__edge--selected";
 export const EdgeEndpoint = "fflow__edge-endpoint";
 export const Marker = "fflow__marker";
 export const MarkerPath = "fflow__marker-path";

@@ -11,6 +11,11 @@ const dragBlockedSelector = `${editableSelector}, button, a, .${classes.NoDrag}`
  *  which simulates a pointer target from attributes only. */
 const handleSelector = `.${classes.Handle}, [data-handleid]`;
 const nodeSelector = `.${classes.Node}, [data-nodeid]`;
+/** An edge group that is a press target (§7 M6). Matched by attribute as well, so
+ *  the guard is testable in Scene, which builds its targets from attributes. The
+ *  reconnect ring carries `data-edgeid` too and `closest` finds it first, so the
+ *  edge group has to be matched on its own class as well. */
+const edgeSelector = `.${classes.Edge}[data-edgeid]`;
 /** Reconnect grab handles sit in the edges layer, outside every node, so the
  *  pane handler has to decline them explicitly. Matched by attribute as well so
  *  the guard is testable in Scene (§M1-FINDINGS §2.2). */
@@ -60,6 +65,11 @@ export const isEdgeEndpointTarget = (target: EventTarget | null): boolean =>
 export const isNodeTarget = (target: EventTarget | null): boolean =>
   closestOrNull(target, nodeSelector) !== null;
 
+/** A press on a selectable edge belongs to the edge, not to the pane: without
+ *  this the pane handler would clear the selection the edge press just made. */
+export const isEdgeTarget = (target: EventTarget | null): boolean =>
+  closestOrNull(target, edgeSelector) !== null;
+
 /** A press on chrome belongs to the control, not to the pane (§7 M3). */
 export const isChromeTarget = (target: EventTarget | null): boolean =>
   closestOrNull(target, chromeSelector) !== null;
@@ -73,3 +83,9 @@ export const isChromeTarget = (target: EventTarget | null): boolean =>
  */
 export const focusedNodeId = (target: EventTarget | null): string | null =>
   closestOrNull(target, nodeSelector)?.getAttribute("data-nodeid") ?? null;
+
+/** The edge a keyboard event is about, by the same rule: the DOM answers "which
+ *  edge", so an edge that survives a re-render keeps its focus and no Model state
+ *  describes focus (§7 M6). */
+export const focusedEdgeId = (target: EventTarget | null): string | null =>
+  closestOrNull(target, edgeSelector)?.getAttribute("data-edgeid") ?? null;

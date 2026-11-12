@@ -50,6 +50,29 @@
   vector-effect: non-scaling-stroke;
 }
 
+/* The press target for a selectable edge (§7 M6): the same `d`, invisible, and
+   wider. `pointer-events: stroke` is what makes a transparent stroke a hit area —
+   `visibleStroke` would depend on paint, and a consumer stylesheet setting
+   `pointer-events` on an ancestor is exactly how upstream's version of this broke
+   (xyflow #3127). Never `fill`: the area between the bends is not the edge. */
+.fflow__edge-interaction {
+  fill: none;
+  stroke: transparent;
+  pointer-events: stroke;
+}
+
+.fflow__edge--selected .fflow__edge-path {
+  stroke: var(--fflow-edge-selected, #4c8dff);
+}
+
+/* An edge is a control in the tab order, so it needs a focus ring the keyboard
+   user can see. `outline` on an SVG `<g>` is not painted; the stroke is. */
+.fflow__edge:focus-visible .fflow__edge-path,
+.fflow__edge:focus .fflow__edge-path {
+  stroke: var(--fflow-focus-ring);
+  stroke-width: 2.5;
+}
+
 .fflow__node {
   cursor: default;
 }
@@ -372,6 +395,12 @@
   display: block;
   width: 100%;
   height: 100%;
+  /* A press centres the view and starts a drag, so the cursor says so (§7 M6). */
+  cursor: grab;
+}
+
+.fflow__minimap-svg:active {
+  cursor: grabbing;
 }
 
 .fflow__minimap-node {

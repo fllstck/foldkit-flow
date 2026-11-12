@@ -68,6 +68,61 @@ describe("resizeRect (§7 M4)", () => {
     });
   });
 
+  test("the start aspect ratio is held when the option asks for it", () => {
+    // The box starts at 100×50, ratio 2. The axis whose scale is further from 1
+    // decides, and the other axis is derived from it. At (260, 330) the scales are
+    // both 0.6, so the tie goes to x: 60×30.
+    expect(
+      resizeRect(start, "bottom-right", at(260, 330), {
+        keepAspectRatio: true,
+      }),
+    ).toEqual({ left: 200, top: 300, width: 60, height: 30 });
+
+    // A pointer that shrinks the height harder (scale 0.4) than the width (0.6)
+    // follows y: 20 tall, and 40 wide because the ratio is 2.
+    expect(
+      resizeRect(start, "bottom-right", at(260, 320), {
+        keepAspectRatio: true,
+      }),
+    ).toEqual({ left: 200, top: 300, width: 40, height: 20 });
+
+    // Unlocked, the same pointer gives the box the pointer draws: 60×20.
+    expect(resizeRect(start, "bottom-right", at(260, 320))).toEqual({
+      left: 200,
+      top: 300,
+      width: 60,
+      height: 20,
+    });
+  });
+
+  test("a locked top-left resize keeps the bottom-right corner anchored", () => {
+    const locked = resizeRect(start, "top-left", at(250, 340), {
+      keepAspectRatio: true,
+    });
+    expect(locked.width / locked.height).toBeCloseTo(2, 10);
+    // The corner the control does not move is where it was.
+    expect(locked.left + locked.width).toBeCloseTo(300, 10);
+    expect(locked.top + locked.height).toBeCloseTo(350, 10);
+  });
+
+  test("a locked resize never comes back smaller than the minimum", () => {
+    const locked = resizeRect(start, "bottom-right", at(0, 0), {
+      keepAspectRatio: true,
+    });
+    expect(locked.width).toBeGreaterThanOrEqual(minResizeWidth);
+    expect(locked.height).toBeGreaterThanOrEqual(minResizeHeight);
+    expect(locked.width / locked.height).toBeCloseTo(2, 10);
+  });
+
+  test("a degenerate start box falls back to the free box", () => {
+    // No ratio to hold, and dividing by it would be the bug: the plain box is the
+    // answer, so a locked resize of a zero-width node still works.
+    const flat: Rect = { left: 10, top: 10, width: 0, height: 30 };
+    expect(
+      resizeRect(flat, "bottom-right", at(60, 60), { keepAspectRatio: true }),
+    ).toEqual(resizeRect(flat, "bottom-right", at(60, 60)));
+  });
+
   test("a node cannot be resized below the minimum, in either direction", () => {
     const tiny = resizeRect(start, "bottom-right", at(-500, -500));
     expect(tiny.width).toBe(minResizeWidth);

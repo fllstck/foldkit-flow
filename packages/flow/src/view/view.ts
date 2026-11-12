@@ -46,6 +46,7 @@ import {
   blocksDrag,
   isChromeTarget,
   isEdgeEndpointTarget,
+  isEdgeTarget,
   isHandleTarget,
   isNodeTarget,
 } from "../runtime/domTarget.js";
@@ -125,6 +126,13 @@ export type RendererConfig<NodeData, EdgeData> = Readonly<{
    *  hit-testable SVG elements per edge, and a parent that does not fold
    *  `OutMessage.ReconnectedEdge` has nothing to do with them. */
   reconnect?: boolean;
+  /** Make each edge a press target and a tab stop (§7 M6). Off by default, like
+   *  every other behaviour here: it costs one invisible path per edge, and a
+   *  parent that never deletes an edge should not pay it. On, a press selects the
+   *  edge (`PressedEdge`), Enter or Space selects it from the keyboard
+   *  (`ActivatedEdge`), and the edges layer loses `aria-hidden` because a
+   *  focusable descendant of a hidden subtree is an ARIA violation. */
+  edgeSelection?: boolean;
   /** The background pattern, drawn behind the viewport. Off by default: it is a
    *  visual identity choice, not a behaviour, and the benchmark pages measure the
    *  minimal DOM (§4.5). */
@@ -204,6 +212,12 @@ const pointerOf = (
 ): Pointer => ({ pointerId, pointerType, button });
 
 const isPrimaryButton = (button: number): boolean => button === 0;
+
+/** How wide an edge's invisible press target is, in **flow units** — the same
+ *  number upstream's `interactionWidth` defaults to (§7 M6). Flow units rather
+ *  than screen pixels on purpose: `view` must not read the zoom to size an
+ *  element, and a per-frame attribute would invalidate the edge it belongs to. */
+export const edgeHitWidth = 20;
 
 export const createRenderer = <NodeData = unknown, EdgeData = unknown>(
   config: RendererConfig<NodeData, EdgeData>,
@@ -617,6 +631,18 @@ export const createRenderer = <NodeData = unknown, EdgeData = unknown>(
         : { ...anchor, x: anchor.x + shift.x, y: anchor.y + shift.y };
     };
 
+    const isEdgeSelection = config.edgeSelection === true;
+    /** "Edge from A to B", with the edge's own label when it has one: the name a
+     *  screen reader reads in the tab order (§7 M6). */
+    const edgeName = (edge: FlowEdge<EdgeData>): string => {
+      const nameOf = (nodeId: string): string => {
+        const node = nodesById.get(nodeId);
+        return node === undefined ? nodeId : accessibleNameOf(node);
+      };
+      const base = `Edge from ${nameOf(edge.source)} to ${nameOf(edge.target)}`;
+      return edge.label === undefined ? base : `${base}: ${edge.label}`;
+    };
+
     const edgesView = h.svg(
       [
         h.Class(classes.Edges),
@@ -628,7 +654,11 @@ export const createRenderer = <NodeData = unknown, EdgeData = unknown>(
           left: "0",
           overflow: "visible",
         }),
-        h.Attribute("aria-hidden", "true"),
+        // Hidden while the layer is a picture. With `edgeSelection` on, each edge
+        // is a focusable control, and a focusable descendant of an `aria-hidden`
+        // subtree is an ARIA violation (§7 M6) — so the attribute goes with the
+        // feature rather than staying for symmetry.
+        ...(isEdgeSelection ? [] : [h.Attribute("aria-hidden", "true")]),
       ],
       [
         ...markerDefs(edges, config.paneId, h),
@@ -677,10 +707,66 @@ export const createRenderer = <NodeData = unknown, EdgeData = unknown>(
                 ]
               : [];
 
+          const isSelectedEdge = isEdgeSelection
+            ? model.selectedEdgeIds.includes(edge.id)
+            : false;
+
           return [
             h.keyed("g")(
               edge.id,
-              [h.Class(classes.Edge), h.DataAttribute("edgeid", edge.id)],
+              [
+                h.Class(
+                  [classes.Edge, isSelectedEdge ? classes.IsSelectedEdge : ""]
+                    .filter((name) => name !== "")
+                    .join(" "),
+                ),
+                h.DataAttribute("edgeid", edge.id),
+                // A selectable edge is a control in the tab order (§7 M6): the
+                // same `role="button"` + `aria-pressed` pair a node has, named
+                // from the consumer's own hook so the tab order and the
+                // description call the same nodes the same thing.
+                ...(isEdgeSelection
+                  ? [
+                      // Attributes rather than the `h.Tabindex`/`h.Role` helpers:
+                      // those set the DOM *property*, and a `<g>` is an SVGElement
+                      // — jsdom has no `tabIndex` there, so the attribute is the
+                      // only spelling that is true in both places (§7 M6).
+                      h.Attribute("tabindex", "0"),
+                      h.Attribute("role", "button"),
+                      h.Attribute("aria-label", edgeName(edge)),
+                      h.Attribute(
+                        "aria-pressed",
+                        isSelectedEdge ? "true" : "false",
+                      ),
+                      h.OnPointerDown(
+                        (
+                          _pointerType: string,
+                          button: number,
+                          _screenX: number,
+                          _screenY: number,
+                          _timeStamp: number,
+                          _clientX: number,
+                          _clientY: number,
+                          _pointerId: number,
+                          target: EventTarget | null,
+                        ) =>
+                          // The reconnect ring around a handle is its own target
+                          // (§4.6): grabbing an end must not also select the edge.
+                          isPrimaryButton(button) &&
+                          !isEdgeEndpointTarget(target)
+                            ? Option.some(
+                                input.toParentMessage(
+                                  Message.PressedEdge({
+                                    edgeId: edge.id,
+                                    isAdditive: model.isAdditiveModifier,
+                                  }),
+                                ),
+                              )
+                            : Option.none(),
+                      ),
+                    ]
+                  : []),
+              ],
               [
                 h.path([
                   h.Attribute("d", geometry.d),
@@ -703,6 +789,24 @@ export const createRenderer = <NodeData = unknown, EdgeData = unknown>(
                       ]),
                 ]),
                 ...label,
+                // The press target, drawn **after** the visible path so that
+                // `querySelector("… path")` — which the marker, reconnect and
+                // gallery proofs all use — still finds the painted one. It is
+                // `stroke: transparent` with `pointer-events: stroke`, so it is a
+                // target and not a pixel (`flow.css`, §7 M6).
+                ...(isEdgeSelection
+                  ? [
+                      h.path(
+                        [
+                          h.Attribute("d", geometry.d),
+                          h.Class(classes.EdgeInteraction),
+                          h.Attribute("stroke-width", String(edgeHitWidth)),
+                          h.Attribute("fill", "none"),
+                        ],
+                        [],
+                      ),
+                    ]
+                  : []),
                 ...(config.reconnect === true
                   ? [
                       edgeEndpoint(edge.id, "Source", endpoints.source, h),
@@ -915,6 +1019,10 @@ export const createRenderer = <NodeData = unknown, EdgeData = unknown>(
               blocksDrag(target) ||
               isHandleTarget(target) ||
               isNodeTarget(target) ||
+              // A selectable edge is a press target of its own: its handler has
+              // already dispatched `PressedEdge`, and this handler runs after it
+              // (§7 M6). The reconnect ring is matched by `isEdgeTarget` too.
+              isEdgeTarget(target) ||
               isEdgeEndpointTarget(target) ||
               // Chrome is a press target inside the pane: the buttons keep their
               // own Messages and the panel keeps the parent's, but none of them

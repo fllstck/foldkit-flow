@@ -65,7 +65,7 @@ const minimapNodes = (
 };
 
 /**
- * The flow point a press inside the minimap is over.
+ * The flow point a press inside the minimap is over, and the scale of the mapping.
  *
  * The minimap's `viewBox` **is** flow space, so the SVG's own screen matrix is the
  * whole conversion: `getScreenCTM()` includes the viewBox mapping and the element's
@@ -74,12 +74,19 @@ const minimapNodes = (
  * mapping in `update` — keeps the arithmetic in the one place that owns the
  * element, and leaves `update` with a plain flow point (`M3-FINDINGS` §11.1: the
  * screen-space conversion belongs to whoever holds the element).
+ *
+ * `scale` is flow units per screen pixel — the *inverse* of the matrix's x scale,
+ * because `getScreenCTM()` maps user (flow) units to screen pixels. With
+ * `preserveAspectRatio="xMidYMid meet"` the two axes share one scale (the
+ * letterboxing moves the origin, not the scale), so a drag of *n* screen pixels
+ * inside the minimap is *n × scale* flow units — which is exactly what
+ * `Gesture.MiniMapPanning` needs, and it is read once, at press (§7 M6).
  */
-export const miniMapFlowPoint = (
+export const miniMapPress = (
   target: EventTarget | null,
   clientX: number,
   clientY: number,
-): Option.Option<Point> => {
+): Option.Option<{ point: Point; scale: number }> => {
   if (!(target instanceof Element)) return Option.none();
   const svg = target.closest("svg");
   if (svg === null) return Option.none();
@@ -92,8 +99,19 @@ export const miniMapFlowPoint = (
   const point = new DOMPoint(clientX, clientY).matrixTransform(
     matrix.inverse(),
   );
-  return Option.some({ x: point.x, y: point.y });
+  return Option.some({
+    point: { x: point.x, y: point.y },
+    scale: 1 / matrix.a,
+  });
 };
+
+/** The flow point alone, for callers that only want where the press landed. */
+export const miniMapFlowPoint = (
+  target: EventTarget | null,
+  clientX: number,
+  clientY: number,
+): Option.Option<Point> =>
+  Option.map(miniMapPress(target, clientX, clientY), (press) => press.point);
 
 export type MiniMapInput = Readonly<{
   model: Model;
@@ -133,27 +151,40 @@ export const miniMapView = (
           h.Class(classes.MiniMapSvg),
           h.Attribute("viewBox", miniMapViewBox(model, nodes)),
           h.Attribute("preserveAspectRatio", "xMidYMid meet"),
-          // A press centres the view on the point under the cursor. It is
-          // `NoPan` on the container, so d3 never starts a viewport pan from the
-          // same press, and the pane's own handler declines chrome (§4.6).
+          // A press centres the view on the point under the cursor **and** arms
+          // the drag (§7 M6): one Message, because the pan starts from the point
+          // it centred on. It is `NoPan` on the container, so d3 never starts a
+          // viewport pan from the same press, and the pane's own handler declines
+          // chrome (§4.6).
           h.OnPointerDown(
             (
-              _pointerType: string,
+              pointerType: string,
               button: number,
               _screenX: number,
               _screenY: number,
               _timeStamp: number,
               clientX: number,
               clientY: number,
-              _pointerId: number,
+              pointerId: number,
               target: EventTarget | null,
             ) =>
               button !== 0
                 ? Option.none()
                 : Option.map(
-                    miniMapFlowPoint(target, clientX, clientY),
-                    (point) =>
-                      input.toParentMessage(Message.ClickedMiniMap({ point })),
+                    miniMapPress(target, clientX, clientY),
+                    ({ point, scale }) =>
+                      input.toParentMessage(
+                        Message.StartedMiniMapPan({
+                          point,
+                          screen: { x: clientX, y: clientY },
+                          scale,
+                          pointer: {
+                            pointerId,
+                            pointerType,
+                            button,
+                          },
+                        }),
+                      ),
                   ),
           ),
         ],

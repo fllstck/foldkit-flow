@@ -157,6 +157,17 @@ export const Gesture = defineTaggedUnion({
     current: Rect,
     snapGrid: Schema.Option(SnapGrid),
   },
+  // Dragging inside the minimap (§7 M6). The minimap's own screen matrix is read
+  // once, at press (`view/minimap.ts`), and the *flow point* it yields plus the
+  // *scale* (flow units per screen pixel) travel in the gesture — so no frame of
+  // the drag reads the DOM, and the pan is `viewportCentredOn(anchorFlow)` shifted
+  // by the pointer's delta times that scale.
+  MiniMapPanning: {
+    pointer: Pointer,
+    anchorScreen: Point,
+    anchorFlow: Point,
+    scale: Schema.Number,
+  },
 });
 export type Gesture = typeof Gesture.Type;
 

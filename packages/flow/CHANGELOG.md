@@ -10,6 +10,47 @@ carries a surface meant to hold still and a version that says what it is.
 
 ## [Unreleased]
 
+M6 — the deliberate gaps, researched first (`docs/M6-RESEARCH.md` is the decision,
+`docs/M6-FINDINGS.md` the record). Three opt-in behaviours, no change to anything
+existing; the surface is meant to be `0.2.0`, and the version bump belongs to the
+release.
+
+### Added
+
+- **`RendererConfig.edgeSelection`** — edges become press targets and tab stops:
+  `Message.PressedEdge` / `Message.ActivatedEdge`, `role="button"` with
+  `aria-pressed` and an `aria-label` built from `accessibleName`, an invisible hit
+  path 20 flow units wide, and `SelectedElements` reporting `edgeIds` (it always
+  could). The edges layer stops being `aria-hidden` while the feature is on.
+- **Drag-to-pan in the minimap** — `Message.StartedMiniMapPan` and
+  `Gesture.MiniMapPanning`. A press still centres the view; holding and dragging now
+  pans from there, one `setViewport` per pointer move, with the screen mapping read
+  once at press.
+- **`ResizeOptions.keepAspectRatio`** — hold Shift (or ⌘/Ctrl) during a resize and
+  the box keeps its start ratio. `Flow.update` reads it from `isAdditiveModifier`, so
+  it is live mid-gesture; nothing in the Message surface changed for it.
+
+### Changed in the consumer
+
+- The example harness's `SelectedElements` fold now reads `edgeIds` as well as
+  `nodeIds` — a page with an edge selected used to report "Nothing selected".
+- `/examples/resizing/` turns `edgeSelection` on, so the feature ships on two pages.
+
+### Not shipped
+
+`XYResizer`, `nodeOrigin`, parent-resize child compensation, `resizeDirection`,
+`shouldResize`, interactive edge labels, multi-node resize, per-frame handle
+re-measurement, a culling index, minimap wheel-zoom and minimap node targets. Each has
+a verdict and a "what would change it" in `docs/M6-RESEARCH.md`; the culling scan's
+numbers say why it is not a fix (0.48 / 0.75 / 5.44 ms of a 16.7 ms frame at
+625/1k/expanded-10k, zero long frames).
+
+### Measured
+
+The gate re-ran unchanged at this tree: 625 at parity with React Flow on pan
+(16.7 / 16.7 / 16.8 for both), 1k p95 16.8 ms, zero long frames in 3 407 recorded
+frames. 334 Vitest tests, 61 Playwright proofs.
+
 Nothing yet.
 
 ## [0.1.1] — 2026-11-12

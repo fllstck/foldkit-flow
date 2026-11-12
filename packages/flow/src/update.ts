@@ -125,6 +125,21 @@ const nextNodeSelection = (
 const isDraggable = (context: Context, nodeId: string): boolean =>
   nodeById(context, nodeId)?.draggable !== false;
 
+/** The selection an edge press or activation produces (§7 M6). Edges have no
+ *  `selectable` opt-out — a press target only exists when the renderer asked for
+ *  one — so this is the node rule minus that branch, and it clears the node
+ *  selection the same way, because one press selects one kind of thing. */
+const nextEdgeSelection = (
+  model: Model,
+  edgeId: string,
+  isAdditive: boolean,
+): ReadonlyArray<string> =>
+  isAdditive
+    ? toggle(model.selectedEdgeIds, edgeId)
+    : model.selectedEdgeIds.includes(edgeId)
+      ? model.selectedEdgeIds
+      : [edgeId];
+
 const hasNode = (context: Context, nodeId: string): boolean =>
   nodeById(context, nodeId) !== undefined;
 
@@ -473,18 +488,39 @@ export const update = (
             ...model,
             gesture: Gesture.Resizing({
               ...gesture,
-              current: resizeRect(
-                gesture.start,
-                gesture.control,
-                point,
-                Option.match(gesture.snapGrid, {
+              current: resizeRect(gesture.start, gesture.control, point, {
+                ...Option.match(gesture.snapGrid, {
                   onNone: () => ({}),
                   onSome: (grid) => ({ snapGrid: grid }),
                 }),
-              ),
+                // The modifier that adds to a selection also holds a resize's
+                // aspect ratio (§7 M6): read per pointer event, so pressing or
+                // releasing it mid-gesture changes the box on the next frame —
+                // the live behaviour tldraw has, without a second Model field.
+                keepAspectRatio: model.isAdditiveModifier,
+              }),
             }),
           },
         };
+      }
+
+      if (Gesture.guards.MiniMapPanning(gesture)) {
+        // The press centred the view on the flow point under the cursor; the drag
+        // then moves that centre by the pointer's own delta, scaled from screen
+        // pixels to flow units by the minimap's matrix (read once, at press).
+        // Absolute from the anchor rather than accumulated per event, so a fast
+        // drag and a slow one land in the same place (§7 M6).
+        return setViewport(
+          model,
+          viewportCentredOn(model, {
+            x:
+              gesture.anchorFlow.x +
+              (screenX - gesture.anchorScreen.x) * gesture.scale,
+            y:
+              gesture.anchorFlow.y +
+              (screenY - gesture.anchorScreen.y) * gesture.scale,
+          }),
+        );
       }
 
       if (Gesture.guards.Reconnecting(gesture)) {
@@ -537,6 +573,12 @@ export const update = (
           gesture.delta,
           gesture.hasMoved,
         );
+      }
+
+      if (Gesture.guards.MiniMapPanning(gesture)) {
+        // The viewport is already committed: every move was one `setViewport`, so
+        // the release has nothing to report and no OutMessage to emit.
+        return { model: { ...model, gesture: Gesture.Idle() } };
       }
 
       const cleared: Model = { ...model, gesture: Gesture.Idle() };
@@ -776,6 +818,52 @@ export const update = (
         isAdditive ? model.selectedEdgeIds : [],
       );
     },
+
+    // Edge selection (§7 M6). The pair mirrors the node pair exactly — a press and
+    // a keyboard activation — because the renderer that draws an edge as a press
+    // target also makes it a tab stop, and an edge you can press but not focus is
+    // half a feature.
+    PressedEdge: ({ edgeId, isAdditive }) => {
+      if (!context.edges.some((edge) => edge.id === edgeId)) return { model };
+
+      return withSelection(
+        { ...model, gesture: Gesture.Idle() },
+        isAdditive ? model.selectedNodeIds : [],
+        nextEdgeSelection(model, edgeId, isAdditive),
+      );
+    },
+
+    ActivatedEdge: ({ edgeId, isAdditive }) => {
+      if (!context.edges.some((edge) => edge.id === edgeId)) return { model };
+
+      return withSelection(
+        model,
+        isAdditive ? model.selectedNodeIds : [],
+        nextEdgeSelection(model, edgeId, isAdditive),
+      );
+    },
+
+    // A minimap press centres the view *and* arms the drag, so the gesture starts
+    // from the point it centred on: one Message, one `setViewport`, and the
+    // `SyncViewport` Command is the same one every other programmatic move uses.
+    StartedMiniMapPan: ({ point, screen, scale, pointer }) => {
+      const centred = setViewport(model, viewportCentredOn(model, point));
+      const next: Model = {
+        ...centred.model,
+        gesture: Gesture.MiniMapPanning({
+          pointer,
+          anchorScreen: screen,
+          anchorFlow: point,
+          scale,
+        }),
+      };
+      // `setViewport` emits commands only when the pane id is known, and `Update`
+      // treats an absent `commands` as none — so the field is omitted rather than
+      // set to `undefined`.
+      return centred.commands === undefined
+        ? { model: next }
+        : { model: next, commands: centred.commands };
+    },
   });
 
 /**
@@ -819,6 +907,9 @@ export const informGraphChanged = (
       edgeIds.includes(gesture.edgeId) ? gesture : Gesture.Idle(),
     Resizing: (gesture) =>
       nodeIds.includes(gesture.nodeId) ? gesture : Gesture.Idle(),
+    // A minimap drag names no node and no edge, so a graph change cannot
+    // invalidate it: the viewport it moves is still there.
+    MiniMapPanning: (gesture) => gesture,
   });
 
   return {

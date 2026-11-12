@@ -11,10 +11,16 @@ measurement, chrome and accessibility, sub-flows, resizing, snap, edge types and
 performance work. The Model/Message/OutMessage shapes, the measurement contract and
 the `fflow__` class prefix are the parts meant to hold still; `1.0.0` follows once the
 library has had real use, rather than on a milestone's say-so.
-Deliberately absent, and planned as research-first work: edge selection, minimap
-drag, `nodeOrigin`, multi-node resize, interactive edge labels, and React Flow's
-`XYResizer` seam. The full list and the reasoning are in the repository's
-`docs/M4-FINDINGS.md` §8 and `docs/PLAN.md` §7 (M6).
+M6 adds three opt-in behaviours: **edge selection and edge focus**
+(`createRenderer({ edgeSelection: true })` — a press or `Tab`+`Enter` selects an edge),
+**drag-to-pan inside the minimap**, and an **aspect-ratio lock** on a resize (hold
+Shift). All three are off by default except the modifier.
+
+Still absent, researched and deliberately left out: React Flow's `XYResizer` seam,
+`nodeOrigin`, parent-resize child compensation, multi-node resize, interactive edge
+labels, per-frame handle re-measurement and a culling index. Each has a verdict and a
+"what would change it" in the repository's `docs/M6-RESEARCH.md`; `docs/M4-FINDINGS.md`
+§8 points at them.
 
 ## Install
 
