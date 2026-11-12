@@ -443,3 +443,68 @@ pnpm bench       # 56 Playwright tests in 4.8 min
 `pnpm pack --dry-run` inspected (§7). The four gate/exploration JSONs plus
 `expanded-10k.json`, `gallery.json` and `pan-stall.json` are from this run. No npm
 publish, no history rewrite, no amended M0–M4 commit.
+
+## 12. Response to `docs/EXAMPLES-REVIEW.md`
+
+One finding, and it is correct. The example that exists to teach a connection
+policy was teaching it wrongly.
+
+### 12.1 MEDIUM — the connection-policy example did not reject cycles: fixed
+
+The page says it keeps the graph acyclic and tells the reader to drag from the last
+node back to the first. Its predicate was:
+
+```ts
+!edges.some(
+  (edge) =>
+    edge.source === connection.target && edge.target === connection.source,
+);
+```
+
+That rejects the **exact reverse of an existing edge**, which is not the same
+question. With `a → b`, `b → c`, `b → d`, the drag the description invites is
+`c → a`: no single edge runs the other way, so it was accepted and the graph
+became `a → b → c → a`. The review's diagnosis is right about both the cause and
+the consequence.
+
+Confirmed before touching anything, on the served page rather than in the source:
+three edges, drag `c`'s out handle to `a`'s in handle, **four** edges and the panel
+reads `Connected c → a`. So the page did not merely fail to demonstrate the rule;
+it demonstrated the opposite of the sentence above it.
+
+**The fix** is the question the description was already asking: a new edge
+`source → target` closes a cycle exactly when `target` can already reach `source`,
+plus the trivial self-loop. `canReach` is a breadth-first pass over the example's
+own edge list — reachability, not adjacency — so `c → a` is refused because
+`a → b → c` is a path. It stays in `specs/connection-policy.ts`, next to the graph
+it reasons about, and it is passed through `Flow.Context` as before; the review's
+note that the policy is otherwise placed correctly stands.
+
+Two smaller things came out of writing it:
+
+- **The proof had to assert both directions.** "No edge was added" also passes for
+  a predicate that refuses everything, so `tests/examples.spec.ts` now drags `c → a`
+  (three edges before and after, and the panel's line unchanged, because a refused
+  release emits nothing at all) _and_ `c → d` (four edges, `Connected c → d`). The
+  first assertion would have passed against the old code with a `false` predicate;
+  the pair would not.
+- **The reconnect caveat is documented at the predicate.** A policy reads the graph
+  as it stands, including the edge being reconnected, so a consumer whose graphs
+  move edges should feed the moving edge's id into its policy. Nothing on this page
+  needs it — every reconnect it allows keeps the graph acyclic — and the comment
+  says so rather than leaving the next reader to discover it.
+
+The review found no other Foldkit-integration problem in the harness, and this
+finding is a useful corrective to the rest of that list: every integration point it
+checked was about _structure_ (state ownership, the fold, the seams), and all of
+them were right while the thing the page actually taught was wrong. A page can
+mount perfectly, render the right node count and pass its mounting proof, and still
+be a false claim — which is the same lesson `verification.md` records for paint,
+one layer further out: the assertion was at the layer that proves a page _runs_,
+not the layer that proves it _means_ what it says.
+
+Verification for this change: `pnpm typecheck`, `pnpm lint`, `pnpm format:check`,
+the example package build, and `tests/examples.spec.ts` (**1 passed**, now with the
+refusal and acceptance assertions). The full `pnpm bench` was **not** run for this
+change, by instruction: it touches one example spec and one browser spec, and no
+library code, gate page or benchmark fixture.

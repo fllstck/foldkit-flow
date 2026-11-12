@@ -130,7 +130,63 @@ test("every example the index offers mounts and is its own file", async ({
   expect(await page.locator('.fflow__node[data-nodeid="one"]').count()).toBe(0);
   expect(await page.locator("[data-edgeid]").count()).toBe(0);
 
-  // 2. `fit-and-zoom` is given no viewport: the fit runs from the pane's own
+  // 2. `connection-policy` refuses the connection that closes a cycle, and
+  // accepts one that does not — the assertion `docs/EXAMPLES-REVIEW.md` asked for.
+  // A refused release emits nothing at all, so "no edge and no fact" is the whole
+  // visible outcome.
+  await page.goto("http://localhost:4174/examples/connection-policy/");
+  await waitForFlow(page);
+
+  const factOf = () =>
+    page.evaluate(
+      () =>
+        document.querySelector("main")?.getAttribute("data-example-fact") ?? "",
+    );
+  const dragBetweenHandles = async (from: string, to: string) => {
+    const start = await page.locator(from).boundingBox();
+    const end = await page.locator(to).boundingBox();
+    if (start === null || end === null)
+      throw new Error(`no handle: ${from} → ${to}`);
+    const from0 = {
+      x: start.x + start.width / 2,
+      y: start.y + start.height / 2,
+    };
+    const to0 = { x: end.x + end.width / 2, y: end.y + end.height / 2 };
+    await page.mouse.move(from0.x, from0.y);
+    await page.mouse.down();
+    for (let step = 1; step <= 12; step += 1) {
+      await page.mouse.move(
+        from0.x + ((to0.x - from0.x) * step) / 12,
+        from0.y + ((to0.y - from0.y) * step) / 12,
+      );
+      await page.waitForTimeout(16);
+    }
+    await page.mouse.up();
+    await page.waitForTimeout(250);
+  };
+
+  const initialFact = await factOf();
+  expect(await page.locator("[data-edgeid]").count()).toBe(3);
+
+  // c → a would close a → b → c → a. No direct reverse edge exists to catch it, so
+  // this is the case a "reverse edge" predicate waves through.
+  await dragBetweenHandles(
+    '.fflow__handle[data-nodeid="c"][data-handleid="out"]',
+    '.fflow__handle[data-nodeid="a"][data-handleid="in"]',
+  );
+  expect(await page.locator("[data-edgeid]").count()).toBe(3);
+  expect(await factOf()).toBe(initialFact);
+
+  // c → d does not close anything, and has to get through — otherwise the proof
+  // above would also pass for a predicate that refuses everything.
+  await dragBetweenHandles(
+    '.fflow__handle[data-nodeid="c"][data-handleid="out"]',
+    '.fflow__handle[data-nodeid="d"][data-handleid="in"]',
+  );
+  expect(await page.locator("[data-edgeid]").count()).toBe(4);
+  expect(await factOf()).toContain("Connected c → d");
+
+  // 3. `fit-and-zoom` is given no viewport: the fit runs from the pane's own
   // measurement, so the transform cannot still be the initial 1:1.
   await page.goto("http://localhost:4174/examples/fit-and-zoom/");
   await waitForFlow(page);
