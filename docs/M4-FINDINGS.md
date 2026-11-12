@@ -349,7 +349,16 @@ number is recorded and nothing asserts a budget on it. M5 publishes it.
 
 ## 8. What M4 deliberately does not do
 
+**M6 answered all eleven of these.** This list stays as the record of what M4 decided
+and why; the verdict for each — ship, ship differently, or keep out with what would
+change it — is `docs/M6-RESEARCH.md`, and the code that came of it is
+`docs/M6-FINDINGS.md`. Four of the eleven rows shipped: minimap drag-to-pan (row 2),
+edge selection (row 3), edge focus and the tab order (row 11, with row 3 as one unit),
+and aspect locking (row 6, as a held modifier rather than a renderer option). The other
+seven are keep-outs with a reason and a trigger.
+
 - **Minimap drag-to-pan** (§2.9) and **edge selection by press** (§2.10).
+  _(M6 ships both: `docs/M6-RESEARCH.md` §4 and §2.)_
 - **`nodeOrigin`**: nodes are top-left anchored. Nothing in M4 needs a centre
   anchor, and a second origin would have to be threaded through positions, rects,
   edge anchors and the resizer's arithmetic. (M6 row 4 researches it; §12 changed
@@ -359,6 +368,8 @@ number is recorded and nothing asserts a budget on it. M5 publishes it.
   upstream behaviour (children compensate to stay visually still) is a
   container-layout feature, not a resize feature.
 - **`keepAspectRatio`** on a resize: corners only, no modifier. No proof needs it.
+  _(M6 shipped the modifier; upstream has no binding at all, tldraw binds Shift,
+  `docs/M6-RESEARCH.md` §7.)_
 - **Edge labels are not interactive** — no press target, no measurement. A label
   that is a control is a node.
 - **Multi-node resize**: one node per gesture, the one whose control was pressed.

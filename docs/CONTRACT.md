@@ -243,6 +243,20 @@ It is deliberately not a library default: a container node wants a frame with it
 children inside, a leaf wants a filled box, and only you know which you have
 (`docs/M4-FINDINGS.md` §14).
 
+**Hold Shift (or ⌘/Ctrl) while dragging a corner and the box keeps its start aspect
+ratio.** The axis you moved further, proportionally, decides and the other follows; the
+modifier is read per pointer event, so pressing or releasing it mid-gesture changes the
+next frame. It is a modifier rather than a renderer option because `resize` is one flag
+for the whole pane, and a per-node "always proportional" is a config surface nobody has
+asked for (`docs/M6-RESEARCH.md` §7).
+
+**A parent's children are not re-placed when the parent is resized.** Their positions are
+relative to it, so resizing from the top-left carries them; keeping them still is a
+container-layout decision that needs a fact the flow does not report. If you want the
+upstream behaviour, fold `ResizedNodes` and subtract the parent's top-left delta from each
+child's `position` — that is the whole rule, and it is yours to apply because only you
+can persist it (`docs/M6-RESEARCH.md` §6).
+
 ### Snap grid
 
 ```ts
@@ -297,12 +311,55 @@ point. Markers are our own glyphs (`Arrow`, `ArrowClosed`) in a `<defs>` block t
 exists only when an edge asks for one, sized in user units so they scale with the
 viewport. Per-edge styling is `[data-edgeid]` in your own stylesheet.
 
-### Minimap click-to-centre
+### Minimap: click to centre, drag to pan
 
-With `minimap: true`, a press inside it centres the view on the flow point under
-the cursor (`ClickedMiniMap`, handled as one `setViewport`). Drag-to-pan is not in
-v1.0 (`docs/M4-FINDINGS.md` §2.9), and neither is edge selection from the pointer
-layer (§2.10).
+With `minimap: true`, a press inside it centres the view on the flow point under the
+cursor, and holding the button down and dragging pans from there
+(`StartedMiniMapPan` → `Gesture.MiniMapPanning` → one `setViewport` per pointer move,
+through the same clamp and `SyncViewport` Command as every other programmatic move).
+
+The mapping is read **once**, at press: the minimap's own `getScreenCTM()` gives the
+flow point under the cursor and the scale, so no frame of the drag touches the DOM and
+the pan is absolute from where you pressed rather than accumulated step by step.
+
+Two minimap interactions are **not** shipped, and each for a reason
+(`docs/M6-RESEARCH.md` §4): a wheel-zoom (`zoomable` is off by default upstream too, and
+the zoom buttons already exist) and a per-node press target (a press already centres on
+the node under the cursor). The minimap stays `aria-hidden` — it is a picture of what
+the description region says in words, and a picture that is also an unlabelled control
+is worse than one that is not a control.
+
+### Selecting an edge
+
+```ts
+const renderer = Flow.createRenderer({
+  paneId,
+  renderNode,
+  edgeSelection: true,
+});
+```
+
+Off by default. On, each edge draws an invisible press path 20 **flow units** wide
+(upstream's `interactionWidth` default, in flow space because the width must not depend
+on the zoom), and the edge group becomes a control:
+
+| Input                             | Message                                 | Result                                                          |
+| --------------------------------- | --------------------------------------- | --------------------------------------------------------------- |
+| a press on the edge               | `PressedEdge({ edgeId, isAdditive })`   | selects it; clears the node selection unless a modifier is held |
+| `Tab` to it, then `Enter`/`Space` | `ActivatedEdge({ edgeId, isAdditive })` | the same                                                        |
+
+Selection is reported as `SelectedElements({ nodeIds, edgeIds })` — the fact that
+already existed — so `Delete` removes the selected edges through the path it always
+had. The group carries `role="button"`, `aria-pressed` and an `aria-label` of
+`Edge from <source> to <target>` (`: <label>` when the edge has one), built from the
+same `accessibleName` hook the nodes use. The edges layer **loses `aria-hidden`** when
+the feature is on, because a focusable descendant of a hidden subtree is an ARIA
+violation; with it off, the layer stays hidden.
+
+Tab order is the DOM's, and that has one consequence worth knowing: the edges layer
+renders before the nodes layer, so every edge is tabbed before every node. A graph with
+1,000 edges and `edgeSelection` on has 1,000 tab stops before the first node, which is
+why the feature is opt-in.
 
 ## Accessibility
 
@@ -313,6 +370,10 @@ What the flow provides:
   hook — falling back to the node id, because the flow cannot read `node.data`.
   Tab order is the DOM's: nodes are tabbed in render order, with whatever
   focusable content you put inside them, and Tab is not trapped.
+- **Focusable edges,** when `edgeSelection` is on: `tabindex="0"`, `role="button"`,
+  `aria-pressed`, named `Edge from <source> to <target>`, selected by `Enter` or
+  `Space`. An arrow key on an edge does nothing — an edge has no position of its own
+  to nudge.
 - **Arrow-key nudging.** With a node focused, arrow keys move it by
   `Flow.nudgeStep` (1) or `Flow.nudgeLargeStep` (10) with Shift, one `MovedNodes`
   OutMessage per press. The keys are ignored while the event target is an input,

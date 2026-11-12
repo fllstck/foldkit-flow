@@ -21,39 +21,39 @@
         "longFrames": 0
       },
       "pan": {
-        "count": 507,
+        "count": 501,
         "median": 16.7,
         "p95": 16.7,
-        "longest": 16.8,
+        "longest": 33.3,
         "longFrames": 0
       }
     },
     "svelte": {
       "drag": {
-        "count": 499,
+        "count": 501,
         "median": 16.7,
         "p95": 16.8,
         "longest": 33.4,
         "longFrames": 0
       },
       "pan": {
-        "count": 495,
+        "count": 490,
         "median": 16.7,
-        "p95": 16.8,
+        "p95": 16.7,
         "longest": 16.8,
         "longFrames": 0
       }
     },
     "foldkit": {
       "drag": {
-        "count": 504,
+        "count": 502,
         "median": 16.7,
         "p95": 16.7,
-        "longest": 16.8,
+        "longest": 33.3,
         "longFrames": 0
       },
       "pan": {
-        "count": 479,
+        "count": 471,
         "median": 16.7,
         "p95": 16.7,
         "longest": 16.8,
@@ -65,19 +65,19 @@
     "react": {
       "readyMs": {
         "count": 10,
-        "median": 22.9,
-        "p95": 51.2,
-        "longest": 51.2,
-        "longFrames": 1
+        "median": 22.7,
+        "p95": 45.2,
+        "longest": 45.2,
+        "longFrames": 0
       },
       "measuredMs": null
     },
     "svelte": {
       "readyMs": {
         "count": 10,
-        "median": 66.9,
-        "p95": 68.7,
-        "longest": 68.7,
+        "median": 68.2,
+        "p95": 71.1,
+        "longest": 71.1,
         "longFrames": 10
       },
       "measuredMs": null
@@ -85,25 +85,25 @@
     "foldkit": {
       "readyMs": {
         "count": 10,
-        "median": 34.5,
-        "p95": 44.1,
-        "longest": 44.1,
+        "median": 33,
+        "p95": 35.9,
+        "longest": 35.9,
         "longFrames": 0
       },
       "measuredMs": {
         "count": 10,
-        "median": 89.4,
-        "p95": 97.4,
-        "longest": 97.4,
+        "median": 86.9,
+        "p95": 87.8,
+        "longest": 87.8,
         "longFrames": 10
       }
     }
   },
   "flow": {
     "updates": 1925,
-    "updateTotalMs": 3,
-    "updatePerDispatchMs": 0.0016,
-    "cullScanMs": 0.476,
+    "updateTotalMs": 3.8,
+    "updatePerDispatchMs": 0.002,
+    "cullScanMs": 0.498,
     "cullScanSamples": 21
   }
 }

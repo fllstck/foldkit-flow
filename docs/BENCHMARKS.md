@@ -102,31 +102,37 @@ parentheses.
 
 | Leg                       | Drag                     | Pan                      | Long frames (> 50 ms) |
 | ------------------------- | ------------------------ | ------------------------ | --------------------- |
-| 625, React Flow 12.12.1   | not verified¹            | 16.7 / 16.7 / 16.8 (507) | 0                     |
-| 625, Svelte Flow 1.7.1    | 16.7 / 16.8 / 33.4 (499) | 16.7 / 16.8 / 16.8 (495) | 0                     |
-| 625, Foldkit Flow 0.1.0²  | 16.7 / 16.7 / 16.8 (504) | 16.7 / 16.7 / 16.8 (479) | 0                     |
-| 1k culled                 | 16.7 / 16.8 / 33.3 (497) | 16.7 / 16.8 / 16.8 (475) | 0                     |
-| 1k culled **with chrome** | 16.7 / 16.8 / 16.8 (497) | 16.7 / 16.8 / 16.8 (480) | 0                     |
+| 625, React Flow 12.12.1   | not verified¹            | 16.7 / 16.7 / 33.3 (501) | 0                     |
+| 625, Svelte Flow 1.7.1    | 16.7 / 16.8 / 33.4 (501) | 16.7 / 16.7 / 16.8 (490) | 0                     |
+| 625, Foldkit Flow 0.1.1²  | 16.7 / 16.7 / 33.3 (502) | 16.7 / 16.7 / 16.8 (471) | 0                     |
+| 1k culled                 | 16.7 / 16.7 / 33.3 (492) | 16.7 / 16.8 / 16.8 (473) | 0                     |
+| 1k culled **with chrome** | 16.7 / 16.8 / 16.8 (496) | 16.7 / 16.8 / 16.8 (473) | 0                     |
 
 ¹ React Flow's node drag does not engage under this harness: the `pointerdown` is
 delivered and the node box does not change. The harness reports that as
 unverified rather than recording idle frames (M1-FINDINGS §10).
+² The tree at this run is the M6 work on top of the published `0.1.1`, and no M6 ship
+is configured on any gate page — `/m6.html` is its own page. The layer label says which
+published surface the tree is built on, not which milestone produced the number
+(`docs/M6-FINDINGS.md` §2).
 
 Parity holds where it can be compared: on the 625 fixture React Flow's pan is
-16.7 / 16.7 / 16.8 over 507 frames and Foldkit's is 16.7 / 16.7 / 16.8 over 479 —
-identical median, p95 and longest. The 1k legs are inside the 33 ms p95 gate; their
-16.8 ms longest frames are single frame intervals and the 2 % bound at 1k is 10
-frames. A frame at exactly 50.0 ms would count as _not_ long (§4.5: **over** 50),
-which is why the counts are published beside the longest frame; none appeared in
-this run.
+16.7 / 16.7 / 33.3 over 501 frames and Foldkit's is 16.7 / 16.7 / 16.8 over 471 —
+identical median and p95, and the one 33 ms frame React Flow recorded is a frame
+Foldkit did not. The 1k legs are inside the 33 ms p95 gate; the 2 % bound at 1k is 10
+frames and the count is 0 in both. A frame at exactly 50.0 ms would count as _not_
+long (§4.5: **over** 50), which is why the counts are published beside the longest
+frame; none appeared in this run. A handful of 33.3–33.4 ms frames did, in five of the
+seven legs — the M2 §4 stall allowance, visible in the `longest` column rather than in
+`longFrames`.
 
 Per-dispatch and per-scan cost from the same runs:
 
 | Leg                | `updatePerDispatchMs` | `cullScanMs` |
 | ------------------ | --------------------- | ------------ |
-| 625                | 0.0016                | 0.476        |
-| 1k culled          | 0.0021                | 0.876        |
-| 1k culled + chrome | 0.0025                | 0.694        |
+| 625                | 0.0020                | 0.498        |
+| 1k culled          | 0.0034                | 0.750        |
+| 1k culled + chrome | 0.0021                | 0.660        |
 
 ## Startup
 
@@ -136,21 +142,23 @@ is reported beside the frame numbers rather than inside them (§4.5):
 
 | Leg              | first painted graph, median / p95 | every node measured, median / p95 |
 | ---------------- | --------------------------------- | --------------------------------- |
-| 625, React Flow  | 23 / 51 ms                        | not observable from outside       |
-| 625, Svelte Flow | 67 / 69 ms                        | not observable from outside       |
-| 625, Foldkit     | **35 / 44 ms**                    | **89 / 97 ms**                    |
-| 1k culled        | 35 / 40 ms                        | 115 / 117 ms                      |
-| 1k + chrome      | 32 / 40 ms                        | 119 / 124 ms                      |
+| 625, React Flow  | 23 / 45 ms                        | not observable from outside       |
+| 625, Svelte Flow | 68 / 71 ms                        | not observable from outside       |
+| 625, Foldkit     | **33 / 36 ms**                    | **87 / 96 ms**                    |
+| 1k culled        | 32 / 38 ms                        | 112 / 117 ms                      |
+| 1k + chrome      | 30 / 38 ms                        | 119 / 124 ms                      |
 
 Two things to read out of it, and one caveat:
 
 - **The first paint is not where this library's cost is, but it is not the whole
-  story either.** At 625 the medians are 35 ms for us, 23 for React Flow and 67 for
-  Svelte Flow; React Flow's first paint is cheaper, and it is the _measurement_ pass
-  that this library pays for instead (89 ms to every node measured). The
-  mechanism is not measured here — only the difference — and the obvious candidate
-  is that a Foldkit `view` builds the DOM it renders, with no framework
-  reconciliation pass between the two.
+  story either.** At 625 the medians are 33 ms for us, 23 for React Flow and 68 for
+  Svelte Flow. React Flow's first paint is cheaper — though its own number moves more
+  between runs than the difference does (23 in the run that published these figures and
+  40 in the one before it, both at the same tree, against our 33 and 34), and it is the
+  _measurement_ pass that this library pays for regardless (87 ms to every node
+  measured). The mechanism is not measured here — only
+  the difference — and the obvious candidate is that a Foldkit `view` builds the DOM it
+  renders, with no framework reconciliation pass between the two.
 - **The measurement pass is the Foldkit-only column**, and it is 50–60 ms more at
   625: every node runs a Mount with a `ResizeObserver` and a `MutationObserver`, and
   that is the price of the measurement contract. It is reported because a consumer
@@ -159,7 +167,7 @@ Two things to read out of it, and one caveat:
   than guessing at a comparable number.
 - **It is a fresh-cache number.** Each leg navigates to a new page, so the first
   paint includes compile and layout of a cold bundle; that is what a user sees, and
-  it is also why it dwarfs the 10k page's 544 ms first view (10,000 nodes, one
+  it is also why it dwarfs the 10k page's 523 ms first view (10,000 nodes, one
   render) only by an order of magnitude rather than by more.
 
 ## Heap after 1,000 create/delete cycles
@@ -174,7 +182,7 @@ it is memory held rather than memory allocated.
 | ------------------------- | ------- | ------------ | ------------- |
 | renderer node-cache slots | 200     | **200**      | **200**       |
 | nodes in the DOM          | 200     | 200          | 200           |
-| retained JS heap          | 6.36 MB | 7.29 MB      | 7.39 MB       |
+| retained JS heap          | 6.38 MB | 7.31 MB      | 7.41 MB       |
 | steps (adds + removes)    | —       | 2 000        | 4 000         |
 | loop wall time            | —       | 11.5 s       | 11.5 s        |
 
@@ -185,8 +193,8 @@ ever seen — and a cache without the sweep would have climbed to 1,200 slots an
 2,200.
 
 The heap column is the weaker of the two numbers and is presented as such: the first
-loop adds ~0.94 MB, the second adds ~0.09 MB on top, so the curve is flat in the
-loop count rather than linear in it. A single-machine heap figure is not a promise —
+loop adds 0.94 MB, the second adds 0.10 MB on top, so the curve is flat in the loop
+count rather than linear in it. A single-machine heap figure is not a promise —
 what it rules out is a leak of the whole loop (2,000 VNodes and their props), and
 the spec's ceiling (12 MB) is set there rather than tight.
 
@@ -234,6 +242,11 @@ The scan is now ~3 % of a 16.7 ms frame at 625, ~5 % at 1k, and ~32 % at an
 expanded 10k. It remains O(N) per viewport frame by design (§4.5); a spatial index
 would make it O(log N) for a graph that needs one, and nothing measured yet does.
 
+**M6 re-measured it and left it alone.** The gate table above is the run at the M6
+commit (0.50 / 0.75 / 0.66 / 3.24 / 5.42 ms); the before/after rows in this section are
+M5's own pair of runs, kept because they are the evidence that the index paid. The M6
+verdict — keep out, with what would change it — is `docs/M6-RESEARCH.md` §1.
+
 ## 10k: the escape hatch, and the ceiling
 
 Two pages, both explorations — §4.5 promises no figure at 10k until it is
@@ -245,10 +258,10 @@ measured, so nothing asserts a budget on either.
 | Metric                     | Value                 |
 | -------------------------- | --------------------- |
 | rendered nodes             | 200 of 10,000         |
-| pan frames                 | 254                   |
-| pan median / p95 / longest | 16.7 / 16.8 / 16.8 ms |
+| pan frames                 | 252                   |
+| pan median / p95 / longest | 16.7 / 16.7 / 33.3 ms |
 | long frames (> 50 ms)      | 0                     |
-| cull scan per call         | 3.29 ms               |
+| cull scan per call         | 3.24 ms               |
 
 **Expanded** (`/large-expanded.html`, `results/expanded-10k.json`): the same
 10,000 nodes with nothing collapsed, at zoom 1 — 280 nodes and 300 edges are
@@ -258,12 +271,12 @@ inside the culling region, 9,720 nodes and 9,600 edges are not.
 | -------------------------- | --------------------- |
 | rendered nodes             | 280 of 10,000         |
 | rendered edges             | 300 of 9,900          |
-| pan frames                 | 287                   |
+| pan frames                 | 277                   |
 | pan median / p95 / longest | 16.7 / 16.8 / 33.4 ms |
 | long frames (> 50 ms)      | 0                     |
-| cull scan per call         | 5.51 ms               |
-| time to first view         | 515 ms                |
-| time to settle             | **1 190 ms**          |
+| cull scan per call         | 5.42 ms               |
+| time to first view         | 523 ms                |
+| time to settle             | **1 201 ms**          |
 
 So the frame rate is **not** where 10k breaks. Two things are, and both are
 stated rather than smoothed over:
@@ -357,3 +370,7 @@ node and 0 edges on our side and 3 nodes and 1 edge on theirs (`M5-FINDINGS` §5
 - The gate's 2 % long-frame bound. It is a deliberate allowance for a stall this
   project has measured but not explained; a run that reports a `longFrames` count
   inside it is passing the gate as specified, not passing a zero-tolerance test.
+- What is _not_ in M6: none of the three ships is configured on a gate page.
+  `/m6.html` exists for the proofs (`tests/m6.spec.ts`, five of them) and the gate's
+  DOM is what M5 measured, which is why these numbers are a re-run rather than a
+  re-derivation (`docs/M6-FINDINGS.md` §2).

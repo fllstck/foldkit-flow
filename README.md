@@ -5,11 +5,14 @@ A flow / node-graph canvas for [Foldkit](https://foldkit.dev): one Model, pure `
 Published as **`0.1.1`**. It covers the whole M0–M5 surface:
 pan/zoom, drag, select, delete, connect and reconnect, node resizing, sub-flows,
 collapsing, snap, edge types, markers and labels, a minimap, own chrome and an
-accessibility layer. `1.0.0` waits until the library has had real use.
+accessibility layer.
 
-Not in it, on purpose: edge selection, minimap drag, `nodeOrigin`, multi-node
-resize, interactive edge labels. Those are M6, research first
-([`docs/PLAN.md`](docs/PLAN.md) §7).
+M6 adds three opt-in behaviours on top: **edge selection and edge focus**
+(`edgeSelection`), **drag-to-pan inside the minimap**, and an **aspect-ratio lock** on a
+resize (hold Shift). Everything else on M6's list was researched and deliberately left
+out, with the reason and what would change it in
+[`docs/M6-RESEARCH.md`](docs/M6-RESEARCH.md). `1.0.0` waits until the library has had
+real use.
 
 ## Install
 

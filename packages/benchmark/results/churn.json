@@ -8,8 +8,8 @@
     "graphAtRest": 200
   },
   "loop": {
-    "firstMs": 11461,
-    "secondMs": 11517,
+    "firstMs": 11487,
+    "secondMs": 11476,
     "steps": {
       "afterFirst": 2000,
       "afterSecond": 2000
@@ -27,9 +27,9 @@
     "afterSecond": 200
   },
   "heapMb": {
-    "before": 6.36,
-    "afterFirst": 7.29,
-    "afterSecond": 7.39,
+    "before": 6.38,
+    "afterFirst": 7.31,
+    "afterSecond": 7.41,
     "growthAfterFirst": 0.93,
     "growthAfterSecond": 1.03
   },
