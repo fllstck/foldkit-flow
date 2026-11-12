@@ -171,6 +171,7 @@ produced it beside it.
 - **[docs/verification.md](docs/verification.md)** — the boundary rule that keeps a published figure honest.
 - **[docs/TEST-STRATEGY.md](docs/TEST-STRATEGY.md)** — the five rungs the tests sit on, and which claim lives where.
 - **[CHANGELOG.md](packages/flow/CHANGELOG.md)** — what changed in each release, and what did not.
+- **[docs/RELEASING.md](docs/RELEASING.md)** — the release checklist, including the two steps that need npm credentials the agent does not have.
 - **Findings** — [`M0`](docs/M0-FINDINGS.md), [`M1`](docs/M1-FINDINGS.md), [`M2`](docs/M2-FINDINGS.md), [`M3`](docs/M3-FINDINGS.md), [`M4`](docs/M4-FINDINGS.md), [`M5`](docs/M5-FINDINGS.md): what each milestone shipped, what it got wrong, and what the reviews found.
 
 ## Contributing

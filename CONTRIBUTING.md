@@ -1,6 +1,7 @@
 # Contributing
 
-How this repository is built, tested and measured. The behavioural contract is in
+How this repository is built, tested and measured. Cutting a version is
+[`docs/RELEASING.md`](docs/RELEASING.md). The behavioural contract is in
 [`docs/CONTRACT.md`](docs/CONTRACT.md); the design is in [`docs/PLAN.md`](docs/PLAN.md).
 
 ## Development
