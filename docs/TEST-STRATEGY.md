@@ -140,6 +140,14 @@ there and half the 6.0 ms the linear lookup cost.
   hand at each milestone (`M5-FINDINGS` §7); packing into a temp dir and importing
   it is the better version and belongs with the publish task.
 
+### Second pass
+
+`docs/TEST-STRATEGY-REVIEW-2.md` re-checked the work and found no correctness
+findings: the policy fix, the rung-1 route and registry tests, the harness Story
+tests, the read-count replacement and the moved culling threshold all landed as
+described, and it confirms that the remaining items are _deferred_ rather than
+claimed. Nothing changed in response — the deferred list below stands as written.
+
 ### What the review got right about scope
 
 "We should not broadly move the browser tests downward" is the conclusion this
