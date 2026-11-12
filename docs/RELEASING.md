@@ -48,10 +48,11 @@ needed the owner to finish the publish by hand.
 
 7. `cd packages/flow && npm publish --access public`. `prepublishOnly` runs
    `typecheck && test && build` first, so a stale `dist` cannot ship.
-8. **The account needs either a one-time password or a granular token.** Two
-   attempts have ended in `E401`/`E404` (an expired token) and `EOTP` (2FA without a
-   code). If `npm whoami` fails, or the publish asks for an OTP, it is the owner's
-   step: complete the browser flow, or pass `--otp=<code>`.
+8. **The account needs either a one-time password or a granular token.** Three
+   attempts have ended in `E401`/`E404` (an expired token), `EOTP` (2FA without a
+   code), and then success via the owner. If `npm whoami` fails, or the publish asks
+   for an OTP, it is the owner's step: complete the browser flow, or pass
+   `--otp=<code>`.
 9. Verify from the registry rather than from the terminal that printed "published":
 
    ```sh
@@ -60,9 +61,15 @@ needed the owner to finish the publish by hand.
    ```
 
    And once, after a release that changes anything a consumer runs: install it into
-   an empty project with its peers and `import` it. That is how `0.1.0` was checked —
-   79 exports, `fitViewport` called through the published bundle
-   (`docs/M5-FINDINGS.md` §13).
+   an empty project with its peers and `import` it. That is how both releases were
+   checked — 79 exports, `fitViewport` called through the published bundle
+   (`docs/M5-FINDINGS.md` §13 and §16).
+
+   **Propagation is a real gap, not a formality.** For a few minutes after `npm view`
+   starts answering the new version, `npm install <package>@<new version>` can still
+   fail with `notarget`, because npm caches packuments. `npm install --prefer-online`
+   skips the cache; a plain retry a few minutes later works too. Do not read that
+   error as a broken release.
 
 ## After
 

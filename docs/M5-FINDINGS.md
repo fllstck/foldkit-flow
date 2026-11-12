@@ -672,7 +672,8 @@ as the thing to build before the front door grows another snippet.
 
 ## 16. Two releases, tagged, with a changelog
 
-`0.1.1` was cut the same day as `0.1.0` for exactly two reasons: the `Flow.Remeasure`
+`0.1.1` was cut, published and verified the same day as `0.1.0` for exactly two
+reasons: the `Flow.Remeasure`
 casing in the published README (§15.2, which npm will not let 0.1.0 be edited to fix)
 and the repository metadata `package.json` was missing when 0.1.0 went out (§13). No
 runtime code changed — `dist/index.js` and `dist/style.css` are byte-identical to the
@@ -689,6 +690,26 @@ Two things the first release did not have:
   `034c6a2`), so the tag goes on the former.
 - **A changelog.** [`CHANGELOG.md`](../packages/flow/CHANGELOG.md), in Keep a Changelog form, keeps
   it in the tarball (`files`) and links the compare views.
+
+Verified from the registry rather than from the terminal that printed "published"
+(2026-11-12T12:10Z, `latest` → `0.1.1`):
+
+| Check                                      | Result                                                                                                                     |
+| ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------- |
+| `dist-tags.latest`                         | `0.1.1`                                                                                                                    |
+| tarball entries                            | `dist/index.js`, `dist/index.d.ts`, `dist/style.css`, `LICENSE`, `README.md`, **`CHANGELOG.md`**, `THIRD-PARTY-NOTICES.md` |
+| manifest                                   | `files` includes `CHANGELOG.md`; `repository` present (0.1.0 had none)                                                     |
+| the published README                       | contains `Flow.Remeasure`, and no `Flow.remeasure` — §15.2's typo is gone from the registry                                |
+| `dist/index.js`, `dist/style.css` vs 0.1.0 | **byte-identical**, which is what this section claims                                                                      |
+| install into an empty project + import     | 22 packages; 79 exports; `fitViewport` → `{"x":300,"y":260,"zoom":2}`; `node_modules/.../CHANGELOG.md` present             |
+
+Two things the publish itself surfaced, both now in `docs/RELEASING.md`: the account
+needs a one-time password (the first attempt ended in `EOTP`), and npm's cached
+packument made `npm install @fllstck/foldkit-flow@0.1.1` fail with `notarget` for a
+few minutes after the registry already answered `0.1.1` — `--prefer-online` is the
+workaround. The registry also carries a `0.0.0-stage` version that predates this work
+and is not on any tag; it is not `latest`, so it is inert, and deprecating it is the
+owner's call.
 
 The point recorded in §7.1 still stands, and this release does not close it: this
 changelog was written from `git log` by hand-checking the grouping, not generated. The
