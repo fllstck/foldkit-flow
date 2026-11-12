@@ -125,6 +125,17 @@ remember that the same page now has a different first-order cost: **startup**
   frames reappear, run it before assuming the change is at fault — and if it
   localises the stall, the report's §"The start-of-pan stall" needs updating.
 
+## Testing
+
+`docs/TEST-STRATEGY.md` is the map: five rungs (pure → Story → Scene → Mount
+stream → Playwright), the rule that a claim lives on the lowest rung that can see
+it, and an audit of all 56 browser proofs against the rungs below. Two rungs it
+added during M5 — Scene (`view/chrome.scene.test.ts`) and Mount stream
+(`runtime/mountPane.test.ts`) — exist because the pan-jump lived where neither
+Story nor Playwright could see it. Read it before adding a proof: a claim that
+needs no layout belongs two rungs lower, and the suite's 4.8 minutes are for the
+layer only a browser can observe.
+
 ## Known traps and gotchas
 
 Everything in the M1–M5 handoffs' "known traps" still applies. Sharpened for M6:

@@ -63,6 +63,80 @@ const flow = (givenContext: Context = context) => ({
 const isIdle = (gesture: Gesture): boolean => Gesture.guards.Idle(gesture);
 
 describe("node drag", () => {
+  // The sequence half of "assert the next step" (`docs/TEST-STRATEGY.md`): the two
+  // bugs reported in M5 both lived *between* two interactions, and a single-step
+  // test cannot see them. These are rung 2 — no view, no browser.
+  test("a second drag emits its own fact, not the first one again", () => {
+    const press = (x: number, y: number) =>
+      Message.PressedNode({
+        nodeId: "n1",
+        point: { x, y },
+        isAdditive: false,
+        pointer: mouse,
+      });
+    const move = (screenX: number, screenY: number) =>
+      Message.MovedPointer({ screenX, screenY, pointerId: 1 });
+
+    story(
+      flow().update,
+      given(initial),
+      message(press(10, 10)),
+      message(move(30, 20)),
+      message(Message.ReleasedPointer({ pointerId: 1 })),
+      expectOutMessage(
+        OutMessage.MovedNodes({ nodes: [{ nodeId: "n1", x: 20, y: 10 }] }),
+      ),
+      // The gesture is idle again, so the second press starts from the pointer it
+      // is given rather than from the first gesture's origin.
+      model((m) => {
+        expect(isIdle(m.gesture)).toBe(true);
+      }),
+      message(press(100, 100)),
+      message(move(150, 130)),
+      message(Message.ReleasedPointer({ pointerId: 1 })),
+      expectOutMessage(
+        OutMessage.MovedNodes({ nodes: [{ nodeId: "n1", x: 50, y: 30 }] }),
+      ),
+    );
+  });
+
+  test("a cancelled drag leaves nothing behind: the next drag commits once", () => {
+    story(
+      flow().update,
+      given(initial),
+      message(
+        Message.PressedNode({
+          nodeId: "n1",
+          point: { x: 10, y: 10 },
+          isAdditive: false,
+          pointer: mouse,
+        }),
+      ),
+      message(Message.MovedPointer({ screenX: 60, screenY: 60, pointerId: 1 })),
+      // A pointercancel (or blur, or Escape) drops the overlay and commits nothing.
+      message(Message.CancelledGesture({ reason: "PointerCancel" })),
+      model((m) => {
+        expect(isIdle(m.gesture)).toBe(true);
+      }),
+      message(
+        Message.PressedNode({
+          nodeId: "n1",
+          point: { x: 200, y: 200 },
+          isAdditive: false,
+          pointer: mouse,
+        }),
+      ),
+      message(
+        Message.MovedPointer({ screenX: 210, screenY: 205, pointerId: 1 }),
+      ),
+      message(Message.ReleasedPointer({ pointerId: 1 })),
+      // One fact, and it is the second gesture's delta — not the cancelled one's.
+      expectOutMessage(
+        OutMessage.MovedNodes({ nodes: [{ nodeId: "n1", x: 10, y: 5 }] }),
+      ),
+    );
+  });
+
   test("press, move, release commits one MovedNodes", () => {
     story(
       flow().update,
@@ -886,6 +960,72 @@ describe("handle bounds", () => {
 });
 
 describe("connections", () => {
+  // A connection and a drag are different gestures over the same pointer. The
+  // second must not be read as a continuation of the first — this is the sequence
+  // the demo's "drag right after connecting" path takes every day.
+  test("a drag straight after a connection is a drag, and emits no connection", () => {
+    const sourceHandle = {
+      nodeId: "n1",
+      handleId: Option.none(),
+      type: "Source" as const,
+    };
+    const withTarget = {
+      ...initial,
+      paneId: Option.some("p"),
+      handleBounds: [
+        {
+          nodeId: "n2",
+          handleId: Option.none(),
+          type: "Target" as const,
+          position: "Top" as const,
+          x: 40,
+          y: -4,
+          width: 8,
+          height: 8,
+        },
+      ],
+    };
+
+    story(
+      flow().update,
+      given(withTarget),
+      // 1. connect n1 -> n2
+      message(
+        Message.StartedConnection({ from: sourceHandle, pointer: mouse }),
+      ),
+      Story.Command.resolve<"MeasureHandles", Message>(
+        MeasureHandles,
+        failedMeasure,
+      ),
+      message(
+        Message.MovedPointer({ screenX: 244, screenY: 100, pointerId: 1 }),
+      ),
+      message(Message.ReleasedPointer({ pointerId: 1 })),
+      expectOutMessage(
+        OutMessage.ConnectedHandles({
+          source: sourceHandle,
+          target: { nodeId: "n2", handleId: Option.none(), type: "Target" },
+        }),
+      ),
+      // 2. drag n1 by the same pointer
+      message(
+        Message.PressedNode({
+          nodeId: "n1",
+          point: { x: 10, y: 10 },
+          isAdditive: false,
+          pointer: mouse,
+        }),
+      ),
+      message(Message.MovedPointer({ screenX: 25, screenY: 18, pointerId: 1 })),
+      message(Message.ReleasedPointer({ pointerId: 1 })),
+      // The drag's fact and nothing else: a stale connection state here would
+      // emit a second `ConnectedHandles`.
+      expectOutMessage(
+        OutMessage.MovedNodes({ nodes: [{ nodeId: "n1", x: 15, y: 8 }] }),
+      ),
+    );
+  });
+
   const sourceHandle = {
     nodeId: "n1",
     handleId: Option.none(),
