@@ -15,6 +15,10 @@ import type { ExampleSpec } from "../spec";
  * the edge to select it, or Tab to it and press Enter. The whole feature is the
  * one option — the library draws the wider hit path, names the edge from
  * `accessibleName`, and reports `SelectedElements` like any other selection.
+ *
+ * `edgeOverlay` puts a button on the edge's label point. The library anchors it,
+ * cancels the zoom and declines the pane's press; the button and its Message are
+ * the harness's. Press it: it neither pans nor clears the selection.
  */
 const example: ExampleSpec = {
   name: "resizing",
@@ -48,7 +52,12 @@ const example: ExampleSpec = {
     { id: "e-panel-leaf", source: "panel", target: "leaf", markerEnd: "Arrow" },
   ],
   viewport: { x: 80, y: 100, zoom: 1 },
-  renderer: { resize: true, edgeSelection: true, snapGrid: { x: 10, y: 10 } },
+  renderer: {
+    resize: true,
+    edgeSelection: true,
+    edgeOverlay: true,
+    snapGrid: { x: 10, y: 10 },
+  },
 };
 
 export default example;

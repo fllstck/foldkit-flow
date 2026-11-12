@@ -436,3 +436,112 @@ test("proof 54: a press on the overlay neither pans nor clears the selection, an
   expect(await viewportOf(page)).toEqual(before);
   expect(await attr(page, "data-gesture")).toBe("Idle");
 });
+
+test("proof 55: the overlay works on a second consumer page", async ({
+  page,
+}) => {
+  // `/examples/resizing/` is the second consumer: the control's markup and its
+  // Message are the harness's (`edgeOverlay: (edge, h) => h.button(…)`), and the
+  // selection it sits on is the example's own state, not the benchmark fixture's.
+  await page.goto("http://localhost:4174/examples/resizing/");
+  await page.waitForFunction(
+    () => document.querySelectorAll(".fflow__node").length > 0,
+    undefined,
+    { timeout: 20_000 },
+  );
+  await page.waitForSelector("[data-fflow-overlay]", { timeout: 20_000 });
+  await page.waitForTimeout(300);
+
+  const selected = async () =>
+    (await page
+      .locator("main")
+      .first()
+      .getAttribute("data-example-selected")) ?? "";
+  const fact = async () =>
+    (await page.locator("main").first().getAttribute("data-example-fact")) ??
+    "";
+  const viewportTransform = async () =>
+    (await page
+      .locator("[data-fflow-viewport]")
+      .first()
+      .getAttribute("style")) ?? "";
+
+  // One anchor per edge, and the anchor is the label point. The page's only edge
+  // is a Bezier, whose label point is the midpoint of its two endpoints — the
+  // painted path's own ends, in screen coordinates, so this is independent of the
+  // transform the item is placed with.
+  const edgeCount = await page.locator("[data-edgeid]").count();
+  expect(edgeCount).toBe(1);
+  expect(await page.locator("[data-fflow-overlay]").count()).toBe(edgeCount);
+
+  const control = page.locator("[data-fflow-overlay] .ex2-edge-action").first();
+  expect(await control.textContent()).toBe("Edit edge");
+
+  const anchor = await page.evaluate(() => {
+    const path = document.querySelector(
+      ".fflow__edge[data-edgeid] .fflow__edge-path",
+    );
+    if (!(path instanceof SVGPathElement)) return null;
+    const matrix = path.getScreenCTM();
+    if (matrix === null) return null;
+    const length = path.getTotalLength();
+    const ends = [0, length].map((distance) => {
+      const local = path.getPointAtLength(distance);
+      const screen = new DOMPoint(local.x, local.y).matrixTransform(matrix);
+      return { x: screen.x, y: screen.y };
+    });
+    return {
+      x: ((ends[0]?.x ?? 0) + (ends[1]?.x ?? 0)) / 2,
+      y: ((ends[0]?.y ?? 0) + (ends[1]?.y ?? 0)) / 2,
+    };
+  });
+  if (anchor === null) throw new Error("the edge has no painted path");
+  const controlBox = await control.boundingBox();
+  if (controlBox === null) throw new Error("the control has no box");
+  expectClose(controlBox.x + controlBox.width / 2, anchor.x, 2);
+  expectClose(controlBox.y + controlBox.height / 2, anchor.y, 2);
+
+  // Keyboard: the edge is the first stop, the control is the next one. Enter on
+  // the control is the consumer's Message and leaves the edge selected.
+  await page.locator(".fflow__edge[data-edgeid]").first().focus();
+  await page.keyboard.press("Enter");
+  await page.waitForFunction(
+    () =>
+      document.querySelector("main")?.getAttribute("data-example-selected") ===
+      "e-panel-leaf",
+    undefined,
+    WAIT,
+  );
+  await page.keyboard.press("Tab");
+  expect(
+    await page.evaluate(() => document.activeElement?.className ?? ""),
+  ).toBe("ex2-edge-action");
+  await page.keyboard.press("Enter");
+  await page.waitForFunction(
+    () =>
+      document.querySelector("main")?.getAttribute("data-example-fact") ===
+      "Edge control on e-panel-leaf",
+    undefined,
+    WAIT,
+  );
+  expect(await selected()).toBe("e-panel-leaf");
+
+  // A press *and a drag* on the control: the pane declines it on this page too,
+  // so the viewport does not travel and the selection survives.
+  const before = await viewportTransform();
+  const centre = {
+    x: controlBox.x + controlBox.width / 2,
+    y: controlBox.y + controlBox.height / 2,
+  };
+  await page.mouse.move(centre.x, centre.y);
+  await page.mouse.down();
+  for (let step = 1; step <= 3; step += 1) {
+    await page.mouse.move(centre.x + step * 11, centre.y + step * 13);
+    await page.waitForTimeout(16);
+  }
+  await page.mouse.up();
+  await page.waitForTimeout(300);
+  expect(await viewportTransform()).toBe(before);
+  expect(await selected()).toBe("e-panel-leaf");
+  expect(await fact()).toBe("Edge control on e-panel-leaf");
+});

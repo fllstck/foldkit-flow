@@ -222,6 +222,27 @@
   border-color: #4c8dff;
 }
 
+/* The M7 overlay control on an edge (§7 M7). The library's layer and item both
+   ignore the pointer, so a control opts back in on its own element; nothing else
+   about the position or the size is ours — the layer anchors it and cancels the
+   zoom. */
+.ex2-edge-action {
+  pointer-events: auto;
+  padding: 2px 8px;
+  border: 1px solid #2a3140;
+  border-radius: 6px;
+  background: #171c26;
+  color: #e6e8ee;
+  font: inherit;
+  font-size: 10px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.ex2-edge-action:hover {
+  border-color: #4c8dff;
+}
+
 /* The index. */
 .ex2-index {
   max-width: 900px;

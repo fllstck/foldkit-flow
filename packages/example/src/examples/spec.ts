@@ -67,6 +67,10 @@ export type ExampleRenderer = Readonly<{
   reconnect?: boolean;
   /** M6: edges are press and tab targets. */
   edgeSelection?: boolean;
+  /** M7: a control anchored on each edge's label point, in the flow's own HTML
+   *  overlay layer. The harness supplies the markup and the Message; an example
+   *  turns the layer on. */
+  edgeOverlay?: boolean;
   snapGrid?: Readonly<{ x: number; y: number }>;
   background?: boolean;
   controls?: boolean;

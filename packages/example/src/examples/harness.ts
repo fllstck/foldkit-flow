@@ -76,6 +76,11 @@ const Message = defineMessageUnion({
   GotFlowMessage: { message: Flow.Message },
   ClickedFit: {},
   ClickedToggleCollapse: {},
+  /** M7: the flow's overlay layer is the consumer's markup, so a press on an
+   *  edge's control arrives as the example's own Message. That is the whole
+   *  second-consumer claim: the library anchors the markup, the consumer decides
+   *  what it means. */
+  ClickedEdgeAction: { edgeId: Schema.String },
 });
 export type ExampleMessage = typeof Message.Type;
 type Message = ExampleMessage;
@@ -428,6 +433,16 @@ export const createExampleApp = (
           }),
         };
       },
+      // The overlay's press, in the example's own words. Nothing about the flow
+      // is involved: the layer put the button on the edge's label point and this
+      // branch says what it means. The selection it sits on is untouched, which
+      // `tests/m7.spec.ts` proof 55 reads back from `data-example-selected`.
+      ClickedEdgeAction: ({ edgeId }) => ({
+        model: {
+          ...model,
+          lastFact: `Edge control on ${edgeId}`,
+        },
+      }),
     });
 
   const subscriptions = Subscription.lift(Flow.subscriptions)<Model, Message>({
@@ -483,8 +498,22 @@ export const createExampleApp = (
   if (rendererOptions.background === true) {
     rendererConfig.background = { variant: "dots" };
   }
+  if (rendererOptions.edgeOverlay === true) {
+    // The library anchors it and applies the inverse zoom; the button and what
+    // its press means are the example's. A real `<button>` is right here: this
+    // page is showing a consumer the happy path, not the pane's guard (which
+    // `tests/m7.spec.ts` proves with a `div`, because `blocksDrag` already
+    // exempts form controls).
+    rendererConfig.edgeOverlay = (edge, h) =>
+      h.button(
+        [
+          h.Class("ex2-edge-action"),
+          h.OnClick(Message.ClickedEdgeAction({ edgeId: edge.id })),
+        ],
+        ["Edit edge"],
+      );
+  }
   const renderer = Flow.createRenderer<NodeData, unknown>(rendererConfig);
-
   const isCollapsed = (model: Model): boolean =>
     model.graph.nodes.some(
       (node) => collapseIds.includes(node.id) && node.hidden === true,
@@ -550,6 +579,13 @@ export const createExampleApp = (
         h.DataAttribute("example-category", spec.category),
         h.DataAttribute("example-fact", model.lastFact),
         h.DataAttribute("example-nodes", String(model.graph.nodes.length)),
+        // M7: the selection the overlay control sits on. The fact line reports the
+        // last thing that happened, which is the control's press; proving the
+        // selection survived it needs the state, not the narration.
+        h.DataAttribute(
+          "example-selected",
+          model.flow.selectedEdgeIds.join(","),
+        ),
       ],
       [
         h.header(
