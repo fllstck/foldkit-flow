@@ -145,9 +145,10 @@ is reported beside the frame numbers rather than inside them (§4.5):
 Two things to read out of it, and one caveat:
 
 - **The first paint is not where this library's cost is.** Ours is the quickest of
-  the three at 625 (25 ms against React Flow's 32 and Svelte Flow's 55), because a
-  Foldkit render builds the tree and the browser paints it — there is no
-  reconciliation phase on top.
+  the three at 625 (25 ms against React Flow's 32 and Svelte Flow's 55). The
+  mechanism is not measured here — only the difference — and the obvious candidate
+  is that a Foldkit `view` builds the DOM it renders, with no framework
+  reconciliation pass between the two.
 - **The measurement pass is the Foldkit-only column**, and it is 50–60 ms more at
   625: every node runs a Mount with a `ResizeObserver` and a `MutationObserver`, and
   that is the price of the measurement contract. It is reported because a consumer
