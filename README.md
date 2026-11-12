@@ -2,7 +2,7 @@
 
 A flow / node-graph canvas for [Foldkit](https://foldkit.dev): one Model, pure `update`, every effect at a named seam.
 
-Published as **`0.1.0`** — the first release. It covers the whole M0–M5 surface:
+Published as **`0.1.1`**. It covers the whole M0–M5 surface:
 pan/zoom, drag, select, delete, connect and reconnect, node resizing, sub-flows,
 collapsing, snap, edge types, markers and labels, a minimap, own chrome and an
 accessibility layer. `1.0.0` waits until the library has had real use.
@@ -170,6 +170,7 @@ produced it beside it.
 - **[docs/PLAN.md](docs/PLAN.md)** — the design: ownership split, runtime wiring, the hot path, milestones.
 - **[docs/verification.md](docs/verification.md)** — the boundary rule that keeps a published figure honest.
 - **[docs/TEST-STRATEGY.md](docs/TEST-STRATEGY.md)** — the five rungs the tests sit on, and which claim lives where.
+- **[CHANGELOG.md](packages/flow/CHANGELOG.md)** — what changed in each release, and what did not.
 - **Findings** — [`M0`](docs/M0-FINDINGS.md), [`M1`](docs/M1-FINDINGS.md), [`M2`](docs/M2-FINDINGS.md), [`M3`](docs/M3-FINDINGS.md), [`M4`](docs/M4-FINDINGS.md), [`M5`](docs/M5-FINDINGS.md): what each milestone shipped, what it got wrong, and what the reviews found.
 
 ## Contributing

@@ -1,6 +1,6 @@
 {
   "name": "@fllstck/foldkit-flow",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A flow / node-graph canvas for Foldkit: one Model, pure update, every effect at a named seam.",
   "license": "MIT",
   "type": "module",
@@ -11,7 +11,8 @@
     "dist",
     "LICENSE",
     "README.md",
-    "THIRD-PARTY-NOTICES.md"
+    "THIRD-PARTY-NOTICES.md",
+    "CHANGELOG.md"
   ],
   "main": "./dist/index.js",
   "module": "./dist/index.js",

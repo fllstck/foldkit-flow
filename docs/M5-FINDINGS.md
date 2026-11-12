@@ -653,9 +653,11 @@ measurement-contract sentence — the document the review correctly credits with
 the right spelling in its _code block_, while its prose two lines above had the same
 mistake. All three are fixed.
 
-Worth stating for the record: `0.1.0`'s published README still carries the typo,
-because npm does not let a published version be edited. The fix ships with the next
-release; the registry page for 0.1.0 will be wrong about one identifier until then.
+Worth stating for the record: `0.1.0`'s published README carries the typo, because npm
+does not let a published version be edited. **`0.1.1` fixes it on the registry**: a
+documentation-and-packaging release whose `dist/index.js` and `dist/style.css` are
+byte-identical to `0.1.0`, so the published numbers carry over unchanged
+(`docs/BENCHMARKS.md` says so beside the table).
 
 ### 15.3 The follow-up: type-checking snippets
 
@@ -667,3 +669,30 @@ procedure: extracting fenced blocks into a scratch file and type-checking them i
 ~40 lines, and it belongs with the docs-site work
 ([`DOCS-PROPOSAL.md`](DOCS-PROPOSAL.md)) where examples are already pages. Recorded
 as the thing to build before the front door grows another snippet.
+
+## 16. Two releases, tagged, with a changelog
+
+`0.1.1` was cut the same day as `0.1.0` for exactly two reasons: the `Flow.Remeasure`
+casing in the published README (§15.2, which npm will not let 0.1.0 be edited to fix)
+and the repository metadata `package.json` was missing when 0.1.0 went out (§13). No
+runtime code changed — `dist/index.js` and `dist/style.css` are byte-identical to the
+published 0.1.0 build, verified by diffing a fresh build against the downloaded
+tarball; the only differing bytes in `dist` are one JSDoc comment in
+`geometry/bounds.d.ts` and the source map that embeds it.
+
+Two things the first release did not have:
+
+- **Tags.** Annotated `v0.1.0` and `v0.1.1`, and the changelog's compare links depend
+  on them. `v0.1.0` points at the commit whose tree was published — identified by
+  what the registry reports, not by memory: 0.1.0's manifest carries
+  `prepublishOnly` (added in `2e4d5e9`) and no `repository` field (added in
+  `034c6a2`), so the tag goes on the former.
+- **A changelog.** [`CHANGELOG.md`](../packages/flow/CHANGELOG.md), in Keep a Changelog form, keeps
+  it in the tarball (`files`) and links the compare views.
+
+The point recorded in §7.1 still stands, and this release does not close it: this
+changelog was written from `git log` by hand-checking the grouping, not generated. The
+tool decision (changesets / release-please / `conventional-changelog-cli`), the
+`commit-msg` enforcement and the automation are unchanged as the next step — what
+exists now is the _file_ the generator will maintain, with two real entries to
+compare its output against.
