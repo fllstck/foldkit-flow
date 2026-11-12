@@ -6,8 +6,11 @@ straight edge paths, pan/zoom, handle measurement, `fitView`) comes from
 [`@xyflow/system`](https://github.com/xyflow/xyflow); the graph itself is rendered
 by Foldkit's own `view`, and the node and edge data stay owned by your app.
 
-**Status: v1.0 (M0–M4 shipped, M5 hardening).** The Model/Message/OutMessage
-shapes, the measurement contract and the `fflow__` class prefix are stable.
+**Status: `0.1.0`, the first release.** It covers M0–M5: the interaction core,
+measurement, chrome and accessibility, sub-flows, resizing, snap, edge types and the
+performance work. The Model/Message/OutMessage shapes, the measurement contract and
+the `fflow__` class prefix are the parts meant to hold still; `1.0.0` follows once the
+library has had real use, rather than on a milestone's say-so.
 Deliberately absent, and planned as research-first work: edge selection, minimap
 drag, `nodeOrigin`, multi-node resize, interactive edge labels, and React Flow's
 `XYResizer` seam. The full list and the reasoning are in the repository's

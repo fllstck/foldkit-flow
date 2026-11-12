@@ -242,7 +242,7 @@ the historical record and the bound in the same paragraph.
 `packages/flow` is publishable; **nothing was published**. No npm command was run
 beyond `pnpm pack --dry-run`, which is the inspection the handoff asked for.
 
-- **Version** `1.0.0` (v1.0 shipped at M4; the package had never left `0.0.0`).
+- **Version** `0.1.0` — see §13: the first release, deliberately not `1.0.0`.
 - **`LICENSE`** — MIT, at the package root, because npm shows the package's own
   file and the repo had none.
 - **`THIRD-PARTY-NOTICES.md`** — the `@xyflow/system` 0.0.84 MIT notice, verbatim,
@@ -297,8 +297,8 @@ What the point needs, in the order that matters:
    question: publish before or after M6).
 
 **Publishing is the owner's call** and is not assumed anywhere: the handoff's open
-question — publish before or after M6 — is left open, and the README says "v1.0
-(M0–M4 shipped, M5 hardening)" rather than announcing a registry.
+question — publish before or after M6 — was answered by the owner after M5: the first
+release is `0.1.0` (§13).
 
 ## 8. The example page
 
@@ -508,3 +508,43 @@ the example package build, and `tests/examples.spec.ts` (**1 passed**, now with 
 refusal and acceptance assertions). The full `pnpm bench` was **not** run for this
 change, by instruction: it touches one example spec and one browser spec, and no
 library code, gate page or benchmark fixture.
+
+## 13. The published version is `0.1.0`, not `1.0.0`
+
+Decided by the owner after this document was written, and recorded here because it
+edits a claim the rest of the repo makes.
+
+The plan's vocabulary calls M0–M4 "v1.0", and M5's publish-readiness work set
+`packages/flow` to `1.0.0` on that basis. The **package** version is now `0.1.0`.
+The two are different things and the plan is not touched:
+
+- `PLAN.md` §7's "v1.0 = M0–M4 as shipped" is a _milestone scope_ label — it says
+  which features belong to the first release train — and it stays as written.
+- The registry version is a promise to consumers, and the owner's rule is that
+  `1.0.0` follows **real usage**, not a milestone completing. `0.1.0` is the first
+  release: the whole M0–M5 surface, versioned honestly as pre-1.0.
+
+What that changes in the tree: the version in `packages/flow/package.json`, the
+status line in both READMEs (which now says the surface is _meant_ to hold still and
+that `1.0.0` waits for use, rather than claiming stability as a fact), the layer
+label in `BENCHMARKS.md`'s gate table, and the M6 handoff's state table and its
+"does 1.0.0 go to npm" question — answered: not yet.
+
+One publish-readiness addition came with it: `publishConfig.access: "public"`. A
+scoped package defaults to restricted, and this one is MIT and meant to be found;
+the `--access public` flag would do the same thing per publish, and the field means
+the flag can be forgotten without quietly publishing a private package.
+
+**Publishing itself needs npm credentials this session did not have** (`npm whoami`
+returned `401 Unauthorized`), so the release commit carries the version, the
+documentation and a verified `npm publish --dry-run` — 77 files, 134.1 kB tarball,
+`0.1.0`, `latest`, public access — with the publish command one step away:
+
+```sh
+cd packages/flow
+npm publish --access public     # after `npm login`, or with NPM_TOKEN set
+```
+
+`repository` and `homepage` are deliberately absent from `package.json`: the repo has
+no remote configured, and a guessed URL is worse than none. They belong in the same
+commit as the remote, whenever it exists.

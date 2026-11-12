@@ -3,8 +3,7 @@
 Starting point for M6. M0–M5 are complete and committed, **v1.0 shipped at M4**,
 and M5 hardened and published: the culling scan is indexed, the numbers are in
 [`BENCHMARKS.md`](BENCHMARKS.md), there is a fixture gallery against React Flow, a
-presentable example page, and `packages/flow` is publishable at `1.0.0` — **not
-published**. Do not amend `c40ae47`, `a0a3fdc`, `898bb46`, the M2 commits,
+presentable example page, and `packages/flow` is published at **`0.1.0`**. Do not amend `c40ae47`, `a0a3fdc`, `898bb46`, the M2 commits,
 `69a630e` with its M3 follow-ups, the M4 commits, or the M5 commits; commit at
 logical checkpoints and do not rewrite history.
 
@@ -36,7 +35,7 @@ settle) is not advisory.
 
 | Area               | State                                                                                                                                                                                                                                                             |
 | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `packages/flow`    | **1.0.0**, publishable and unpublished: `LICENSE`, `THIRD-PARTY-NOTICES.md`, a package `README.md`, `files`/`exports` verified with `pnpm pack --dry-run`. Surface unchanged since M4; M5 added one internal index (`geometry/bounds.ts`) |
+| `packages/flow`    | **0.1.0, published** (first release; `1.0.0` waits for real use). `LICENSE`, `THIRD-PARTY-NOTICES.md`, a package `README.md`, `files`/`exports` verified with `pnpm pack --dry-run` and a `npm publish --dry-run`. Surface unchanged since M4; M5 added one internal index (`geometry/bounds.ts`) |
 | `packages/example` | **Two pages, one build**: `/` is the 630-node instrumented playground (unchanged — ten proofs read its fixture), `/example/` is the presentable release pipeline with its own source beside it                                                                     |
 | `packages/benchmark` | Gate legs (625 comparison, 1k culled, 1k + chrome), 10k collapsed, 10k **expanded**, the React Flow **gallery**, and the **pan-stall** diagnostic — 56 Playwright tests in 13 files, 4.9 min |
 | Tests              | **311** Vitest tests in 33 files (flow + example); **56** Playwright tests in 13 files (45 proofs, 3 gate legs, 4 explorations, 2 gallery, 2 example) |                                                                                    |
@@ -208,8 +207,8 @@ at the verdicts; and all four commands green.
   same page and the same measurement, and it is now the larger number.
 - **Does the gallery grow into a per-feature proof requirement for M6 ships?** It
   is the only place the two libraries are compared on one input, and it costs 12 s.
-- **Does `1.0.0` go to npm before the M6 research lands?** The package is ready;
-  publishing is the owner's call and nothing in the repo assumes it happened.
+- **Does `0.1.0` get a `1.0.0` bump during M6, or after it?** The owner's rule is that
+  `1.0.0` follows real usage, not a milestone; M6 should not assume it.
 - **Does the docs site get its first slice?** `docs/DOCS-PROPOSAL.md` maps
   reactflow.dev's five sections onto what exists here and slices the work: examples
   as `/examples/?example=…` pages in `packages/example` (cheap — the registry,
