@@ -23,6 +23,9 @@ export type BenchEdge = {
   id: string;
   source: string;
   target: string;
+  /** M7: the two straight edges whose label point is arithmetic. Absent means the
+   *  library's default (`Bezier`). */
+  type?: "Bezier" | "Straight" | "Step" | "SmoothStep";
   label?: string;
   markerEnd?: "Arrow" | "ArrowClosed";
 };
@@ -224,3 +227,65 @@ export const largeViewport = { x: 20, y: 30, zoom: 1 };
 /** 1:1, like `large`: most of a 10k graph is outside the viewport, so a pan is
  *  the culling scan's worst case rather than a fitView of everything. */
 export const expandedViewport = { x: 20, y: 30, zoom: 1 };
+
+/**
+ * The M7 page's fixture (§7 M7): two straight edges whose label points are chosen
+ * so the overlay proof can measure the screen.
+ *
+ * Both edges are `Straight`, so the label point is the exact midpoint between the
+ * source's bottom-border anchor and the target's top-border anchor — arithmetic a
+ * proof can do, rather than a curve's control points. `e-open`'s midpoint is empty
+ * canvas; `e-cover`'s is inside `cover`, which is what makes the paint-order claim
+ * two comparisons instead of one.
+ *
+ *  - `s-open` (0, 0) 200×100 → anchor (100, 100); `t-open` (600, 0) → (700, 0).
+ *    Midpoint (400, 50): no node within 100 px of it.
+ *  - `s-cover` (0, 300) → (100, 400); `t-cover` (600, 300) → (700, 300).
+ *    Midpoint (400, 350), inside `cover` at (330, 310) 140×80.
+ */
+export const overlayFlow: BenchGraph = {
+  nodes: [
+    {
+      id: "s-open",
+      position: { x: 0, y: 0 },
+      data: { label: "Source" },
+      size: { width: 200, height: 100 },
+    },
+    {
+      id: "t-open",
+      position: { x: 600, y: 0 },
+      data: { label: "Target" },
+      size: { width: 200, height: 100 },
+    },
+    {
+      id: "s-cover",
+      position: { x: 0, y: 300 },
+      data: { label: "Source" },
+      size: { width: 200, height: 100 },
+    },
+    {
+      id: "t-cover",
+      position: { x: 600, y: 300 },
+      data: { label: "Target" },
+      size: { width: 200, height: 100 },
+    },
+    {
+      id: "cover",
+      position: { x: 330, y: 310 },
+      data: { label: "Cover" },
+      size: { width: 140, height: 80 },
+    },
+  ],
+  edges: [
+    { id: "e-open", source: "s-open", target: "t-open", type: "Straight" },
+    {
+      id: "e-cover",
+      source: "s-cover",
+      target: "t-cover",
+      type: "Straight",
+    },
+  ],
+  nodeCount: 5,
+};
+
+export const overlayViewport = { x: 60, y: 60, zoom: 1 };

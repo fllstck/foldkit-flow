@@ -30,6 +30,13 @@ export type BenchPageConfig = Readonly<{
   /** M6: edges are press targets and tab stops. Off for every page that
    *  predates it, so no earlier proof's DOM moves. */
   edgeSelection?: boolean;
+  /** M7: a consumer-owned control on each edge's label point, drawn in the
+   *  flow-anchored HTML overlay layer. Off for every page that predates it. */
+  edgeOverlay?: boolean;
+  /** M7: the class on a node's label, so a page can paint a node box of the size
+   *  its fixture declares (the flow draws declared sizes only with `resize` on).
+   *  The M7 proof compares pixels at a point inside one node. */
+  nodeClass?: (id: string) => string;
 }>;
 
 /**
@@ -61,11 +68,16 @@ export const mountBenchPage = (config: BenchPageConfig): void => {
   const Model = Schema.Struct({
     flow: Flow.Model,
     measured: Schema.Number,
+    // M7: what the consumer's own control did with its press. The proof reads it
+    // instead of guessing from the DOM that the pane declined the press.
+    overlayClicks: Schema.Number,
+    lastOverlay: Schema.String,
   });
   type Model = typeof Model.Type;
 
   const Message = defineMessageUnion({
     GotFlowMessage: { message: Flow.Message },
+    ClickedOverlay: { edgeId: Schema.String },
   });
   type Message = typeof Message.Type;
 
@@ -73,7 +85,12 @@ export const mountBenchPage = (config: BenchPageConfig): void => {
     Message.GotFlowMessage({ message });
 
   const init = (): Update.Return<Model, Message> => ({
-    model: { flow: Flow.init(config.viewport).model, measured: 0 },
+    model: {
+      flow: Flow.init(config.viewport).model,
+      measured: 0,
+      overlayClicks: 0,
+      lastOverlay: "",
+    },
   });
 
   const update = (
@@ -133,17 +150,76 @@ export const mountBenchPage = (config: BenchPageConfig): void => {
         if (measured >= flowNodes.length) recordMeasured();
 
         return {
-          model: { flow: result.model, measured },
+          model: {
+            flow: result.model,
+            measured,
+            overlayClicks: model.overlayClicks,
+            lastOverlay: model.lastOverlay,
+          },
           commands: Command.mapMessages(result.commands ?? [], toParentMessage),
         };
       },
+      // The consumer's control reports its own press. What the proof watches for
+      // is that this branch ran *and* that the pane did nothing with the same
+      // press (`data-gesture` stays `Idle`, `data-selected-edges` unchanged).
+      ClickedOverlay: ({ edgeId }) => ({
+        model: {
+          ...model,
+          overlayClicks: model.overlayClicks + 1,
+          lastOverlay: edgeId,
+        },
+      }),
     });
 
   const renderNode = (
     node: FlowNode<{ label: string }>,
     _tools: Flow.NodeTools,
     h: HtmlBuilder<Message>,
-  ): Html => h.div([h.Class("fflow__node-label")], [node.data.label]);
+  ): Html =>
+    h.div(
+      [
+        h.Class(
+          [
+            "fflow__node-label",
+            ...(config.nodeClass === undefined
+              ? []
+              : [config.nodeClass(node.id)]),
+          ].join(" "),
+        ),
+      ],
+      [node.data.label],
+    );
+
+  /** The overlay item the M7 page renders, and why it is a `div` with
+   *  `role="button"` rather than a `<button>`: `blocksDrag` (`runtime/domTarget.ts`)
+   *  already exempts every form control from the pane's press, so a real button
+   *  would pass the M7 proof with `isOverlayTarget` deleted — a green test of the
+   *  wrong mechanism. A div is the case the guard exists for: without it the pane
+   *  clears the selection on a press on this control.
+   *
+   *  Tab and Enter are wired by hand for the same reason — the claim is that
+   *  keyboard focus reaches consumer markup (`docs/verification.md`'s fifth
+   *  question), not that a native button works. */
+  const renderEdgeOverlay: Flow.RendererConfig<
+    { label: string },
+    unknown
+  >["edgeOverlay"] = (edge, h) =>
+    h.div(
+      [
+        h.Class("m7-overlay-item"),
+        h.Attribute("role", "button"),
+        h.Attribute("tabindex", "0"),
+        h.AriaLabel(`Edit ${edge.id}`),
+        h.DataAttribute("edge", edge.id),
+        h.OnClick(Message.ClickedOverlay({ edgeId: edge.id })),
+        h.OnKeyDownPreventDefault((key) =>
+          key === "Enter" || key === " "
+            ? Option.some(Message.ClickedOverlay({ edgeId: edge.id }))
+            : Option.none(),
+        ),
+      ],
+      [`Edit ${edge.id}`],
+    );
 
   // Without these the drag leg only dispatches the press: no pointermove ever
   // arrives, so the node never moves and the recorded "drag" frames are idle
@@ -176,6 +252,8 @@ export const mountBenchPage = (config: BenchPageConfig): void => {
   }
   if (config.resize === true) rendererConfig.resize = true;
   if (config.edgeSelection === true) rendererConfig.edgeSelection = true;
+  if (config.edgeOverlay === true)
+    rendererConfig.edgeOverlay = renderEdgeOverlay;
   if (config.snapGrid !== undefined) rendererConfig.snapGrid = config.snapGrid;
   if (config.fitView !== undefined) rendererConfig.fitView = config.fitView;
 
@@ -203,6 +281,9 @@ export const mountBenchPage = (config: BenchPageConfig): void => {
           "viewport",
           `${model.flow.viewport.x},${model.flow.viewport.y},${model.flow.viewport.zoom}`,
         ),
+        // M7: the consumer's own control, and that its press reached it.
+        h.DataAttribute("overlay-clicks", String(model.overlayClicks)),
+        h.DataAttribute("overlay-edge", model.lastOverlay),
       ],
       [
         renderer.view(

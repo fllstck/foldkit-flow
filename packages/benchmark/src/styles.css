@@ -99,3 +99,51 @@ body {
 .gallery-index-link:hover {
   color: #e6e8ee;
 }
+
+/* The M7 page (§7 M7). The flow draws a node's declared size as its box only
+   with `resize` on, so a page that needs a painted node box gives its label one.
+   The overlay proof compares pixels at a point inside `cover`, which is the node
+   that sits on top of one of the two overlay items. Two classes, because
+   `.fflow__node-label` is imported from the library's stylesheet. */
+.bench-root .m7-node {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 200px;
+  height: 100px;
+  background-color: #2a3342;
+  color: #e6e8ee;
+}
+
+.bench-root .m7-cover {
+  width: 140px;
+  height: 80px;
+  background-color: #2f5d4a;
+}
+
+/* The consumer-owned control on each edge. Magenta on purpose: it is a colour
+   nothing else in the page paints, so "the centre pixel is magenta" is a paint
+   assertion rather than a DOM one. `pointer-events: auto` is the whole opt-in:
+   the layer and the item both decline the pointer.
+
+   A `div` with `role="button"`, not a `<button>`: the proof has to fail when the
+   library's `isOverlayTarget` guard is deleted, and a form control is already
+   exempt from the pane's press through `blocksDrag` (see
+   `src/foldkit/page.ts`). */
+.bench-root .m7-overlay-item {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 90px;
+  height: 24px;
+  border-radius: 4px;
+  background-color: #ff00ff;
+  color: #000000;
+  font-family: inherit;
+  font-size: 11px;
+  user-select: none;
+  pointer-events: auto;
+  cursor: pointer;
+}

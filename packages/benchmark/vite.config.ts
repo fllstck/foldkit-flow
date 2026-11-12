@@ -15,6 +15,7 @@ export default defineConfig({
         shadow: "shadow.html",
         subflow: "subflow.html",
         m6: "m6.html",
+        m7: "m7.html",
         "large-hidden": "large-hidden.html",
         "large-expanded": "large-expanded.html",
         churn: "churn.html",
