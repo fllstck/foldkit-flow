@@ -261,6 +261,11 @@ const countMessage = (stats: Stats, message: Flow.Message): Stats =>
     StartedResize: () => stats,
     NudgedNode: () => stats,
     ActivatedNode: () => stats,
+    // M6: a minimap drag is a viewport move like any other, and an edge press is
+    // a selection — neither is a node measurement.
+    StartedMiniMapPan: () => stats,
+    PressedEdge: () => stats,
+    ActivatedEdge: () => stats,
   });
 
 const applyPositions = (

@@ -143,6 +143,26 @@ const defaultDescribe = (fact: FactSummary): string =>
     Match.orElse(() => fact.detail),
   );
 
+/** The selection in words, for both kinds of thing the flow can select: an edge
+ *  is selectable when the renderer asks for it (`edgeSelection`, §7 M6), and a
+ *  fold that reads only `nodeIds` would report "Nothing selected". */
+const selectionSummary = (
+  nodeIds: ReadonlyArray<string>,
+  edgeIds: ReadonlyArray<string>,
+): string => {
+  const parts = [
+    ...(Arr.isReadonlyArrayEmpty(nodeIds)
+      ? []
+      : [`node ${nodeIds.join(", ")}`]),
+    ...(Arr.isReadonlyArrayEmpty(edgeIds)
+      ? []
+      : [`edge ${edgeIds.join(", ")}`]),
+  ];
+  return Arr.isReadonlyArrayEmpty(parts)
+    ? "Nothing selected"
+    : `Selected ${parts.join(" and ")}`;
+};
+
 /**
  * One example, as a Foldkit application.
  *
@@ -310,15 +330,13 @@ export const createExampleApp = (
               },
             }),
           SelectedElements:
-            ({ nodeIds }) =>
+            ({ nodeIds, edgeIds }) =>
             (model: Model) => ({
               model: {
                 ...model,
                 lastFact: describe({
                   kind: "select",
-                  detail: Arr.isReadonlyArrayEmpty(nodeIds)
-                    ? "Nothing selected"
-                    : `Selected ${nodeIds.join(", ")}`,
+                  detail: selectionSummary(nodeIds, edgeIds),
                 }),
               },
             }),
@@ -452,6 +470,7 @@ export const createExampleApp = (
     renderNode,
     resize: rendererOptions.resize === true,
     reconnect: rendererOptions.reconnect === true,
+    edgeSelection: rendererOptions.edgeSelection === true,
     cull: rendererOptions.cull === true,
     controls: rendererOptions.controls === true,
     minimap: rendererOptions.minimap === true,

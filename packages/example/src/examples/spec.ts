@@ -65,6 +65,8 @@ export type FactSummary = Readonly<{
 export type ExampleRenderer = Readonly<{
   resize?: boolean;
   reconnect?: boolean;
+  /** M6: edges are press and tab targets. */
+  edgeSelection?: boolean;
   snapGrid?: Readonly<{ x: number; y: number }>;
   background?: boolean;
   controls?: boolean;

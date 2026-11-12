@@ -10,13 +10,18 @@ import type { ExampleSpec } from "../spec";
  * The one thing the library does not do is stretch your markup: a container wants
  * a frame, a leaf wants a filled box, and only you know which. The rule is one
  * line of CSS, shown in the `examples.css` tab.
+ *
+ * `edgeSelection` is on here too, so this page is a second consumer of it: press
+ * the edge to select it, or Tab to it and press Enter. The whole feature is the
+ * one option — the library draws the wider hit path, names the edge from
+ * `accessibleName`, and reports `SelectedElements` like any other selection.
  */
 const example: ExampleSpec = {
   name: "resizing",
   category: "Nodes",
   title: "Resizing",
   description:
-    "Drag a corner: the box is the flow's, the filling is one line of your CSS, and the parent persists the size it is told about.",
+    "Drag a corner: the box is the flow's, the filling is one line of your CSS, and the parent persists the size it is told about. Shift holds the ratio; the edge is a press target and a tab stop.",
   nodes: [
     {
       id: "panel",
@@ -43,7 +48,7 @@ const example: ExampleSpec = {
     { id: "e-panel-leaf", source: "panel", target: "leaf", markerEnd: "Arrow" },
   ],
   viewport: { x: 80, y: 100, zoom: 1 },
-  renderer: { resize: true, snapGrid: { x: 10, y: 10 } },
+  renderer: { resize: true, edgeSelection: true, snapGrid: { x: 10, y: 10 } },
 };
 
 export default example;

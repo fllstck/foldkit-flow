@@ -203,6 +203,55 @@ describe("the harness owns the graph the flow reads", () => {
     );
   });
 
+  test("SelectedElements names an edge too, not only a node (§7 M6)", () => {
+    // The consumer half of edge selection: the harness folds the flow's
+    // `SelectedElements` into a sentence, and before M6 it read only `nodeIds` —
+    // so selecting an edge would have reported "Nothing selected" on a page whose
+    // whole job is to show what the flow reported.
+    story(
+      update,
+      given(initial),
+      message(
+        fromFlow(
+          Flow.Message.ActivatedNode({ nodeId: "a", isAdditive: false }),
+        ),
+      ),
+      model((current) => {
+        expect(current.lastFact).toBe("Selected node a");
+      }),
+      // Shift (the additive modifier) adds the edge instead of replacing.
+      message(
+        fromFlow(
+          Flow.Message.PressedEdge({ edgeId: "e-a-b", isAdditive: true }),
+        ),
+      ),
+      model((current) => {
+        expect(current.lastFact).toBe("Selected node a and edge e-a-b");
+      }),
+      // A plain press on the edge selects it alone: one press, one kind of thing.
+      message(
+        fromFlow(
+          Flow.Message.PressedEdge({ edgeId: "e-a-b", isAdditive: false }),
+        ),
+      ),
+      model((current) => {
+        expect(current.lastFact).toBe("Selected edge e-a-b");
+      }),
+      message(
+        fromFlow(
+          Flow.Message.PressedPane({
+            point: { x: 0, y: 0 },
+            isAdditive: false,
+            pointer,
+          }),
+        ),
+      ),
+      model((current) => {
+        expect(current.lastFact).toBe("Nothing selected");
+      }),
+    );
+  });
+
   test("collapsing is the parent's edit, and it toggles both ways", () => {
     story(
       update,
