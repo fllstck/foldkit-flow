@@ -1,0 +1,38 @@
+{
+  "note": "M5 exploration, not a gate: PLAN §4.5's heap-after-churn column, measured on its own page (src/foldkit/churn.ts) so no gate page changes. Retained heap after HeapProfiler.collectGarbage, read through CDP Performance.getMetrics.",
+  "fixture": {
+    "page": "/churn.html",
+    "baseNodes": 200,
+    "cycles": 1000,
+    "stepsPerLoop": 2000,
+    "graphAtRest": 200
+  },
+  "loop": {
+    "firstMs": 11859,
+    "secondMs": 11914,
+    "steps": {
+      "afterFirst": 2000,
+      "afterSecond": 2000
+    }
+  },
+  "cache": {
+    "before": 200,
+    "afterFirst": 200,
+    "afterSecond": 200,
+    "peak": 201
+  },
+  "dom": {
+    "before": 200,
+    "afterFirst": 200,
+    "afterSecond": 200
+  },
+  "heapMb": {
+    "before": 6.38,
+    "afterFirst": 7.32,
+    "afterSecond": 7.42,
+    "growthAfterFirst": 0.94,
+    "growthAfterSecond": 1.04
+  },
+  "browser": "Brave 156.1.98.63 (Chromium 156), headless",
+  "machine": "MacBook Air (Apple M5), macOS 26.6.2"
+}

@@ -19,5 +19,7 @@ packages/benchmark/results/*
 # start-of-pan diagnostic that scopes the carried-forward stall.
 !packages/benchmark/results/gallery.json
 !packages/benchmark/results/pan-stall.json
+# §4.5's heap-after-churn column: its own page and spec, so no gate page moved.
+!packages/benchmark/results/churn.json
 test-results/
 playwright-report/

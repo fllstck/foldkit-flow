@@ -11,27 +11,43 @@
     "minimapRects": 1000
   },
   "runs": 10,
+  "startup": {
+    "readyMs": {
+      "count": 10,
+      "median": 25.3,
+      "p95": 32.3,
+      "longest": 32.3,
+      "longFrames": 0
+    },
+    "measuredMs": {
+      "count": 10,
+      "median": 113.8,
+      "p95": 116.7,
+      "longest": 116.7,
+      "longFrames": 10
+    }
+  },
   "browser": "Brave 156.1.98.63 (Chromium 156), headless",
   "machine": "MacBook Air (Apple M5), macOS 26.6.2",
   "drag": {
-    "count": 498,
+    "count": 495,
     "median": 16.7,
     "p95": 16.7,
     "longest": 16.8,
     "longFrames": 0
   },
   "pan": {
-    "count": 480,
+    "count": 486,
     "median": 16.7,
     "p95": 16.7,
-    "longest": 16.8,
+    "longest": 33.4,
     "longFrames": 0
   },
   "flow": {
     "updates": 3078,
-    "updateTotalMs": 6.9,
-    "updatePerDispatchMs": 0.0022,
-    "cullScanMs": 0.926,
+    "updateTotalMs": 6.3,
+    "updatePerDispatchMs": 0.002,
+    "cullScanMs": 0.938,
     "cullScanSamples": 21
   }
 }

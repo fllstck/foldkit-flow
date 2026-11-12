@@ -159,6 +159,7 @@ test("the gallery: React Flow and Foldkit on the same fixture", async ({
     note: "M5 fixture gallery. Geometry is compared as path `d` strings (numbers rounded to 1e-3) and node screen boxes (rounded to 1e-1); paint is compared within each library, never across stylesheets (PLAN §2.4).",
     fixtures: {},
     notShipped: [
+      "The snap grid: a drag or resize behaviour, not a rendered object, so there is nothing for a fixture to compare side by side. Proved on our side in `tests/m4.spec.ts` (proofs 40 and 45); React Flow's snapping is a `snapToGrid`/`snapGrid` prop with no visual output either.",
       "The resize gesture: React Flow's equivalent is its NodeResizer component, a different seam with its own DOM contract. Both libraries' *boxes* are compared here (the `resize` fixture); the gesture itself is proved in `tests/m4.spec.ts` (proof 44) and is not a cross-library comparison.",
       "Minimap, controls and the description region: chrome in both libraries is optional and styled by each project. Proved in `tests/chrome.spec.ts` on our side.",
       "Edge selection, minimap drag, `nodeOrigin`, multi-node resize and interactive edge labels: not shipped in v1.0 (M4-FINDINGS §8) and out of scope for M5.",

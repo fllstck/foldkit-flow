@@ -16,6 +16,7 @@ export default defineConfig({
         subflow: "subflow.html",
         "large-hidden": "large-hidden.html",
         "large-expanded": "large-expanded.html",
+        churn: "churn.html",
         gallery: "gallery.html",
         "gallery-foldkit": "gallery-foldkit.html",
         "gallery-react": "gallery-react.html",

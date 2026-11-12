@@ -143,7 +143,7 @@ fixture that does not exist and cannot miss one that does.
 
 ### The fast loop
 
-The full browser suite is the frame gate and takes ~4.4 min (54 tests): 3
+The full browser suite is the frame gate and takes ~4.9 min (55 tests): 3
 libraries × 11 cold loads of the 625-node fixture, then 11 of the 1k fixture, then
 11 of the same fixture with M3's chrome on, plus the 10k explorations, the gallery
 and the pan-stall diagnostic — one worker at a time, because the measured quantity
@@ -161,6 +161,7 @@ pnpm exec playwright test tests/hidden.spec.ts       # the 10k exploration, ~9 s
 pnpm exec playwright test tests/expanded.spec.ts     # the 10k ceiling, ~20 s
 pnpm exec playwright test tests/gallery.spec.ts      # the React Flow gallery, ~12 s
 pnpm exec playwright test tests/stall.spec.ts        # the pan-stall diagnostic, ~55 s
+pnpm exec playwright test tests/churn.spec.ts        # heap after 1,000 create/delete cycles, ~25 s
 pnpm exec playwright test --grep "1000-node"         # both 1k gates, ~53 s
 pnpm exec playwright test tests/bench.spec.ts        # every gate test, ~2.1 min
 ```

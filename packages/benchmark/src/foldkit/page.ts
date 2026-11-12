@@ -10,6 +10,7 @@ import "@fllstck/foldkit-flow/style.css";
 
 import type { BenchGraph } from "../fixture";
 import { installStats, recordCullScan, recordUpdate } from "../instrument";
+import { installStartup, recordMeasured, recordReady } from "../startup";
 
 export type BenchPageConfig = Readonly<{
   paneId: string;
@@ -118,6 +119,11 @@ export const mountBenchPage = (config: BenchPageConfig): void => {
           ClickedMiniMap: () => model.measured,
         });
 
+        // Every node measured: the "full mount" number §4.5 asks for beside the
+        // first paint. A page whose nodes are mostly collapsed never reaches it,
+        // and then the report has no `measuredAt` rather than a wrong one.
+        if (measured >= flowNodes.length) recordMeasured();
+
         return {
           model: { flow: result.model, measured },
           commands: Command.mapMessages(result.commands ?? [], toParentMessage),
@@ -168,8 +174,9 @@ export const mountBenchPage = (config: BenchPageConfig): void => {
     rendererConfig,
   );
 
-  const view = (model: Model, h: HtmlBuilder<Message>): Html =>
-    h.div(
+  const view = (model: Model, h: HtmlBuilder<Message>): Html => {
+    recordReady();
+    return h.div(
       [
         h.Class("bench-root"),
         h.DataAttribute("bench-ready", "true"),
@@ -192,8 +199,10 @@ export const mountBenchPage = (config: BenchPageConfig): void => {
         ),
       ],
     );
+  };
 
   installStats();
+  installStartup();
 
   const container = document.getElementById("root");
 

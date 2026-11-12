@@ -9,7 +9,7 @@
     "renderedNodes": 200
   },
   "pan": {
-    "count": 249,
+    "count": 252,
     "median": 16.7,
     "p95": 16.8,
     "longest": 16.8,
@@ -17,7 +17,7 @@
   },
   "flow": {
     "updates": 625,
-    "cullScanMs": 2.972,
+    "cullScanMs": 3.244,
     "cullScanSamples": 21
   },
   "browser": "Brave 156.1.98.63 (Chromium 156), headless",

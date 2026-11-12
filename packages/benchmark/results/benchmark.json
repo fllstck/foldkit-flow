@@ -21,23 +21,23 @@
         "longFrames": 0
       },
       "pan": {
-        "count": 494,
+        "count": 496,
         "median": 16.7,
         "p95": 16.8,
-        "longest": 33.4,
+        "longest": 33.3,
         "longFrames": 0
       }
     },
     "svelte": {
       "drag": {
-        "count": 500,
+        "count": 502,
         "median": 16.7,
-        "p95": 16.8,
+        "p95": 16.7,
         "longest": 16.8,
         "longFrames": 0
       },
       "pan": {
-        "count": 488,
+        "count": 487,
         "median": 16.7,
         "p95": 16.7,
         "longest": 16.8,
@@ -53,7 +53,7 @@
         "longFrames": 0
       },
       "pan": {
-        "count": 477,
+        "count": 480,
         "median": 16.7,
         "p95": 16.8,
         "longest": 33.4,
@@ -61,11 +61,49 @@
       }
     }
   },
+  "startup": {
+    "react": {
+      "readyMs": {
+        "count": 10,
+        "median": 32,
+        "p95": 42,
+        "longest": 42,
+        "longFrames": 0
+      },
+      "measuredMs": null
+    },
+    "svelte": {
+      "readyMs": {
+        "count": 10,
+        "median": 54.8,
+        "p95": 60.2,
+        "longest": 60.2,
+        "longFrames": 10
+      },
+      "measuredMs": null
+    },
+    "foldkit": {
+      "readyMs": {
+        "count": 10,
+        "median": 25.4,
+        "p95": 32.3,
+        "longest": 32.3,
+        "longFrames": 0
+      },
+      "measuredMs": {
+        "count": 10,
+        "median": 77.8,
+        "p95": 84.5,
+        "longest": 84.5,
+        "longFrames": 10
+      }
+    }
+  },
   "flow": {
     "updates": 1925,
-    "updateTotalMs": 3.2,
-    "updatePerDispatchMs": 0.0017,
-    "cullScanMs": 0.67,
+    "updateTotalMs": 5.7,
+    "updatePerDispatchMs": 0.003,
+    "cullScanMs": 0.732,
     "cullScanSamples": 21
   }
 }

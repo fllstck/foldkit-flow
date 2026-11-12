@@ -301,6 +301,42 @@ type FlowMetrics = Readonly<{
   cullScanSamples: number;
 }>;
 
+/**
+ * The startup numbers a page recorded on its own clock (§4.5: report
+ * startup-to-first-paint and full mount separately from the drag numbers).
+ * `measuredAt` exists only for pages whose library can report it — ours, which
+ * owns its measurement contract; React Flow's and Svelte Flow's internal
+ * measurement is not observable from outside.
+ */
+type Startup = Readonly<{
+  readyMs: Stats;
+  measuredMs: Stats | null;
+}>;
+
+const readStartup = async (
+  page: Page,
+): Promise<{ readyAt?: number; measuredAt?: number }> =>
+  page.evaluate(() => window.__startup ?? {});
+
+const startupOf = (
+  samples: ReadonlyArray<{ readyAt?: number; measuredAt?: number }>,
+): Startup => ({
+  readyMs: statsOf(
+    samples.flatMap((sample) =>
+      sample.readyAt === undefined ? [] : [sample.readyAt],
+    ),
+  ),
+  measuredMs:
+    samples.every((sample) => sample.measuredAt !== undefined) &&
+    samples.length > 0
+      ? statsOf(
+          samples.flatMap((sample) =>
+            sample.measuredAt === undefined ? [] : [sample.measuredAt],
+          ),
+        )
+      : null,
+});
+
 const readFlowMetrics = (page: Page): Promise<FlowMetrics> =>
   page.evaluate(() => {
     const stats = window.__flowStats ?? {
@@ -327,10 +363,13 @@ test("625-node drag and pan frame times", async ({ browser }) => {
   const results: Record<string, { drag: Stats; pan: Stats }> = {};
   const metrics: Record<string, FlowMetrics> = {};
 
+  const startups: Record<string, Startup> = {};
+
   for (const library of libraries) {
     const context = await browser.newContext();
     const page = await context.newPage();
     const samples: Sample[] = [];
+    const startupSamples: Array<{ readyAt?: number; measuredAt?: number }> = [];
 
     await page.goto(library.path);
     await waitForReady(page, library.ready);
@@ -342,9 +381,11 @@ test("625-node drag and pan frame times", async ({ browser }) => {
     for (let run = 0; run < RUNS; run += 1) {
       await page.goto(library.path);
       await waitForReady(page, library.ready);
+      startupSamples.push(await readStartup(page));
       await installRecorder(page);
       samples.push(await runOnce(page, library));
     }
+    startups[library.name] = startupOf(startupSamples);
 
     results[library.name] = {
       // `count: 0` means the drag leg was skipped because the library's node
@@ -375,9 +416,12 @@ test("625-node drag and pan frame times", async ({ browser }) => {
     browser: "Brave 156.1.98.63 (Chromium 156), headless",
     machine: "MacBook Air (Apple M5), macOS 26.6.2",
     libraries: results,
-    // The three extra columns §4.5 asks for: per-dispatch fold cost, the culling
-    // scan, and the interaction frame distribution above. Heap after churn is
-    // not recorded (see docs/M1-FINDINGS.md).
+    // §4.5's startup columns, on the page's own clock (navigation start = 0), so
+    // layout cost is not hidden inside the frame numbers.
+    startup: startups,
+    // The extra columns §4.5 asks for: per-dispatch fold cost and the culling
+    // scan. Heap after create/delete churn has its own page and spec
+    // (`tests/churn.spec.ts`, `results/churn.json`).
     flow: metrics.foldkit,
   };
 
@@ -416,20 +460,23 @@ test("1000-node culled drag and pan gate", async ({ browser }) => {
   const page = await context.newPage();
   const samples: Sample[] = [];
 
-  const open = async () => {
+  const startupSamples: Array<{ readyAt?: number; measuredAt?: number }> = [];
+
+  const open = async (isRecorded: boolean) => {
     await page.goto("/large.html");
     await page.waitForSelector(".fflow__pane", { timeout: 20_000 });
     await page.waitForSelector('[data-nodeid="n0"]', { timeout: 20_000 });
+    if (isRecorded) startupSamples.push(await readStartup(page));
     await page.waitForTimeout(500);
     await installRecorder(page);
   };
 
-  await open();
+  await open(false);
   // Warm-up, discarded.
   await runOnce(page, largeLibrary);
 
   for (let run = 0; run < RUNS; run += 1) {
-    await open();
+    await open(true);
     samples.push(await runOnce(page, largeLibrary));
   }
 
@@ -442,6 +489,7 @@ test("1000-node culled drag and pan gate", async ({ browser }) => {
   const output = {
     fixture: { nodes: 1000, culling: true, zoom: 1 },
     runs: RUNS,
+    startup: startupOf(startupSamples),
     browser: "Brave 156.1.98.63 (Chromium 156), headless",
     machine: "MacBook Air (Apple M5), macOS 26.6.2",
     drag,
@@ -479,22 +527,25 @@ test("1000-node culled gate with M3 chrome on", async ({ browser }) => {
   const page = await context.newPage();
   const samples: Sample[] = [];
 
-  const open = async () => {
+  const startupSamples: Array<{ readyAt?: number; measuredAt?: number }> = [];
+
+  const open = async (isRecorded: boolean) => {
     await page.goto("/large-chrome.html");
     await page.waitForSelector(".fflow__pane", { timeout: 20_000 });
     await page.waitForSelector('[data-nodeid="n0"]', { timeout: 20_000 });
     // The chrome has to be there, or this leg measures the bare page again.
     await page.waitForSelector("[data-fflow-background]", { timeout: 20_000 });
     await page.waitForSelector("[data-fflow-minimap]", { timeout: 20_000 });
+    if (isRecorded) startupSamples.push(await readStartup(page));
     await page.waitForTimeout(500);
     await installRecorder(page);
   };
 
-  await open();
+  await open(false);
   await runOnce(page, largeChromeLibrary);
 
   for (let run = 0; run < RUNS; run += 1) {
-    await open();
+    await open(true);
     samples.push(await runOnce(page, largeChromeLibrary));
   }
 
@@ -511,6 +562,7 @@ test("1000-node culled gate with M3 chrome on", async ({ browser }) => {
     fixture: { nodes: 1000, culling: true, zoom: 1 },
     chrome: { background: "dots", controls: true, minimap: true, minimapRects },
     runs: RUNS,
+    startup: startupOf(startupSamples),
     browser: "Brave 156.1.98.63 (Chromium 156), headless",
     machine: "MacBook Air (Apple M5), macOS 26.6.2",
     drag,

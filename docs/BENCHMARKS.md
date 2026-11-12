@@ -41,10 +41,13 @@ preview`). Dev builds are never compared.
   (M1-FINDINGS §9: a press that landed on a node recorded 16.7 ms on an idle
   page).
 - **Metrics.** Frame durations per leg (median, p95, longest, and the count over
-  50 ms); the culling scan (`cullScanMs`, averaged over 50 repetitions per
-  sample); the per-dispatch cost of building the child fold and running
-  `Flow.update` (`updatePerDispatchMs`); and, for 10k, the same frame metrics
-  plus the time to first view and the time to settle.
+  50 ms); **startup** — time from navigation to the first painted graph, and, where
+  the library can report it, to every node measured — so layout cost is not hidden
+  inside the frame numbers; the culling scan (`cullScanMs`, averaged over 50
+  repetitions per sample); the per-dispatch cost of building the child fold and
+  running `Flow.update` (`updatePerDispatchMs`); the retained heap after a
+  1,000-create/1,000-delete churn loop; and, for 10k, the same frame metrics plus
+  the time to first view and the time to settle.
 - **Acceptance** (§4.5). 625: median ≤ React Flow's, p95 within 10 % of it, no
   frame over 50 ms. 1k with culling: p95 < 33 ms. **Long frames are bounded, not
   forbidden**: 2 % of recorded frames, because a single 3–4 frame stall appears at
@@ -71,7 +74,7 @@ pkill -f vite          # a stale preview owns 4173/4174 and the run fails on it
 pnpm install
 pnpm typecheck         # first: vite build does not typecheck
 pnpm build             # all three packages: the benchmark inlines the library CSS
-pnpm bench             # every proof and every leg, ~4.4 min
+pnpm bench             # every proof and every leg, ~4.9 min
 ```
 
 One leg at a time, which is what to do while iterating:
@@ -83,6 +86,7 @@ pnpm exec playwright test tests/hidden.spec.ts      # 10k collapsed, ~10 s
 pnpm exec playwright test tests/expanded.spec.ts    # 10k expanded, ~20 s
 pnpm exec playwright test tests/gallery.spec.ts     # the React Flow gallery, ~12 s
 pnpm exec playwright test tests/stall.spec.ts       # the pan-stall diagnostic, ~55 s
+pnpm exec playwright test tests/churn.spec.ts       # heap after 1,000 create/delete cycles, ~25 s
 ```
 
 Each run rewrites its JSON in `packages/benchmark/results/`; the four gate and
@@ -98,21 +102,21 @@ parentheses.
 
 | Leg                       | Drag                     | Pan                      | Long frames (> 50 ms) |
 | ------------------------- | ------------------------ | ------------------------ | --------------------- |
-| 625, React Flow 12.12.1   | not verified¹            | 16.7 / 16.8 / 33.4 (491) | 0                     |
-| 625, Svelte Flow 1.7.1    | 16.7 / 16.8 / 16.8 (500) | 16.7 / 16.7 / 16.8 (487) | 0                     |
-| 625, Foldkit Flow 1.0.0   | 16.7 / 16.8 / 16.8 (498) | 16.7 / 16.8 / 16.8 (480) | 0                     |
-| 1k culled                 | 16.7 / 16.7 / 16.8 (498) | 16.7 / 16.7 / 16.8 (475) | 0                     |
-| 1k culled **with chrome** | 16.7 / 16.7 / 16.8 (497) | 16.7 / 16.8 / 33.4 (479) | 0                     |
+| 625, React Flow 12.12.1   | not verified¹            | 16.7 / 16.8 / 33.3 (496) | 0                     |
+| 625, Svelte Flow 1.7.1    | 16.7 / 16.7 / 16.8 (502) | 16.7 / 16.7 / 16.8 (487) | 0                     |
+| 625, Foldkit Flow 1.0.0   | 16.7 / 16.7 / 16.8 (500) | 16.7 / 16.8 / 33.4 (480) | 0                     |
+| 1k culled                 | 16.7 / 16.7 / 33.2 (499) | 16.7 / 16.7 / 33.4 (486) | 0                     |
+| 1k culled **with chrome** | 16.7 / 16.7 / 16.8 (495) | 16.7 / 16.7 / 33.4 (486) | 0                     |
 
 ¹ React Flow's node drag does not engage under this harness: the `pointerdown` is
 delivered and the node box does not change. The harness reports that as
 unverified rather than recording idle frames (M1-FINDINGS §10).
 
 Parity holds where it can be compared: on the 625 fixture React Flow's pan is
-16.7 / 16.8 / 33.4 over 494 frames and Foldkit's is 16.7 / 16.8 / 33.4 over 477 —
-identical median, p95 and longest, one 33.4 ms dropped frame in each. The 1k legs
-are inside the 33 ms p95 gate with no frame above 16.8 ms at all, and the 2 % bound
-at 1k is 10 frames. A frame at exactly 50.0 ms would count as _not_ long (§4.5: **over** 50),
+16.7 / 16.8 / 33.3 over 496 frames and Foldkit's is 16.7 / 16.8 / 33.4 over 480 —
+identical median and p95, and one dropped frame in each. The 1k legs are inside the
+33 ms p95 gate; their 33.4 ms frames are single drops, and the 2 % bound at 1k is
+10 frames. A frame at exactly 50.0 ms would count as _not_ long (§4.5: **over** 50),
 which is why the counts are published beside the longest frame; none appeared in
 this run.
 
@@ -120,9 +124,68 @@ Per-dispatch and per-scan cost from the same runs:
 
 | Leg                | `updatePerDispatchMs` | `cullScanMs` |
 | ------------------ | --------------------- | ------------ |
-| 625                | 0.0017                | 0.670        |
-| 1k culled          | 0.0017                | 1.228        |
-| 1k culled + chrome | 0.0022                | 0.926        |
+| 625                | 0.0030                | 0.732        |
+| 1k culled          | 0.0024                | 1.164        |
+| 1k culled + chrome | 0.0020                | 0.938        |
+
+## Startup
+
+`results/benchmark.json` (625) and the two 1k legs, `startup` in each. Ten recorded
+page loads per leg, from navigation start to the page's own signal, so layout cost
+is reported beside the frame numbers rather than inside them (§4.5):
+
+| Leg              | first painted graph, median / p95 | every node measured, median / p95 |
+| ---------------- | --------------------------------- | --------------------------------- |
+| 625, React Flow  | 32 / 42 ms                        | not observable from outside       |
+| 625, Svelte Flow | 55 / 60 ms                        | not observable from outside       |
+| 625, Foldkit     | **25 / 32 ms**                    | **78 / 85 ms**                    |
+| 1k culled        | 25 / 30 ms                        | 105 / 108 ms                      |
+| 1k + chrome      | 25 / 32 ms                        | 114 / 117 ms                      |
+
+Two things to read out of it, and one caveat:
+
+- **The first paint is not where this library's cost is.** Ours is the quickest of
+  the three at 625 (25 ms against React Flow's 32 and Svelte Flow's 55), because a
+  Foldkit render builds the tree and the browser paints it — there is no
+  reconciliation phase on top.
+- **The measurement pass is the Foldkit-only column**, and it is 50–60 ms more at
+  625: every node runs a Mount with a `ResizeObserver` and a `MutationObserver`, and
+  that is the price of the measurement contract. It is reported because a consumer
+  that wants to trust hit-testing waits for it; React Flow's and Svelte Flow's
+  internal measurement is not observable from outside, so those cells say so rather
+  than guessing at a comparable number.
+- **It is a fresh-cache number.** Each leg navigates to a new page, so the first
+  paint includes compile and layout of a cold bundle; that is what a user sees, and
+  it is also why it dwarfs the 10k page's 544 ms first view (10,000 nodes, one
+  render) only by an order of magnitude rather than by more.
+
+## Heap after 1,000 create/delete cycles
+
+`results/churn.json`, from `tests/churn.spec.ts` on `/churn.html`
+(`src/foldkit/churn.ts`) — its own page, so no gate page moved. The graph is 200
+nodes; the loop adds a node, renders, removes it, renders, 1,000 times; then does
+it again. Retained heap is read through CDP after `HeapProfiler.collectGarbage`, so
+it is memory held rather than memory allocated.
+
+| Metric                    | before  | after 1 loop | after 2 loops |
+| ------------------------- | ------- | ------------ | ------------- |
+| renderer node-cache slots | 200     | **200**      | **200**       |
+| nodes in the DOM          | 200     | 200          | 200           |
+| retained JS heap          | 6.38 MB | 7.32 MB      | 7.42 MB       |
+| steps (adds + removes)    | —       | 2 000        | 4 000         |
+| loop wall time            | —       | 11.9 s       | 11.9 s        |
+
+The **peak** cache size during a loop is 201: the churn node gets a slot of its own
+on the pass that renders it, and the slot is swept on the next pass. That is the
+bound `PLAN.md` §4.5 describes — one slot per node _in the render pass_, not per id
+ever seen — and a cache without the sweep would have climbed to 1,200 slots and then
+2,200.
+
+The heap column is the weaker of the two numbers and is presented as such: the first
+loop adds ~0.94 MB, the second adds ~0.10 MB on top, so the curve is flat in the
+loop count rather than linear in it. A single-machine heap figure is not a promise —
+what it rules out is a leak of the whole loop (2,000 VNodes and their props), and
+the spec's ceiling (12 MB) is set there rather than tight.
 
 ## The culling scan, before and after M5
 
@@ -149,11 +212,11 @@ full pair of runs is in `docs/M5-FINDINGS.md` §2:
 
 | Leg                | before      | after       |
 | ------------------ | ----------- | ----------- |
-| 625                | —           | **0.67 ms** |
-| 1k culled          | 6.02 ms     | **1.23 ms** |
-| 1k culled + chrome | 6.01 ms     | **0.93 ms** |
-| 10k collapsed      | —           | **2.97 ms** |
-| 10k expanded       | 1 807.86 ms | **4.87 ms** |
+| 625                | —           | **0.73 ms** |
+| 1k culled          | 6.02 ms     | **1.16 ms** |
+| 1k culled + chrome | 6.01 ms     | **0.94 ms** |
+| 10k collapsed      | —           | **3.24 ms** |
+| 10k expanded       | 1 807.86 ms | **4.74 ms** |
 
 M4 recorded 2.83 / 6.63 / 6.13 for the three gate legs. Those figures are
 historical, from another commit, and superseded by the rows above.
@@ -164,7 +227,7 @@ short-circuits before the size lookup, so that scan never paid the cost being
 removed. And the 10k expanded "before" figure is not a typo: the old scan took
 **1.8 seconds per call** on that page, which is why its before-run p95 was 5 766 ms.
 
-The scan is now ~4 % of a 16.7 ms frame at 625, ~7 % at 1k, and ~29 % at an
+The scan is now ~4 % of a 16.7 ms frame at 625, ~7 % at 1k, and ~28 % at an
 expanded 10k. It remains O(N) per viewport frame by design (§4.5); a spatial index
 would make it O(log N) for a graph that needs one, and nothing measured yet does.
 
@@ -179,10 +242,10 @@ measured, so nothing asserts a budget on either.
 | Metric                     | Value                 |
 | -------------------------- | --------------------- |
 | rendered nodes             | 200 of 10,000         |
-| pan frames                 | 249                   |
+| pan frames                 | 252                   |
 | pan median / p95 / longest | 16.7 / 16.8 / 16.8 ms |
 | long frames (> 50 ms)      | 0                     |
-| cull scan per call         | 2.97 ms               |
+| cull scan per call         | 3.24 ms               |
 
 **Expanded** (`/large-expanded.html`, `results/expanded-10k.json`): the same
 10,000 nodes with nothing collapsed, at zoom 1 — 280 nodes and 300 edges are
@@ -192,12 +255,12 @@ inside the culling region, 9,720 nodes and 9,600 edges are not.
 | -------------------------- | --------------------- |
 | rendered nodes             | 280 of 10,000         |
 | rendered edges             | 300 of 9,900          |
-| pan frames                 | 254                   |
+| pan frames                 | 260                   |
 | pan median / p95 / longest | 16.7 / 16.7 / 16.8 ms |
 | long frames (> 50 ms)      | 0                     |
-| cull scan per call         | 4.87 ms               |
-| time to first view         | 554 ms                |
-| time to settle             | **1 306 ms**          |
+| cull scan per call         | 4.74 ms               |
+| time to first view         | 544 ms                |
+| time to settle             | **1 280 ms**          |
 
 So the frame rate is **not** where 10k breaks. Two things are, and both are
 stated rather than smoothed over:
@@ -206,17 +269,17 @@ stated rather than smoothed over:
   happens before the pane has been measured, so culling is off for it: all 10,000
   nodes are inserted and all 10,000 run their Mount (a `ResizeObserver` and a
   `MutationObserver` each), and only then does the pane's measurement turn culling
-  on and cut the DOM back to 280. That is the 1.3 s (1.3–1.6 s over four runs at
+  on and cut the DOM back to 280. That is the 1.3 s (1.28–1.61 s over five runs at
   this code state, which is machine variance rather than a trend). It is a startup
   cost, not a frame cost, and it is the first thing a 10k consumer feels.
-- **The culling scan is O(N) per viewport frame** — 4.9 ms of a 16.7 ms frame at
+- **The culling scan is O(N) per viewport frame** — 4.7 ms of a 16.7 ms frame at
   an expanded 10k. It still fits, with the whole frame at 16.7 / 16.7 / 16.8, but
   the headroom is now the scan rather than the renderer.
 
 The structural escape the library offers is `hidden`: collapse a subtree and it is
 not drawn, not measured, not selected, not described, and not scanned past a set
 lookup. That is what turns the collapsed page's 9,720 off-screen nodes into 3.1 ms
-of scan instead of 4.9 ms and — more importantly — into 200 DOM nodes instead of
+of scan instead of 4.7 ms and — more importantly — into 200 DOM nodes instead of
 10,000 at startup.
 
 Nothing in M5 changed either startup behaviour. Both are named in the M6 handoff
@@ -236,13 +299,13 @@ start (`results/pan-stall.json`):
 
 | Arm        | frames | median / p95 / longest | long frames |
 | ---------- | ------ | ---------------------- | ----------- |
-| idle       | 289    | 16.7 / 16.7 / 16.8 ms  | 0           |
-| first pan  | 586    | 16.7 / 16.7 / 16.8 ms  | 0           |
-| second pan | 580    | 16.7 / 16.8 / 16.8 ms  | 0           |
-| drag→pan   | 599    | 16.7 / 16.7 / 16.8 ms  | 0           |
+| idle       | 288    | 16.7 / 16.8 / 16.8 ms  | 0           |
+| first pan  | 588    | 16.7 / 16.8 / 16.8 ms  | 0           |
+| second pan | 578    | 16.7 / 16.7 / 16.8 ms  | 0           |
+| drag→pan   | 596    | 16.7 / 16.8 / 33.3 ms  | 0           |
 
-**2,054 frames, zero over 50 ms, worst frame 16.8 ms** — not one dropped frame, in
-any of the four arms, across twelve fresh page loads. The point of the four arms is
+**2,050 frames, zero over 50 ms, worst frame 33.3 ms** — one dropped frame, in the
+drag→pan arm, across twelve fresh page loads. The point of the four arms is
 that a stall belonging to the pan's own work would appear at the start of _both_
 pans and not in the idle window; a stall belonging to the page's first frames
 would appear in the idle arm too. Neither appeared.
@@ -250,7 +313,7 @@ would appear in the idle arm too. Neither appeared.
 What that does and does not settle:
 
 - **Settled**: the failure is not reproduced at this commit by the arms that would
-  localise it, and the gate's own two 1k legs recorded 0 long frames in 962 pan
+  localise it, and the gate's own two 1k legs recorded 0 long frames in 972 pan
   frames at this commit.
 - **Not settled**: the cause. Twelve invocations is enough to show the rate is far
   below the historical one, not enough to declare a mechanism. The 2 % bound stays

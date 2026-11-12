@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 
 import "@xyflow/react/dist/style.css";
 import { edges, nodes } from "../fixture";
+import { installStartup, recordReady } from "../startup";
 
 const root = document.getElementById("root");
 
@@ -20,7 +21,9 @@ if (root !== null) {
     />,
   );
 
+  installStartup();
   requestAnimationFrame(() => {
     root.dataset.benchReady = "true";
+    recordReady();
   });
 }
