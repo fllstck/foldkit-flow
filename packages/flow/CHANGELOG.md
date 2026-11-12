@@ -43,7 +43,10 @@ release.
 re-measurement, a culling index, minimap wheel-zoom and minimap node targets. Each has
 a verdict and a "what would change it" in `docs/M6-RESEARCH.md`; the culling scan's
 numbers say why it is not a fix (0.48 / 0.75 / 5.44 ms of a 16.7 ms frame at
-625/1k/expanded-10k, zero long frames).
+625/1k/expanded-10k, zero long frames). Three of them were taken in M7 —
+`shouldResize` as `canResize`, parent-resize child compensation as
+`Flow.compensateChildPositions`, and interactive edge labels as
+`RendererConfig.edgeOverlay` — recorded below.
 
 ### Measured
 
@@ -51,7 +54,48 @@ The gate re-ran unchanged at this tree: 625 at parity with React Flow on pan
 (16.7 / 16.7 / 16.8 for both), 1k p95 16.8 ms, zero long frames in 3 407 recorded
 frames. 334 Vitest tests, 61 Playwright proofs.
 
-Nothing yet.
+### M7 — the closable keep-outs
+
+`docs/M7-FINDINGS.md` is the record. Three of M6's keep-outs, each proved on the rung
+that can see it, each editing the M6 verdict it closes.
+
+#### Added
+
+- **`Flow.Context.canResize`** — a per-frame veto, asked with
+  `{ node, start, next, modifier }` on the proposed box before it becomes the
+  gesture's current one. A rejected frame keeps the **last accepted** box; a gesture
+  starts ungated and its frames decide; a policy that throws propagates, like
+  `isValidConnection`. This reverses M6's `shouldResize` keep-out, which was about
+  upstream's box-returning callback, not a predicate.
+- **`Flow.compensateChildPositions`** — the parent-resize arithmetic as a pure return
+  value: the parent's own before/after pair and its direct children's
+  `{ nodeId, position }` in, `{ nodeId, x, y }` out. It applies nothing; the consumer
+  persists the result, which is where the graph is. Closes M6's parent-resize
+  keep-out in the form M6's own reasoning asked for.
+- **`RendererConfig.edgeOverlay`** — an HTML layer inside the pane's viewport, between
+  the edges svg and the nodes div, with one item per edge anchored at its label point
+  (`translate(x, y) scale(1/zoom) translate(-50%, -50%)`, `transform-origin: 0 0`).
+  The layer and its items ignore the pointer, `.fflow__nopan` keeps d3 from panning,
+  and `data-fflow-overlay` makes the pane decline the press. The markup and its
+  Messages are the consumer's; `renderEdgeLabel` keeps its content-only contract.
+
+#### Changed in the consumer
+
+- `/examples/resizing/` turns `edgeOverlay` on, so the page M6 made a second consumer
+  of `edgeSelection` is M7's second consumer of the overlay. The harness gained
+  `ClickedEdgeAction`, the example's own Message for the control's press.
+
+#### Not shipped
+
+`resizeDirection`, `XYResizer`, `nodeOrigin`, multi-node resize, an interactive
+`renderEdgeLabel`, per-frame handle re-measurement, a culling index, minimap
+wheel-zoom and minimap node targets. `shouldResize`, parent-resize child compensation
+and interactive edge labels left this list, above.
+
+#### Measured
+
+The gate is re-run at this tree; the figures are in `docs/M7-FINDINGS.md`. 346 Vitest
+tests, 65 Playwright proofs.
 
 ## [0.1.1] — 2026-11-12
 
@@ -65,7 +109,7 @@ comment in `geometry/bounds.d.ts` and the source map beside it.
 - `repository`, `homepage`, `bugs`, `author` and `keywords` in `package.json`. 0.1.0
   shipped without them, so the npm page had no link to the repository.
 - A root `LICENSE`, and a `prepublishOnly` guard (`pnpm typecheck && pnpm test &&
-  pnpm build`) so a release cannot ship a `dist` older than its source.
+pnpm build`) so a release cannot ship a `dist` older than its source.
 - `docs/CONTRACT.md` — the contract feature by feature — and
   `CONTRIBUTING.md` — build, test and measurement workflow — split
   out of the README.

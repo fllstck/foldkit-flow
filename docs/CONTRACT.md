@@ -250,12 +250,86 @@ next frame. It is a modifier rather than a renderer option because `resize` is o
 for the whole pane, and a per-node "always proportional" is a config surface nobody has
 asked for (`docs/M6-RESEARCH.md` §7).
 
-**A parent's children are not re-placed when the parent is resized.** Their positions are
-relative to it, so resizing from the top-left carries them; keeping them still is a
-container-layout decision that needs a fact the flow does not report. If you want the
-upstream behaviour, fold `ResizedNodes` and subtract the parent's top-left delta from each
-child's `position` — that is the whole rule, and it is yours to apply because only you
-can persist it (`docs/M6-RESEARCH.md` §6).
+#### Refusing a box mid-gesture
+
+`Flow.Context` may carry a veto, evaluated on every pointer event of a resize:
+
+```ts
+const contextFrom = (model: Model): Flow.Context => ({
+  nodes: model.graph.nodes,
+  edges: model.graph.edges,
+  // Asked with { node, start, next, modifier }: the box the gesture began at,
+  // the box this event proposes, and whether a modifier is held right now.
+  canResize: ({ next }) => next.width >= 200 && next.height >= 120,
+});
+```
+
+It is a **veto only**. It returns a boolean and cannot return a box, because a
+predicate that can rewrite the box owns the gesture and the snapshot the rest of the
+flow reads stops being the gesture's own. This reverses M6's `shouldResize` keep-out
+(`docs/M6-RESEARCH.md` §7), which was about upstream's callback — the one that rolls
+back the parent's box, the start position and every child's position
+(`docs/M6-RESEARCH-FOLLOW-UP-REVIEW.md` §3).
+
+A rejected frame keeps the **last accepted** box, not the box the gesture started at.
+That is what makes "this node may grow but not shrink below its current size"
+expressible without the gesture snapping back to where it began: the box walks through
+accepted frames, a refused frame holds the last good one, and the release reports the
+box it is holding. `StartedResize` is not gated — a gesture starts and its frames
+decide — and a policy that rejects every frame reports nothing on release, because the
+box never changed. Nothing is caught: an exception from the policy propagates, because
+a policy that throws is a bug in your `update`, not a frame to skip (the same rule as
+`isValidConnection`).
+
+Per-node policy is data or policy on your side, and the veto expresses it: "this node
+resizes horizontally only" is "reject any frame whose height differs from
+`start.height`". `FlowNode` has no `resizable` field, and a predicate over the whole
+graph plus the node it is asked about is enough to write one.
+
+#### Keeping a resized parent's children still
+
+**A parent's children are not re-placed when the parent is resized.** Their positions
+are relative to it, so resizing from the top-left carries them; keeping them still is a
+container-layout decision, and only you can persist the answer.
+`Flow.compensateChildPositions` is the arithmetic, as a pure return value:
+
+```ts
+// in your `ResizedNodes` fold, for a node that has children
+const parentBefore = boxBefore(model, "panel"); // left/top/width/height, before the gesture
+const parentAfter = {
+  left: box.x,
+  top: box.y,
+  width: box.width,
+  height: box.height,
+};
+const children = model.graph.nodes
+  .filter((node) => node.parentId === "panel")
+  .map((node) => ({ nodeId: node.id, position: node.position }));
+
+const compensated = Flow.compensateChildPositions({
+  parentBefore,
+  parentAfter,
+  children,
+});
+// [{ nodeId: "leaf", x, y }, …] — persist each one as that child's `position`
+```
+
+Three properties, each deliberate:
+
+- **Direct children only.** A grandchild's position is measured from its own parent,
+  so it is that parent's compensation that moves it. Pass the children, not the
+  subtree.
+- **The parent's own before/after pair**, never a delta recomputed from an absolute
+  grandparent position: a nested container's children compensate by a _relative_
+  number, and an absolute one is off by the grandparent's offset
+  (`docs/M6-RESEARCH.md` §6).
+- **It returns; it applies nothing.** A consumer that computed the positions and did
+  not persist them would see its children compensate during the gesture and snap back
+  on the next render — the `docs/M4-FINDINGS.md` §14 shape. The arithmetic is the
+  library's; the graph is yours.
+
+A bottom-right resize compensates nothing, because the anchor did not move, and the
+helper says so rather than inventing a delta from the size change.
 
 ### Snap grid
 
@@ -361,6 +435,51 @@ renders before the nodes layer, so every edge is tabbed before every node. A gra
 1,000 edges and `edgeSelection` on has 1,000 tab stops before the first node, which is
 why the feature is opt-in.
 
+### Controls anchored on an edge
+
+```ts
+const renderer = Flow.createRenderer({
+  paneId,
+  renderNode,
+  edgeSelection: true,
+  // The library owns the anchor; you own the markup and its messages.
+  edgeOverlay: (edge, h) =>
+    h.button(
+      [
+        h.Class("edge-action"),
+        h.OnClick(Message.ClickedEdgeAction({ edgeId: edge.id })),
+      ],
+      ["Edit"],
+    ),
+});
+```
+
+HTML anchored on each edge's label point, drawn in a layer inside the viewport between
+the edges svg and the nodes div. It pans and zooms with the graph, the library applies
+the inverse-zoom transform, and the control keeps its screen size at every zoom.
+Absent means no layer and no DOM cost.
+
+What it does, in four points:
+
+- **It is a layer, not a wider `<text>`.** `renderEdgeLabel` stays what it is: the
+  content of an SVG text at the same point, painted above the edge and below the nodes,
+  with no interaction of its own. Use it for text that sits _on_ the edge; use this for
+  anything a user operates. Two ways to put content on an edge is a documentation cost,
+  paid deliberately: one is text, one is a control.
+- **The layer ignores the pointer, and so does each item.** A decorative item cannot
+  swallow a press meant for a node or an edge underneath it; a control opts back in
+  with `pointer-events: auto` on your own element.
+- **The pane declines the press** (`data-fflow-overlay`), exactly as it declines an edge
+  and its chrome: a press on your control neither pans the viewport nor clears the
+  selection.
+- **It follows the edge, not the pointer.** The anchor is the edge's label point — the
+  midpoint of the path — recomputed per render, so a drag, a resize, a pan or a zoom
+  moves it with the graph. Nothing is measured and no size is read.
+
+Both hooks render at the same point when both are on, so a page that wants a label _and_
+a button on one edge gets text and control in the same place: the text is painted from
+the SVG, the control is layered over it.
+
 ## Accessibility
 
 What the flow provides:
@@ -384,6 +503,14 @@ What the flow provides:
   with `aria-pressed` promises. Space is prevented on a node (it would scroll) and
   left alone everywhere else, so `Enter` on a focused control button still clicks
   it.
+- **An anchored overlay control is a second tab stop at the same place.** The edges
+  layer renders before the overlay layer, so with both `edgeSelection` and
+  `edgeOverlay` on, the sequence is every edge, then every edge's control, then every
+  node. It is not an ARIA nesting violation — the control is a sibling layer, not a
+  descendant of the edge's SVG group — but it is two stops at one visual point, and a
+  graph with 1,000 labelled edges pays for it, which is why both features are opt-in.
+  Focus reaches the control by Tab and leaves it by Tab; `Enter` and `Space` on it are
+  the control's, not the flow's (`docs/verification.md`'s fifth question).
 - **A description region.** A visually hidden `role="region"` listing the summary,
   each node, and its incoming and outgoing connections — 50 nodes and 6
   connections per node, with a count of what is omitted. It is **not** a live
@@ -397,7 +524,10 @@ What the flow provides:
 the handles and the four resize controls too — a node is
 `.fflow__node[data-nodeid="…"]`, and a loose `[data-nodeid]` query returns seven
 elements per node. Edges are `[data-edgeid]`; the viewport is
-`[data-fflow-viewport]`.
+`[data-fflow-viewport]`. An anchored overlay item is `[data-fflow-overlay]` — that
+attribute is also what the pane's handler checks before declining a press, so a
+consumer-built control is exempt from pan and selection-clearing by markup rather
+than by a class name.
 
 What you have to supply: `accessibleName`, and the same `flow.css`. A node without
 it is announced by its id. If a node contains controls, mark the ones that must not

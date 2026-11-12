@@ -14,6 +14,14 @@ out, with the reason and what would change it in
 [`docs/M6-RESEARCH.md`](docs/M6-RESEARCH.md). `1.0.0` waits until the library has had
 real use.
 
+M7 closes three of M6's keep-outs without changing the architecture that rejected the
+rest: **`Flow.Context.canResize`**, a per-frame veto on a proposed box (a rejected
+frame keeps the last accepted one); **`Flow.compensateChildPositions`**, the
+parent-resize arithmetic as a pure return value the consumer persists; and
+**`RendererConfig.edgeOverlay`**, an HTML layer anchored on each edge's label point,
+with consumer-owned markup, inverse-zoom sizing and a press the pane declines.
+[`docs/M7-FINDINGS.md`](docs/M7-FINDINGS.md) is the record.
+
 ## Install
 
 ```sh
@@ -175,7 +183,7 @@ produced it beside it.
 - **[docs/TEST-STRATEGY.md](docs/TEST-STRATEGY.md)** — the five rungs the tests sit on, and which claim lives where.
 - **[CHANGELOG.md](packages/flow/CHANGELOG.md)** — what changed in each release, and what did not.
 - **[docs/RELEASING.md](docs/RELEASING.md)** — the release checklist, including the two steps that need npm credentials the agent does not have.
-- **Findings** — [`M0`](docs/M0-FINDINGS.md), [`M1`](docs/M1-FINDINGS.md), [`M2`](docs/M2-FINDINGS.md), [`M3`](docs/M3-FINDINGS.md), [`M4`](docs/M4-FINDINGS.md), [`M5`](docs/M5-FINDINGS.md): what each milestone shipped, what it got wrong, and what the reviews found.
+- **Findings** — [`M0`](docs/M0-FINDINGS.md), [`M1`](docs/M1-FINDINGS.md), [`M2`](docs/M2-FINDINGS.md), [`M3`](docs/M3-FINDINGS.md), [`M4`](docs/M4-FINDINGS.md), [`M5`](docs/M5-FINDINGS.md), [`M6`](docs/M6-FINDINGS.md), [`M7`](docs/M7-FINDINGS.md): what each milestone shipped, what it got wrong, and what the reviews found.
 
 ## Contributing
 

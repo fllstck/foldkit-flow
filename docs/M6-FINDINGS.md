@@ -155,7 +155,9 @@ show what the flow reported said "Nothing selected" with an edge selected. Fixed
 ## 4. What M6 deliberately did not ship
 
 Each is argued in `docs/M6-RESEARCH.md`; this is the list, with the evidence that the
-reason still holds.
+reason still holds. **Three of these were taken in M7** — marked below, because a
+verdict changes when the code does, and this list is the record rather than the last
+word (`docs/M7-FINDINGS.md`).
 
 - **`XYResizer`** (§3, gap 1). Its `getStoreItems()` is read on every drag event and its
   whole node lookup is walked at drag start; Mount args are captured, `view` may not
@@ -163,17 +165,28 @@ reason still holds.
 - **`nodeOrigin`** (§5, gap 4). Every position here is a property of the graph alone, so
   SSR and the first frame need no measurement. An origin would make each position a
   function of the graph _and_ a measurement.
-- **Parent-resize child compensation** (§6, gap 5). The arithmetic is trivial and
-  upstream's is quoted in the research; shipping it would need the consumer to apply
-  child positions, and a consumer that did not would watch children snap back on release
-  — the M4 §14 bug, reintroduced. `docs/CONTRACT.md` now documents the parent's own
-  eight lines instead.
-- **`resizeDirection`, `shouldResize`** (§7). The four corner controls already answer the
-  first (the edge midpoints belong to the port handles, M4 §2.7), and a per-frame veto
-  callback is a second owner of the gesture.
-- **Interactive edge labels** (§8, gap 7). An interactive label is a control, and a
-  control here is a node. The shape it would take is written down (HTML overlay anchored
-  with `scale(1/zoom)`, the transform the pinned engine already exports).
+- **`resizeDirection`** (§7). The four corner controls already answer it: the edge
+  midpoints belong to the port handles (M4 §2.7).
+- ~~**`shouldResize`** (§7)~~ — **taken in M7 as `Flow.Context.canResize`.** The
+  keep-out was right about upstream's callback, which returns a replacement box and
+  rolls back the parent's box, the start position and every child's position
+  (`@xyflow/system@0.0.84` `dist/esm/index.js:3607`–`:3615`). It was too broad about a
+  _predicate_: `{ node, start, next, modifier } → boolean` is consumer code outside the
+  gesture loop, in the same seam as `isValidConnection`, and a rejected frame keeps the
+  last accepted box (`docs/M6-RESEARCH-FOLLOW-UP.md` §3,
+  `docs/M6-RESEARCH-FOLLOW-UP-REVIEW.md` §3, `docs/M7-FINDINGS.md`).
+- ~~**Parent-resize child compensation**~~ (§6, gap 5) — **taken in M7 as
+  `Flow.compensateChildPositions`.** The reasoning still holds and is why the helper
+  _returns_: a consumer that did not persist the positions would watch children snap
+  back on release (the M4 §14 bug). The arithmetic is now a pure function returning
+  direct children's relative positions from the parent's own before/after pair, and
+  `docs/CONTRACT.md`'s worked example is a call rather than prose
+  (`docs/M6-RESEARCH-FOLLOW-UP.md` §4).
+- ~~**Interactive edge labels**~~ (§8, gap 7) — **taken in M7 as
+  `RendererConfig.edgeOverlay`**, the shape this list already named: HTML anchored on
+  the edge's label point, `scale(1/zoom)`, consumer-owned markup. What stays out is an
+  interactive `renderEdgeLabel`; the SVG text hook keeps its content-only contract
+  (`docs/M6-RESEARCH-FOLLOW-UP.md` §2).
 - **Multi-node resize** (§9, gap 8). Upstream has no precedent; tldraw's answer is a
   second resize _mode_. One box per gesture stays, documented.
 - **Handle geometry during a resize** (§10, gap 9). Upstream re-measures from its own

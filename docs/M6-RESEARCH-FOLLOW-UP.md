@@ -5,6 +5,11 @@
 purpose is to check whether current platform and library guidance provides a
 solution that fits Foldkit's model-first, snapshot-based architecture.
 
+It answers to [`M6-RESEARCH-FOLLOW-UP-REVIEW.md`](M6-RESEARCH-FOLLOW-UP-REVIEW.md),
+which says which of the four I would take, reshapes §1, and records that §3 corrects
+a verdict of M6's. Three of the four are built in M7 (§2, §3, §4) and the record is
+[`M7-FINDINGS.md`](M7-FINDINGS.md); §1 is not.
+
 ## Summary
 
 The original M6 decisions remain valid. The online evidence identifies four

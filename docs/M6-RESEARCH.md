@@ -568,7 +568,14 @@ _selection_, not about parentage.
 So the two implementations disagree, which is the useful part: compensation is a
 choice about where the coordinate space lives, not a law.
 
-### Verdict — **keep out**, documented as the parent's job
+### Verdict — **keep out at M6, taken in M7 as a helper**, documented as the parent's job
+
+**Reversed in M7**, in the form this verdict itself asked for: the arithmetic ships as
+`Flow.compensateChildPositions`, which **returns** the direct children's relative
+positions and applies nothing — the consumer persists them, which is where the graph
+is ([`M6-RESEARCH-FOLLOW-UP.md`](M6-RESEARCH-FOLLOW-UP.md) §4,
+[`M7-FINDINGS.md`](M7-FINDINGS.md)). The reasoning below is why it is a return value
+and not renderer behaviour.
 
 - The compensation itself is trivial and pure — `releaseResize` could compute it in
   ten lines, and `positionIndex` already resolves the chain.
@@ -646,11 +653,25 @@ proportional").
   precisely because the edge midpoints belong to the port handles
   (`M4-FINDINGS` §2.7). An axis-locked control is a fifth kind of press target with
   no place left to sit.
-- **Keep out `shouldResize`**: it is a per-frame veto callback, i.e. consumer code
-  running inside a gesture loop, and the same policy is already expressible purely —
-  a consumer who wants to refuse a box drops the `ResizedNodes` fact (the box is
-  theirs to persist) or clamps it in its own `update`. A callback that can also
-  rewrite the last accepted frame is a second owner of the gesture.
+- **`shouldResize`: kept out at M6, reversed in M7 as `canResize`.** The reasoning
+  below is left as it was written, because the reversal is a distinction and not a
+  contradiction. Upstream's `shouldResize` is handed `{ node, start, next }` and
+  returns either nothing (the frame stands) or a `Rect` to use instead — and that
+  replacement is a second owner of the gesture: it moves the parent's box, its start
+  position and every child's position
+  (`@xyflow/system@0.0.84` `dist/esm/index.js:3607`–`:3615`). A **pure predicate**
+  over the same inputs is not that: it is consumer policy, evaluated per pointer
+  event, returning a boolean, and a rejected frame keeps the **last accepted** box.
+  M7 ships it as `Context.canResize`, in the seam `isValidConnection` already
+  occupies — see [`M6-RESEARCH-FOLLOW-UP.md`](M6-RESEARCH-FOLLOW-UP.md) §3,
+  [`M6-RESEARCH-FOLLOW-UP-REVIEW.md`](M6-RESEARCH-FOLLOW-UP-REVIEW.md) §3 and
+  [`M7-FINDINGS.md`](M7-FINDINGS.md).
+
+  _(As M6 wrote it:)_ a per-frame veto callback is consumer code running inside a
+  gesture loop, and the same policy is already expressible purely — a consumer who
+  wants to refuse a box drops the `ResizedNodes` fact (the box is theirs to persist)
+  or clamps it in its own `update`. A callback that can also rewrite the last accepted
+  frame is a second owner of the gesture.
 
 ---
 
@@ -694,7 +715,16 @@ and cannot make it a _control_: there is no element to put a button in. An
 what the portal is. The two libraries converge on the same answer, which is a strong
 signal that the mechanism is not incidental.
 
-### Verdict — **keep out**
+### Verdict — **keep out at M6, taken in M7**
+
+**Taken in M7** as `RendererConfig.edgeOverlay`: an HTML layer inside the transformed
+viewport, between the edges svg and the nodes div, anchored with
+`translate(x, y) scale(1/zoom)`, consumer-owned markup, `fflow__nopan` and the
+`data-fflow-overlay` guard for a press the pane must decline
+([`M6-RESEARCH-FOLLOW-UP.md`](M6-RESEARCH-FOLLOW-UP.md) §2,
+[`M6-RESEARCH-FOLLOW-UP-REVIEW.md`](M6-RESEARCH-FOLLOW-UP-REVIEW.md) §2,
+[`M7-FINDINGS.md`](M7-FINDINGS.md)). `renderEdgeLabel` keeps its content-only
+contract, which is the part of this verdict that still stands.
 
 - An interactive label is a **control**, and this library already states where a
   control lives: "A label that is a control is a node" (`M4-FINDINGS` §8). Our
@@ -702,11 +732,10 @@ signal that the mechanism is not incidental.
   content interactive means an HTML layer inside a transformed container, with
   `pointer-events` hygiene, a stacking rule against the nodes layer, and a decision
   about what a press on it means — a feature with a design, not a flag.
-- What would change it: a second consumer that needs a press target on an edge and
-  cannot model it as a node. The shape it would take is already known and is written
-  down in `docs/M6-FINDINGS.md` §7: a pane-level HTML overlay anchored with
+- What changed it: a consumer needed a press target on an edge, and the design is the
+  one this section already described — a pane-level HTML layer anchored with
   `translate(x, y) scale(1/zoom)` (the arithmetic above), rendered from the
-  consumer's own markup, with `fflow__nopan` on it — not a widened `<text>`.
+  consumer's own markup, not a widened `<text>`.
 
 ---
 
