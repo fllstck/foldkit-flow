@@ -33,7 +33,7 @@ needed the owner to finish the publish by hand.
 5. Update the places that state the version: `README.md` (status line),
    `packages/flow/README.md`, `docs/CONTRACT.md`'s "published surface",
    `docs/M6-HANDOFF.md`'s state table. Where a measured table carries a version
-   label, leave the label on the version that was *measured* and footnote the
+   label, leave the label on the version that was _measured_ and footnote the
    difference.
 6. Commit, then **tag the commit that a publish can be reproduced from**:
 
@@ -85,8 +85,9 @@ needed the owner to finish the publish by hand.
     compare links returned 404 until the tags were pushed separately. Check with
     `git ls-remote --tags origin` after pushing, and what you want to see is the
     peeled line (`…^{}`) naming the release commit, not a tag object.
+
 11. Nothing published can be edited. A wrong README, a missing `repository` field or
-    a typo in a code sample is fixed by the *next* version — which is exactly why
+    a typo in a code sample is fixed by the _next_ version — which is exactly why
     `0.1.1` exists one day after `0.1.0`.
 
 ## Still manual, and known

@@ -201,8 +201,8 @@ Three properties worth knowing:
 `hidden: true` on a node removes that node, **its whole subtree**, their edges,
 their measurement and their selection — at any zoom, with `cull` on or off. It is
 the escape hatch for very large graphs: 10,000 nodes with 98% of them collapsed
-pan at the frame rate with 200 nodes in the DOM, and the same 10k graph *expanded*
-also pans at the frame rate but takes ~1.3 s to settle, because its first render
+pan at the frame rate with 200 nodes in the DOM, and the same 10k graph _expanded_
+also pans at the frame rate but takes ~1.2 s to settle, because its first render
 happens before the pane is measured (`docs/BENCHMARKS.md` §"10k"). A collapsed node
 is not fitted by `fitViewport`, not drawn in the minimap and not listed in the
 description.
