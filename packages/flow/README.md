@@ -141,11 +141,12 @@ to act on all three:
 
 ## Documentation
 
-- **The full contract**: `README.md` at the root of this repository — the public
-  API surface, chrome, graph features (sub-flows, `hidden`, resizing, snap,
-  `fitView` options, markers, labels), accessibility, and the development
-  commands. It is not shipped inside this package; the path is named rather than
-  linked because npm has no repository root to link to.
+- **The full contract**: `docs/CONTRACT.md` in the repository — the public API
+  surface, chrome, graph features (sub-flows, `hidden`, resizing, snap, `fitView`
+  options, markers, labels) and accessibility — with quick starts in that
+  repository's `README.md` and build/test commands in `CONTRIBUTING.md`. None of
+  them are shipped inside this package; the paths are named rather than linked
+  because npm has no repository root to link to.
 - **`docs/PLAN.md`**: the design — ownership split, runtime wiring, the hot path,
   the performance gate, milestones.
 - **`docs/BENCHMARKS.md`**: the measured numbers, the protocol, the machine and the

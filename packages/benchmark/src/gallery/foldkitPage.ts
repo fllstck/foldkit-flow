@@ -20,7 +20,7 @@ import { galleryFixture, readGalleryQuery } from "./fixtures";
  *
  * `fit` is the interesting case: the fit needs the pane's measured box, so it is
  * folded from `ResizedPane` — the same two-step a consumer writes in its own
- * `update` (README, "fitView options") rather than a renderer option.
+ * `update` (`docs/CONTRACT.md`, "fitView options") rather than a renderer option.
  */
 const kindOf = (kind: GalleryEdgeKind): FlowEdge["type"] => kind;
 

@@ -332,7 +332,8 @@ Decisions worth recording:
 - **`data-nodeid` is not unique per node.** It is on the handles and the four
   resize controls too — the example proof hit this first, and the selectors in the
   new specs (`.fflow__node[data-nodeid="…"]`) are the ones to copy. Documented in
-  the README's accessibility section rather than changed, because those elements
+  the contract's accessibility section (then the README's; now
+  `docs/CONTRACT.md`) rather than changed, because those elements
   are per-node instrumentation and a consumer asking "which node is this" wants
   them.
 
@@ -573,3 +574,40 @@ them:
 went out, when a git remote finally existed: the published 0.1.0 manifest has none of
 them, and the next release carries them. A guessed URL before that would have been
 worse than no URL.
+
+## 14. The README was split into a front door, a contract and a contributing guide
+
+Reported by the owner after the release: _"the current one is rather cluttered."_
+It was — 515 lines that mixed four jobs: a front door (`what is this, how do I
+install it, what is the shortest path to a working flow`), the whole public contract
+feature by feature, the development workflow, and a twenty-item docs index with a
+handoff for every milestone.
+
+The rewrite follows two guides, read rather than remembered: the
+[`easy-readme`](https://github.com/Xander-26Code/easyReadme) skill — repository
+facts only, no invented features or numbers, sections omitted rather than filled,
+Quick Start near the top — and the
+[`standard-readme`](https://github.com/RichardLitt/standard-readme) specification,
+for section order and for the requirement that a README have a short description,
+install, usage, contributing and license.
+
+What moved, and why that shape:
+
+| File               |         Lines | What it is for                                                                                                                                                                                                                                                            |
+| ------------------ | ------------: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `README.md`        | 515 → **168** | Title, 96-character description, status and what is _not_ in it, install (with the CSS import that is not optional), a working quick start, the three-sentence measurement contract, a capability table that links out, project layout, docs index, contributing, licence |
+| `docs/CONTRACT.md` |       **344** | The contract, feature by feature — measurement, connections, chrome, graph features, accessibility — moved verbatim, with a contents list. This is what the README's capability table points at                                                                           |
+| `CONTRIBUTING.md`  |       **104** | The development workflow that was in the README: commands, the pages, the fast loop, and the traps (build-before-browser, `pkill -f vite`)                                                                                                                                |
+| `LICENSE`          |            21 | A repository-root licence. The README links it and the repo had only the package's copy; both are needed (npm reads the package one, a repository visitor looks for the root one)                                                                                         |
+
+Nothing was invented and nothing was dropped: the contract sections are the same
+text, and the quick start is the one the package README already carried, trimmed to
+what compiles. Two claims were _softened_ to match the release: both READMEs now say
+the surface is meant to hold still and that `1.0.0` waits for use, instead of
+asserting stability as fact.
+
+Verification, because a restructure's failure mode is a broken link: every relative
+link and in-page anchor in `README.md`, `CONTRIBUTING.md`, `docs/CONTRACT.md` and
+`packages/flow/README.md` was checked by script (all resolve), the three code
+comments and one findings sentence that cited README sections now cite
+`docs/CONTRACT.md`, and `pnpm check` is green.

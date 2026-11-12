@@ -50,7 +50,7 @@ const sizeIndexOf = (
 /**
  * Measured size → the node's own size hint → the shared fallback.
  *
- * The signature is the public one (`README.md`, `Flow.nodeSizeOf`), so the
+ * The signature is the public one (`Flow.nodeSizeOf`), so the
  * lookup behind it is an index rather than a scan: see `sizeIndexOf`.
  */
 export const nodeSizeOf = (

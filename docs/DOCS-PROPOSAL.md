@@ -31,9 +31,9 @@ equivalent here, just not shaped like docs.
 
 | Their section | Our equivalent today | Gap |
 | ------------- | -------------------- | --- |
-| Learn         | `README.md` (507 lines: the public contract, feature by feature), `docs/PLAN.md` (the design), `docs/verification.md` | One long page instead of a path; no per-feature pages; no tutorials |
+| Learn         | `README.md` (the front door), `docs/CONTRACT.md` (the contract, feature by feature), `docs/PLAN.md` (the design), `docs/verification.md` | No path; no per-feature pages; no tutorials |
 | Examples      | `packages/example/src/example/app.ts` — one presentable page with its source via `?raw` (`/example/`); `packages/benchmark/src/gallery/*` — six fixtures rendered by us *and* React Flow, with an index at `/gallery.html` | One example, not a set; no category index; no per-feature pages |
-| Reference     | `packages/flow/dist/index.d.ts` + the JSDoc in `src/**` | No generated page; the contract is prose in the README |
+| Reference     | `packages/flow/dist/index.d.ts` + the JSDoc in `src/**` | No generated page; the contract is prose in `docs/CONTRACT.md` |
 | UI            | `packages/flow/style/flow.css` (`fflow__` prefix) | Deliberately no component library (§2.4: our own visual identity) |
 | Showcase/Changelog | `docs/BENCHMARKS.md`, the M0–M5 findings, `CHANGELOG.md` (not yet — see `M5-FINDINGS` §7.1) | — |
 
@@ -132,11 +132,11 @@ documented in JSDoc, so this is generation plus a config, not writing. It needs 
 new devDependencies — a network install, so it waits for an explicit yes.
 
 Risk: generated output is noisy unless `@category` tags are added. Worth doing only
-if the README keeps being the contract and the reference is the lookup table.
+if `docs/CONTRACT.md` keeps being the contract and the reference is the lookup table.
 
 ### Slice 3 — Learn, regrouped
 
-Split `README.md`'s sections into a path: Quick start → Concepts (the Model owns
+Split `docs/CONTRACT.md`'s sections into a path: Quick start → Concepts (the Model owns
 the graph; measurement is DOM truth; gestures are Messages) → Customization →
 Advanced (perf, SSR, a11y) → Troubleshooting (the six boundaries in
 `verification.md`, as "what a wrong layer looks like"). Mostly moving text, but
